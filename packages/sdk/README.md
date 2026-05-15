@@ -1,3 +1,12 @@
 # @khan-familia/sdk
 
-SDK scaffolding for external integrations and clients. No logic yet.
+Typed fetch client scaffolding for platform APIs.
+
+## Usage
+
+```ts
+import { createApiClient } from '@khan-familia/sdk';
+
+const client = createApiClient({ baseUrl: 'http://localhost:3001' });
+const health = await client.getHealth();
+```

@@ -1,3 +1,11 @@
 # @khan-familia/types
 
-Shared TypeScript types for the platform. No domain types yet.
+Shared TypeScript contracts for the platform.
+
+## Exports
+
+- `AppEnv`
+- `LogLevel`
+- `ServiceName`
+- `HealthStatus`
+- `ApiErrorPayload`

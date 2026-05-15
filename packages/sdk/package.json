@@ -8,6 +8,10 @@
       "default": "./dist/index.js"
     }
   },
+  "dependencies": {
+    "@khan-familia/types": "workspace:*",
+    "@khan-familia/validation": "workspace:*"
+  },
   "types": "./dist/index.d.ts",
   "files": [
     "dist",

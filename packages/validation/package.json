@@ -8,6 +8,11 @@
       "default": "./dist/index.js"
     }
   },
+  "dependencies": {
+    "@khan-familia/constants": "workspace:*",
+    "@khan-familia/types": "workspace:*",
+    "zod": "^3.24.1"
+  },
   "types": "./dist/index.d.ts",
   "files": [
     "dist",
