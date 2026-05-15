@@ -1,0 +1,13 @@
+#!/bin/sh
+
+if [ -n "$NVM_DIR" ] && [ -s "$NVM_DIR/nvm.sh" ]; then
+	. "$NVM_DIR/nvm.sh"
+elif [ -s "$HOME/.nvm/nvm.sh" ]; then
+	. "$HOME/.nvm/nvm.sh"
+fi
+
+if command -v nvm >/dev/null 2>&1; then
+	nvm use >/dev/null
+fi
+
+pnpm exec lint-staged

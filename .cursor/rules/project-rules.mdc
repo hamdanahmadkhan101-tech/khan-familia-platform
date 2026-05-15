@@ -1,0 +1,8 @@
+# Project Rules
+
+- Foundation only: do not add business logic, database schema, or feature modules.
+- TypeScript everywhere with strict typing.
+- Apps can depend on packages; packages must not depend on apps.
+- Use @khan-familia/\* for shared packages; use @/ for app-local imports.
+- Keep configs and scripts centralized unless a tool requires per-app overrides.
+- Document architectural changes using ADRs.
