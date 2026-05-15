@@ -11,7 +11,12 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "express": "^5.0.0"
+    "@khan-familia/constants": "workspace:*",
+    "@khan-familia/types": "workspace:*",
+    "@khan-familia/validation": "workspace:*",
+    "dotenv": "^16.4.5",
+    "express": "^5.0.0",
+    "pino": "^9.5.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",

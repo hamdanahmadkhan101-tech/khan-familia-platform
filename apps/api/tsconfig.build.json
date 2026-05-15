@@ -3,6 +3,11 @@
   "compilerOptions": {
     "noEmit": false,
     "outDir": "dist",
-    "sourceMap": true
+    "rootDir": "src",
+    "sourceMap": true,
+    "paths": {
+      "@/*": ["apps/api/src/*"],
+      "@khan-familia/*": ["packages/*/dist/index.d.ts"]
+    }
   }
 }
