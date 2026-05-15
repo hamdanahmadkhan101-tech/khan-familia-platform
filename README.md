@@ -24,6 +24,7 @@ This repository currently contains infrastructure and scaffolding only (no busin
 - docs/ai-agents: AI governance and quality gates
 - docs/decisions: architecture decision records (ADRs)
 - docs/architecture: architecture guidance
+- docs/domain: domain modeling and architecture (MVP)
 
 ## Commands
 
@@ -76,3 +77,22 @@ See docs/decisions for the ADR template and process.
 
 See [docs/architecture/monorepo-architecture.md](docs/architecture/monorepo-architecture.md) for the
 monorepo rationale and boundaries.
+
+## Domain docs
+
+- [docs/domain/bounded-contexts.md](docs/domain/bounded-contexts.md)
+- [docs/domain/core-entities.md](docs/domain/core-entities.md)
+- [docs/domain/booking-lifecycle.md](docs/domain/booking-lifecycle.md)
+- [docs/domain/inventory-model.md](docs/domain/inventory-model.md)
+- [docs/domain/availability-strategy.md](docs/domain/availability-strategy.md)
+- [docs/domain/pricing-model.md](docs/domain/pricing-model.md)
+- [docs/domain/vendor-model.md](docs/domain/vendor-model.md)
+- [docs/domain/vendor-operations.md](docs/domain/vendor-operations.md)
+- [docs/domain/tour-domain.md](docs/domain/tour-domain.md)
+- [docs/domain/payment-domain.md](docs/domain/payment-domain.md)
+- [docs/domain/payout-and-commission.md](docs/domain/payout-and-commission.md)
+- [docs/domain/inquiry-workflow.md](docs/domain/inquiry-workflow.md)
+- [docs/domain/manual-operations.md](docs/domain/manual-operations.md)
+- [docs/domain/roles-and-permissions.md](docs/domain/roles-and-permissions.md)
+- [docs/domain/glossary.md](docs/domain/glossary.md)
+- [docs/domain/assumptions.md](docs/domain/assumptions.md)
