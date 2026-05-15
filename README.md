@@ -35,6 +35,18 @@ This repository currently contains infrastructure and scaffolding only (no busin
 - pnpm typecheck
 - pnpm test
 
+## Running apps
+
+- pnpm dev (all apps)
+- pnpm --filter @khan-familia/web dev
+- pnpm --filter @khan-familia/api dev
+- pnpm --filter @khan-familia/worker dev
+
+## Health checks
+
+- Web: /health
+- API: /health
+
 ## Node version
 
 This repo uses Node 22 (see .nvmrc). If you use nvm:

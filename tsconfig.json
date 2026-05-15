@@ -4,7 +4,7 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@khan-familia/*": ["packages/*/src"]
+      "@khan-familia/*": ["packages/*/src/index.ts"]
     }
   },
   "files": []
