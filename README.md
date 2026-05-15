@@ -25,6 +25,7 @@ This repository currently contains infrastructure and scaffolding only (no busin
 - docs/decisions: architecture decision records (ADRs)
 - docs/architecture: architecture guidance
 - docs/domain: domain modeling and architecture (MVP)
+- docs/database: database and persistence design (MVP)
 
 ## Commands
 
@@ -96,3 +97,16 @@ monorepo rationale and boundaries.
 - [docs/domain/roles-and-permissions.md](docs/domain/roles-and-permissions.md)
 - [docs/domain/glossary.md](docs/domain/glossary.md)
 - [docs/domain/assumptions.md](docs/domain/assumptions.md)
+
+## Database docs
+
+- [docs/database/erd-v1.md](docs/database/erd-v1.md)
+- [docs/database/aggregates.md](docs/database/aggregates.md)
+- [docs/database/normalization.md](docs/database/normalization.md)
+- [docs/database/transaction-boundaries.md](docs/database/transaction-boundaries.md)
+- [docs/database/concurrency-strategy.md](docs/database/concurrency-strategy.md)
+- [docs/database/indexing-strategy.md](docs/database/indexing-strategy.md)
+- [docs/database/inventory-locking.md](docs/database/inventory-locking.md)
+- [docs/database/soft-delete-policy.md](docs/database/soft-delete-policy.md)
+- [docs/database/audit-log-strategy.md](docs/database/audit-log-strategy.md)
+- [docs/database/tour-domain-design.md](docs/database/tour-domain-design.md)
