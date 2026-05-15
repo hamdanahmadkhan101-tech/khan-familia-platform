@@ -1,0 +1,10 @@
+{
+  "extends": "../../packages/config/tsconfig/node.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "paths": {
+      "@/*": ["apps/worker/src/*"]
+    }
+  },
+  "include": ["src/**/*.ts"]
+}
