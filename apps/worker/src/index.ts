@@ -1,3 +1,7 @@
-const startedAt = new Date().toISOString();
+import { logger } from './logger.js';
+import { startWorker } from './runtime.js';
 
-console.log(`[worker] started at ${startedAt}`);
+startWorker().catch((error) => {
+  logger.error({ err: error }, 'Worker crashed');
+  process.exit(1);
+});
