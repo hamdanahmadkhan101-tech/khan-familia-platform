@@ -1,12 +1,21 @@
-body {
-  margin: 0;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
 }
 
-.page {
+:root {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
   min-height: 100vh;
-  display: grid;
-  place-items: center;
-  gap: 12px;
-  padding: 48px 24px;
-  text-align: center;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(255, 233, 204, 0.8), transparent 60%),
+    radial-gradient(900px 500px at 90% 10%, rgba(206, 232, 255, 0.9), transparent 55%), #f8fafc;
+  color: #0f172a;
 }

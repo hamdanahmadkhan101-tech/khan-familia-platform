@@ -10,11 +10,17 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@khan-familia/constants": "workspace:*",
+    "@khan-familia/sdk": "workspace:*",
+    "@khan-familia/ui": "workspace:*",
     "next": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.15",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0"
   }

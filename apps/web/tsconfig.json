@@ -2,9 +2,22 @@
   "extends": "../../packages/config/tsconfig/next.json",
   "compilerOptions": {
     "paths": {
-      "@/*": ["apps/web/src/*"]
+      "@/*": ["apps/web/src/*"],
+      "@khan-familia/*": ["packages/*/src/index.ts"]
     },
-    "plugins": [{ "name": "next" }]
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "incremental": true
   },
-  "include": ["next-env.d.ts", "src/**/*.ts", "src/**/*.tsx"]
+  "include": [
+    "next-env.d.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    ".next/types/**/*.ts",
+    "tailwind.config.ts"
+  ],
+  "exclude": ["node_modules"]
 }
