@@ -1,0 +1,1294 @@
+// =============================================================================
+// Prisma Schema — Khan Familia Travels Platform
+// Database: PostgreSQL (Neon)
+//
+// DEPLOYMENT: API runs on Render (persistent Node process, NOT serverless).
+// Use standard PrismaClient — do NOT use @prisma/adapter-neon.
+// That adapter is only for Vercel edge/serverless functions.
+//
+// RAW MIGRATIONS REQUIRED (Prisma DSL cannot express these):
+//
+//   1. UnitInventory count invariant:
+//      ALTER TABLE "UnitInventory"
+//      ADD CONSTRAINT "unit_inventory_counts_check"
+//      CHECK ("availableCount" + "bookedCount" + "blockedCount" = "totalCount");
+//
+//   2. Review rating range:
+//      ALTER TABLE "Review"
+//      ADD CONSTRAINT "review_rating_range"
+//      CHECK (rating >= 1 AND rating <= 5);
+//
+//   3. TourDeparture capacity invariant:
+//      ALTER TABLE "TourDeparture"
+//      ADD CONSTRAINT "tour_departure_capacity_check"
+//      CHECK ("bookedCount" <= "maxCapacity");
+//
+//   4. TenantInvite — one PENDING invite per email per tenant:
+//      CREATE UNIQUE INDEX "tenant_invite_pending_unique"
+//      ON "TenantInvite" ("tenantId", "email")
+//      WHERE status = 'PENDING';
+//
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+enum PlatformRole {
+  USER
+  PROPERTY_OWNER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum TenantRole {
+  OWNER
+  ADMIN
+  STAFF
+}
+
+enum TenantUserStatus {
+  ACTIVE
+  INVITED
+  DISABLED
+}
+
+enum TenantInviteStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+enum BusinessVertical {
+  ACCOMMODATIONS_STAYS
+  EXPERIENCES_TOURS
+  VEHICLE_RENTALS // Phase 2
+  VENUES_EVENTS // Phase 3
+  FOOD_DINING // Phase 3
+}
+
+enum PropertyType {
+  HOTEL
+  APARTMENT
+  VILLA
+  RESORT
+  HOSTEL
+  GUESTHOUSE
+  MOTEL
+  CONDO
+  BUNGALOW
+  CABIN
+  FARMSTAY
+  HOUSEBOAT
+  TENT
+  TREEHOUSE
+  B_AND_B
+  PRIVATE_ROOM
+}
+
+enum PropertyCategory {
+  HOTELS_HOSPITALITY
+  VACATION_RENTALS
+  ALTERNATIVE_STAYS
+  SHARED_ACCOMMODATION
+}
+
+enum AmenityCategory {
+  PROPERTY
+  UNIT
+  BOTH
+}
+
+// 7-state booking lifecycle — mirrors BOOKING_STATUS in shared/constants/booking.ts
+enum BookingStatus {
+  PENDING // Created, inventory held, awaiting payment
+  BOOKED // Payment captured, awaiting property confirmation
+  CONFIRMED // Property confirmed
+  CHECKED_IN // Guest arrived
+  CHECKED_OUT // Guest departed
+  CANCELLED // Cancelled by guest or property
+  NO_SHOW // Guest did not arrive
+}
+
+enum BookingChannel {
+  DIRECT // Booked on our platform
+  MANUAL // Entered by operator from another OTA (Booking.com, Expedia, etc.)
+  // CHANNEL_MANAGER_STAAH  // Phase 2
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  REFUNDED
+  FAILED
+  CANCELLED
+}
+
+enum PaymentProvider {
+  STRIPE
+  MANUAL // Cash or bank transfer recorded by operator
+  JAZZCASH // Phase 2
+  EASYPAISA // Phase 2
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+enum CancellationPolicyType {
+  FLEXIBLE
+  MODERATE
+  STRICT
+  NON_REFUNDABLE
+}
+
+enum NotificationType {
+  BOOKING_CONFIRMED
+  BOOKING_CANCELLED
+  BOOKING_REMINDER
+  NEW_BOOKING
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+  REFUND_PROCESSED
+  TOUR_BOOKING_CONFIRMED
+  TOUR_BOOKING_CANCELLED
+  REVIEW_REQUEST
+  REVIEW_RESPONSE
+  NEW_INQUIRY
+  INQUIRY_RESPONSE
+  TENANT_OWNER_REMOVED
+  TENANT_SUSPENDED
+  PROPERTY_APPROVED
+  PROPERTY_REJECTED
+  VENDOR_APPLICATION
+  NEW_SUPPORT_TICKET
+  SUPPORT_TICKET_RESPONSE
+}
+
+enum PropertyApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum TenantApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum InquiryType {
+  GENERAL_ENQUIRY
+  BOOKING_SUPPORT
+  ACCESSIBILITY
+  COMPLAINT
+  REPORT
+}
+
+enum InquiryStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum SupportTicketType {
+  GENERAL
+  INVENTORY_HORIZON_INCREASE
+  PROPERTY_LIMIT_INCREASE
+  STAFF_LIMIT_INCREASE
+}
+
+enum SupportTicketStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  CLOSED
+}
+
+// ── Tour enums ───────────────────────────────────────────────────────────────
+
+enum TourCategory {
+  ADVENTURE
+  FAMILY
+  HONEYMOON
+  CULTURAL
+  RELIGIOUS
+  NATURE
+  WILDLIFE
+  HISTORICAL
+  BUDGET
+  LUXURY
+  CUSTOM
+}
+
+enum TourDifficultyLevel {
+  EASY
+  MODERATE
+  CHALLENGING
+  EXTREME
+}
+
+enum TourPricingType {
+  PER_PERSON
+  PER_GROUP
+}
+
+enum TourDepartureStatus {
+  OPEN // Accepting bookings
+  FULL // maxCapacity reached
+  CLOSED // Manually closed by operator
+  CANCELLED // This departure cancelled
+}
+
+enum TourBookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+// =============================================================================
+// CORE MODELS
+// =============================================================================
+
+model User {
+  id                   String       @id @default(cuid())
+  clerkId              String       @unique
+  username             String
+  email                String       @unique
+  avatarUrl            String?
+  phone                String?
+  dateOfBirth          DateTime?
+  nationality          String?
+  preferredCurrency    String       @default("PKR")
+  preferredLanguage    String       @default("en")
+  preferredTimezone    String       @default("Asia/Karachi")
+  loyaltyPoints        Int          @default(0)
+  role                 PlatformRole @default(USER)
+  defaultTenantId      String?
+  defaultTenant        Tenant?      @relation("DefaultTenant", fields: [defaultTenantId], references: [id])
+  status               UserStatus   @default(ACTIVE)
+  statusReason         String?
+  statusChangedAt      DateTime?
+  maxProperties        Int          @default(3)
+  inventoryHorizonDays Int          @default(365)
+  recentSearchedCities String[]
+  isDeleted            Boolean      @default(false)
+  deletedAt            DateTime?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  ownedProperties         Property[]          @relation("PropertyOwner")
+  approvedProperties      Property[]          @relation("PropertyApprover")
+  rejectedProperties      Property[]          @relation("PropertyRejector")
+  bookings                Booking[]           @relation("BookingUser")
+  confirmedBookings       Booking[]           @relation("BookingConfirmer")
+  checkedInBookings       Booking[]           @relation("BookingCheckinStaff")
+  checkedOutBookings      Booking[]           @relation("BookingCheckoutStaff")
+  tourBookings            TourBooking[]       @relation("TourBookingUser")
+  createdTourPackages     TourPackage[]       @relation("TourPackageCreator")
+  reviews                 Review[]            @relation("ReviewAuthor")
+  reviewResponses         Review[]            @relation("ReviewResponder")
+  tourReviews             TourReview[]        @relation("TourReviewAuthor")
+  tourReviewResponses     TourReview[]        @relation("TourReviewResponder")
+  notifications           Notification[]
+  payments                Payment[]
+  tourPayments            TourPayment[]
+  wishlist                Wishlist?
+  tenantApplications      TenantApplication[]
+  auditLogs               AuditLog[]
+  searchHistories         SearchHistory[]
+  createdPromoCodes       PromoCode[]         @relation("PromoCodeCreator")
+  submittedInquiries      PropertyInquiry[]   @relation("InquirySubmitter")
+  respondedInquiries      PropertyInquiry[]   @relation("InquiryResponder")
+  submittedSupportTickets SupportTicket[]     @relation("SupportTicketSubmitter")
+  respondedSupportTickets SupportTicket[]     @relation("SupportTicketResponder")
+  tenantMemberships       TenantUser[]
+  createdTenantInvites    TenantInvite[]      @relation("TenantInviteCreator")
+
+  @@index([role])
+  @@index([status])
+  @@index([isDeleted])
+  @@index([defaultTenantId])
+}
+
+model Tenant {
+  id               String            @id @default(cuid())
+  name             String
+  slug             String            @unique
+  status           TenantStatus      @default(ACTIVE)
+  businessVertical BusinessVertical?
+  propertyLimit    Int               @default(3)
+  staffLimit       Int               @default(5)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  defaultUsers   User[]            @relation("DefaultTenant")
+  users          TenantUser[]
+  invites        TenantInvite[]
+  properties     Property[]
+  units          Unit[]
+  unitTypes      UnitType[]
+  unitInventory  UnitInventory[]
+  bookings       Booking[]
+  payments       Payment[]
+  tourPackages   TourPackage[]
+  tourBookings   TourBooking[]
+  tourPayments   TourPayment[]
+  promoCodes     PromoCode[]
+  supportTickets SupportTicket[]
+  inquiries      PropertyInquiry[]
+  auditLogs      AuditLog[]
+  notifications  Notification[]
+}
+
+model TenantUser {
+  tenantId  String
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      TenantRole       @default(STAFF)
+  status    TenantUserStatus @default(ACTIVE)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@id([tenantId, userId])
+  @@index([userId])
+  @@index([tenantId])
+}
+
+// See raw migration #4 for the partial unique index (one PENDING per email per tenant).
+model TenantInvite {
+  id          String             @id @default(cuid())
+  tenantId    String
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email       String
+  role        TenantRole         @default(STAFF)
+  status      TenantInviteStatus @default(PENDING)
+  token       String             @unique
+  expiresAt   DateTime
+  createdById String?
+  createdBy   User?              @relation("TenantInviteCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([tenantId])
+  @@index([email])
+  @@index([status])
+  @@index([tenantId, email, status])
+}
+
+// =============================================================================
+// PROPERTY MODELS
+// =============================================================================
+
+model Property {
+  id                      String                 @id @default(cuid())
+  slug                    String                 @unique
+  name                    String
+  description             String
+  address                 String?
+  city                    String
+  country                 String
+  images                  Json // [{ url, publicId, isPrimary }]
+  starRating              Int?
+  propertyType            PropertyType?
+  propertyCategory        PropertyCategory?
+  propertyDetails         Json?
+  isWholePropertyBookable Boolean                @default(false)
+  wholePropertyBasePrice  Decimal?               @db.Decimal(10, 2)
+  checkInTime             String?
+  checkOutTime            String?
+  timezone                String?
+  languages               String[]               @default([])
+  houseRules              Json?
+  facilities              Json?
+  totalRooms              Int?
+  propertySizeSqm         Float?
+  bedroomsCount           Int?
+  bathroomsCount          Int?
+  kitchensCount           Int?
+  livingRoomsCount        Int?
+  diningRoomsCount        Int?
+  totalFloors             Int?
+  builtYear               Int?
+  // Denormalized caches — sync in service layer after mutations
+  minPricePerNight        Decimal?               @db.Decimal(10, 2)
+  averageRating           Float                  @default(0)
+  totalReviews            Int                    @default(0)
+  tenantId                String
+  tenant                  Tenant                 @relation(fields: [tenantId], references: [id])
+  ownerId                 String
+  owner                   User                   @relation("PropertyOwner", fields: [ownerId], references: [id])
+  approvalStatus          PropertyApprovalStatus @default(PENDING)
+  approvedAt              DateTime?
+  approvedById            String?
+  approvedBy              User?                  @relation("PropertyApprover", fields: [approvedById], references: [id])
+  rejectedAt              DateTime?
+  rejectedById            String?
+  rejectedBy              User?                  @relation("PropertyRejector", fields: [rejectedById], references: [id])
+  rejectionReason         String?
+  isDeleted               Boolean                @default(false)
+  deletedAt               DateTime?
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+
+  location           Location?
+  units              Unit[]
+  unitTypes          UnitType[]
+  amenities          PropertyAmenity[]
+  reviews            Review[]
+  bookings           Booking[]
+  cancellationPolicy CancellationPolicy?
+  promoCodes         PromoCodeProperty[]
+  unitInventory      UnitInventory[]
+  wishlists          WishlistProperty[]
+  inquiries          PropertyInquiry[]
+  tourItineraryDays  TourItineraryDay[]
+
+  @@index([ownerId])
+  @@index([approvalStatus])
+  @@index([approvalStatus, city])
+  @@index([averageRating])
+  @@index([minPricePerNight])
+  @@index([city])
+  @@index([country])
+  @@index([slug])
+  @@index([name])
+  @@index([propertyCategory])
+  @@index([tenantId])
+  @@index([isDeleted])
+}
+
+// Geo data only — address/city/country already on Property to prevent drift.
+model Location {
+  id                String   @id @default(cuid())
+  propertyId        String   @unique
+  property          Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  state             String?
+  zipCode           String?
+  lat               Float?
+  lng               Float?
+  timezone          String?
+  nearbyAttractions Json? // [{ name, distance, type }]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([lat, lng])
+}
+
+model Unit {
+  id                String    @id @default(cuid())
+  propertyId        String
+  property          Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  tenantId          String
+  tenant            Tenant    @relation(fields: [tenantId], references: [id])
+  unitTypeId        String
+  unitType          UnitType  @relation(fields: [unitTypeId], references: [id], onDelete: Restrict)
+  unitNumber        String
+  type              String
+  description       String
+  maxGuests         Int
+  beds              Int       @default(1)
+  pricePerNight     Decimal   @db.Decimal(10, 2)
+  images            Json
+  bedType           String?
+  viewType          String?
+  floor             Int?
+  sizeSqm           Float?
+  bathroomsCount    Int?
+  sofaBeds          Int?
+  extraBeds         Int?
+  hasBalcony        Boolean   @default(false)
+  hasTerrace        Boolean   @default(false)
+  hasWindow         Boolean   @default(false)
+  hasKitchenette    Boolean   @default(false)
+  breakfastIncluded Boolean   @default(false)
+  smokingAllowed    Boolean   @default(false)
+  isAvailable       Boolean   @default(true)
+  isDeleted         Boolean   @default(false)
+  deletedAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  amenities    UnitAmenity[]
+  bookings     Booking[]
+  reservations Reservation[]
+
+  @@unique([propertyId, unitNumber])
+  // NOTE: @@unique([propertyId, unitTypeId]) intentionally absent.
+  // A property has many units per type (50 Standard units, etc.)
+  @@index([propertyId, isAvailable])
+  @@index([pricePerNight])
+  @@index([unitTypeId])
+  @@index([tenantId])
+}
+
+model UnitType {
+  id         String   @id @default(cuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  name       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  units     Unit[]
+  inventory UnitInventory[]
+  bookings  Booking[]
+
+  @@unique([propertyId, name])
+  @@index([propertyId])
+  @@index([tenantId])
+}
+
+model Amenity {
+  id          String          @id @default(cuid())
+  name        String          @unique
+  icon        String?
+  category    AmenityCategory
+  description String?
+  isPopular   Boolean         @default(false)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  properties PropertyAmenity[]
+  units      UnitAmenity[]
+}
+
+model PropertyAmenity {
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  amenityId  String
+  amenity    Amenity  @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+
+  @@id([propertyId, amenityId])
+}
+
+model UnitAmenity {
+  unitId    String
+  unit      Unit    @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  amenityId String
+  amenity   Amenity @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+
+  @@id([unitId, amenityId])
+}
+
+// INVARIANT: availableCount + bookedCount + blockedCount = totalCount
+// See raw migration #1 — add check constraint after first migration.
+model UnitInventory {
+  id             String   @id @default(cuid())
+  propertyId     String
+  property       Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitTypeId     String
+  unitType       UnitType @relation(fields: [unitTypeId], references: [id], onDelete: Cascade)
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id])
+  date           DateTime @db.Date
+  totalCount     Int      @default(1)
+  availableCount Int      @default(1)
+  bookedCount    Int      @default(0)
+  blockedCount   Int      @default(0)
+  priceOverride  Decimal? @db.Decimal(10, 2)
+  blockReason    String?
+  version        Int      @default(0) // Optimistic lock counter
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  reservations Reservation[]
+
+  @@unique([propertyId, unitTypeId, date])
+  @@index([propertyId, date])
+  @@index([unitTypeId, date])
+  @@index([date])
+  @@index([tenantId])
+}
+
+// =============================================================================
+// BOOKING ENGINE
+// =============================================================================
+
+model Booking {
+  id                  String         @id @default(cuid())
+  userId              String
+  user                User           @relation("BookingUser", fields: [userId], references: [id])
+  propertyId          String
+  property            Property       @relation(fields: [propertyId], references: [id])
+  // unitId nullable for isWholePropertyBookable=true bookings
+  unitId              String?
+  unit                Unit?          @relation(fields: [unitId], references: [id])
+  // unitTypeId required when unitId is set — used for UnitInventory lookup
+  unitTypeId          String?
+  unitType            UnitType?      @relation(fields: [unitTypeId], references: [id])
+  tenantId            String
+  tenant              Tenant         @relation(fields: [tenantId], references: [id])
+  channel             BookingChannel @default(DIRECT)
+  checkIn             DateTime
+  checkOut            DateTime
+  nights              Int
+  guests              Int            @default(1)
+  pricePerNight       Decimal        @db.Decimal(10, 2)
+  totalPrice          Decimal        @db.Decimal(10, 2)
+  priceBeforeDiscount Decimal?       @db.Decimal(10, 2)
+  discountAmount      Decimal?       @db.Decimal(10, 2)
+  promoCodeId         String?
+  promoCode           PromoCode?     @relation(fields: [promoCodeId], references: [id], onDelete: SetNull)
+  promoUsageApplied   Boolean        @default(false)
+  status              BookingStatus  @default(PENDING)
+  confirmedAt         DateTime?
+  confirmedById       String?
+  confirmedBy         User?          @relation("BookingConfirmer", fields: [confirmedById], references: [id])
+  checkedInAt         DateTime?
+  checkedInById       String?
+  checkedInBy         User?          @relation("BookingCheckinStaff", fields: [checkedInById], references: [id])
+  checkedOutAt        DateTime?
+  checkedOutById      String?
+  checkedOutBy        User?          @relation("BookingCheckoutStaff", fields: [checkedOutById], references: [id])
+  paymentStatus       PaymentStatus  @default(PENDING)
+  holdExpiresAt       DateTime?
+  idempotencyKey      String?        @unique
+  contactName         String?
+  contactEmail        String?
+  contactPhone        String?
+  cancellationReason  String?
+  cancellationDate    DateTime?
+  refundAmount        Decimal?       @db.Decimal(10, 2)
+  notes               String?
+  externalBookingRef  String? // Booking.com / Expedia confirmation number
+  isDeleted           Boolean        @default(false)
+  deletedAt           DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  guestDetails    BookingGuest[]
+  specialRequests BookingSpecialRequest[]
+  payment         Payment?
+  reservations    Reservation[]
+  review          Review?
+  inquiries       PropertyInquiry[]
+
+  @@index([userId, status])
+  @@index([propertyId])
+  @@index([propertyId, checkIn])
+  @@index([unitId, status, checkIn])
+  @@index([status, holdExpiresAt])
+  @@index([status, paymentStatus, holdExpiresAt])
+  @@index([unitId, checkIn, checkOut])
+  @@index([createdAt])
+  @@index([tenantId])
+  @@index([promoCodeId])
+  @@index([externalBookingRef])
+  @@index([channel])
+}
+
+model BookingGuest {
+  id        String  @id @default(cuid())
+  bookingId String
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  name      String
+  age       Int?
+  idType    String?
+  idNumber  String?
+}
+
+model BookingSpecialRequest {
+  id        String  @id @default(cuid())
+  bookingId String
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  text      String
+}
+
+// One row per booking per booked night.
+// unitInventoryId provides the referential link between a booking and the
+// inventory slot it consumed — without this, integrity is application-only.
+model Reservation {
+  id              String        @id @default(cuid())
+  unitId          String
+  unit            Unit          @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  bookingId       String
+  booking         Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  unitInventoryId String
+  unitInventory   UnitInventory @relation(fields: [unitInventoryId], references: [id])
+  date            DateTime // UTC midnight for each booked night
+
+  @@unique([bookingId, date])
+  @@index([unitId, date])
+  @@index([bookingId])
+  @@index([unitInventoryId])
+}
+
+// =============================================================================
+// PAYMENTS
+// =============================================================================
+
+model Payment {
+  id            String           @id @default(cuid())
+  bookingId     String           @unique
+  booking       Booking          @relation(fields: [bookingId], references: [id])
+  userId        String
+  user          User             @relation(fields: [userId], references: [id])
+  tenantId      String
+  tenant        Tenant           @relation(fields: [tenantId], references: [id])
+  amount        Decimal          @db.Decimal(10, 2)
+  currency      String           @default("PKR")
+  provider      PaymentProvider?
+  transactionId String?          @unique
+  status        PaymentStatus    @default(PENDING)
+  paymentMethod Json?
+  refundAmount  Decimal?         @db.Decimal(10, 2)
+  refundReason  String?
+  refundedAt    DateTime?
+  metadata      Json?
+  isDeleted     Boolean          @default(false)
+  deletedAt     DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([userId])
+  @@index([userId, createdAt])
+  @@index([status])
+  @@index([tenantId])
+}
+
+// Separate from Payment — tour pricing is per-person not per-night.
+// Coupling both into one model would require nullable fields on both sides.
+model TourPayment {
+  id            String           @id @default(cuid())
+  tourBookingId String           @unique
+  tourBooking   TourBooking      @relation(fields: [tourBookingId], references: [id])
+  userId        String
+  user          User             @relation(fields: [userId], references: [id])
+  tenantId      String
+  tenant        Tenant           @relation(fields: [tenantId], references: [id])
+  amount        Decimal          @db.Decimal(10, 2)
+  currency      String           @default("PKR")
+  provider      PaymentProvider?
+  transactionId String?          @unique
+  status        PaymentStatus    @default(PENDING)
+  paymentMethod Json?
+  refundAmount  Decimal?         @db.Decimal(10, 2)
+  refundReason  String?
+  refundedAt    DateTime?
+  metadata      Json?
+  isDeleted     Boolean          @default(false)
+  deletedAt     DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([tenantId])
+}
+
+// =============================================================================
+// REVIEWS
+// =============================================================================
+
+// See raw migration #2 for the rating range check constraint (1–5).
+model Review {
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation("ReviewAuthor", fields: [userId], references: [id])
+  propertyId       String
+  property         Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  bookingId        String    @unique
+  booking          Booking   @relation(fields: [bookingId], references: [id])
+  rating           Int
+  comment          String
+  images           Json?
+  staffScore       Float?
+  cleanlinessScore Float?
+  locationScore    Float?
+  valueScore       Float?
+  facilitiesScore  Float?
+  helpfulCount     Int       @default(0)
+  responseText     String?
+  respondedAt      DateTime?
+  respondedById    String?
+  respondedBy      User?     @relation("ReviewResponder", fields: [respondedById], references: [id])
+  isVerifiedStay   Boolean   @default(false)
+  isDeleted        Boolean   @default(false)
+  deletedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([propertyId, createdAt])
+  @@index([userId])
+  @@index([rating])
+}
+
+// Tour reviews: separate model from accommodation reviews.
+// Tour-specific scoring and verification (tour completed + guide verified).
+// See raw migration #2 for rating range check constraint (1–5).
+model TourReview {
+  id              String      @id @default(cuid())
+  userId          String
+  user            User        @relation("TourReviewAuthor", fields: [userId], references: [id])
+  tourPackageId   String
+  tourPackage     TourPackage @relation(fields: [tourPackageId], references: [id], onDelete: Cascade)
+  tourBookingId   String      @unique
+  tourBooking     TourBooking @relation(fields: [tourBookingId], references: [id])
+  rating          Int
+  comment         String
+  images          Json?
+  guideScore      Float?
+  itineraryScore  Float?
+  safetyScore     Float?
+  paceScore       Float?
+  valueScore      Float?
+  helpfulCount    Int         @default(0)
+  responseText    String?
+  respondedAt     DateTime?
+  respondedById   String?
+  respondedBy     User?       @relation("TourReviewResponder", fields: [respondedById], references: [id])
+  isTourCompleted Boolean     @default(false)
+  isDeleted       Boolean     @default(false)
+  deletedAt       DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([tourPackageId, createdAt])
+  @@index([userId])
+  @@index([rating])
+}
+
+// =============================================================================
+// NOTIFICATIONS
+// =============================================================================
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId  String?
+  tenant    Tenant?          @relation(fields: [tenantId], references: [id])
+  type      NotificationType
+  title     String
+  message   String
+  isRead    Boolean          @default(false)
+  actionUrl String?
+  // Reference IDs for UI navigation. Not FK-enforced — notification must
+  // survive even if referenced resource is soft-deleted.
+  metadata  Json?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@index([tenantId])
+}
+
+// =============================================================================
+// PROMO CODES
+// =============================================================================
+
+model PromoCode {
+  id               String       @id @default(cuid())
+  code             String       @unique
+  discountType     DiscountType
+  discountValue    Decimal      @db.Decimal(10, 2)
+  tenantId         String
+  tenant           Tenant       @relation(fields: [tenantId], references: [id])
+  minBookingAmount Decimal      @default(0) @db.Decimal(10, 2)
+  maxDiscount      Decimal?     @db.Decimal(10, 2)
+  validFrom        DateTime
+  validUntil       DateTime
+  usageLimit       Int?
+  usedCount        Int          @default(0)
+  isActive         Boolean      @default(true)
+  createdById      String?
+  createdBy        User?        @relation("PromoCodeCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  applicableProperties PromoCodeProperty[]
+  bookings             Booking[]
+
+  @@index([tenantId])
+  @@index([isActive, validFrom, validUntil])
+}
+
+model PromoCodeProperty {
+  promoCodeId String
+  promoCode   PromoCode @relation(fields: [promoCodeId], references: [id], onDelete: Cascade)
+  propertyId  String
+  property    Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@id([promoCodeId, propertyId])
+}
+
+// =============================================================================
+// CANCELLATION POLICY
+// =============================================================================
+
+model CancellationPolicy {
+  id          String                 @id @default(cuid())
+  propertyId  String                 @unique
+  property    Property               @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  policyType  CancellationPolicyType
+  description String?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  rules CancellationPolicyRule[]
+}
+
+model CancellationPolicyRule {
+  id                String             @id @default(cuid())
+  policyId          String
+  policy            CancellationPolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  daysBeforeCheckIn Int
+  refundPercentage  Decimal            @db.Decimal(5, 2) // Decimal not Float — financial value
+}
+
+// =============================================================================
+// WISHLIST
+// =============================================================================
+
+model Wishlist {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  properties WishlistProperty[]
+}
+
+model WishlistProperty {
+  wishlistId String
+  wishlist   Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  addedAt    DateTime @default(now())
+
+  @@id([wishlistId, propertyId])
+}
+
+// =============================================================================
+// SEARCH HISTORY (analytics — not relational)
+// =============================================================================
+
+model SearchHistory {
+  id                String    @id @default(cuid())
+  userId            String?
+  user              User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  sessionId         String?
+  query             String?
+  city              String?
+  checkIn           DateTime?
+  checkOut          DateTime?
+  guests            Int?
+  minPrice          Decimal?  @db.Decimal(10, 2)
+  maxPrice          Decimal?  @db.Decimal(10, 2)
+  starRating        Int?
+  amenities         String[] // Amenity IDs — analytics only, not FK-enforced
+  resultsCount      Int       @default(0)
+  clickedProperties String[] // Property IDs — analytics only, not FK-enforced
+  clickedTours      String[] // Tour Package IDs — analytics only, not FK-enforced
+  createdAt         DateTime  @default(now())
+
+  @@index([userId])
+  @@index([city])
+  @@index([createdAt])
+}
+
+// =============================================================================
+// VENDOR ONBOARDING
+// =============================================================================
+
+// SECURITY: govIdNumber and businessRegNumber must be encrypted at the
+// application layer before writing. Use AES-256 encryption in the service
+// layer or Postgres pgcrypto. Never store raw PII in plaintext.
+model TenantApplication {
+  id               String                  @id @default(cuid())
+  userId           String
+  user             User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status           TenantApplicationStatus @default(PENDING)
+  // approvedTenantId: bare String? without @relation to avoid circular Tenant→TenantApplication→Tenant ref.
+  // When approved, set this to the created Tenant.id in the service layer. Referential integrity is enforced at application level.
+  approvedTenantId String?
+
+  fullName String
+  phone    String
+
+  businessName     String
+  businessVertical BusinessVertical
+  businessAddress  String
+  city             String
+  state            String?
+  postalCode       String?
+  country          String
+
+  phoneCountryCode  String?
+  govIdType         String // PASSPORT | NATIONAL_ID | DRIVING_LICENSE
+  govIdNumber       String // ENCRYPT THIS FIELD
+  businessRegNumber String // ENCRYPT THIS FIELD
+  taxId             String?
+  businessWebsite   String?
+  altEmail          String?
+
+  experience String
+  documents  Json   @default("[]")
+
+  adminNotes String?
+  reviewedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([country, status])
+}
+
+// =============================================================================
+// ADMIN / SUPPORT / AUDIT
+// =============================================================================
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  tenantId   String?
+  tenant     Tenant?  @relation(fields: [tenantId], references: [id])
+  action     String // dot-notation: "booking.create", "payment.refund.processed"
+  resource   String
+  resourceId String?
+  changes    Json? // { before, after }
+  ipAddress  String?
+  userAgent  String?
+  status     String? // "success" | "failure"
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([resource, resourceId])
+  @@index([action])
+  @@index([createdAt])
+  @@index([tenantId])
+}
+
+// Webhook idempotency — prevents processing Stripe/Clerk events more than once
+model ProcessedEvent {
+  id          String   @id @default(cuid())
+  eventId     String   @unique
+  type        String
+  processedAt DateTime @default(now())
+}
+
+model PropertyInquiry {
+  id            String        @id @default(cuid())
+  propertyId    String
+  property      Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  tenantId      String
+  tenant        Tenant        @relation(fields: [tenantId], references: [id])
+  userId        String?
+  user          User?         @relation("InquirySubmitter", fields: [userId], references: [id], onDelete: SetNull)
+  bookingId     String?
+  booking       Booking?      @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  guestName     String
+  guestEmail    String
+  guestPhone    String?
+  type          InquiryType
+  status        InquiryStatus @default(OPEN)
+  message       String
+  responseText  String?
+  respondedAt   DateTime?
+  respondedById String?
+  respondedBy   User?         @relation("InquiryResponder", fields: [respondedById], references: [id], onDelete: SetNull)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([propertyId, status])
+  @@index([userId])
+  @@index([tenantId])
+  @@index([status, createdAt])
+}
+
+model SupportTicket {
+  id                     String              @id @default(cuid())
+  userId                 String
+  user                   User                @relation("SupportTicketSubmitter", fields: [userId], references: [id], onDelete: Cascade)
+  tenantId               String?
+  tenant                 Tenant?             @relation(fields: [tenantId], references: [id])
+  subject                String
+  message                String
+  type                   SupportTicketType   @default(GENERAL)
+  status                 SupportTicketStatus @default(OPEN)
+  requestedHorizonDays   Int?
+  requestedPropertyLimit Int?
+  requestedStaffLimit    Int?
+  responseText           String?
+  respondedAt            DateTime?
+  respondedById          String?
+  respondedBy            User?               @relation("SupportTicketResponder", fields: [respondedById], references: [id], onDelete: SetNull)
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+
+  @@index([userId, status])
+  @@index([status, createdAt])
+  @@index([tenantId])
+}
+
+// =============================================================================
+// TOURS MODULE
+// =============================================================================
+
+model TourPackage {
+  id              String              @id @default(cuid())
+  tenantId        String
+  tenant          Tenant              @relation(fields: [tenantId], references: [id])
+  createdById     String?
+  createdBy       User?               @relation("TourPackageCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  slug            String              @unique
+  title           String
+  description     String
+  summary         String? // Short blurb for listing cards
+  images          Json // [{ url, publicId, isPrimary }]
+  category        TourCategory
+  difficultyLevel TourDifficultyLevel @default(EASY)
+  durationDays    Int
+  durationNights  Int
+  pricingType     TourPricingType     @default(PER_PERSON)
+  pricePerPerson  Decimal?            @db.Decimal(10, 2) // Set when pricingType = PER_PERSON
+  pricePerGroup   Decimal?            @db.Decimal(10, 2) // Set when pricingType = PER_GROUP
+  minGroupSize    Int                 @default(1)
+  maxGroupSize    Int                 @default(20)
+  departureCity   String
+  departurePoint  String? // Specific meeting point
+  destinations    String[] // ["Swat", "Kalam", "Malam Jabba"]
+  // { accommodation: bool, transport: bool, meals: bool, guide: bool, activities: bool }
+  inclusions      Json
+  exclusions      Json                @default("[]")
+  highlights      String[]            @default([])
+  requirements    Json? // { minAge?, maxAge?, fitnessLevel?, documents?: [] }
+  isPublished     Boolean             @default(false)
+  isDeleted       Boolean             @default(false)
+  deletedAt       DateTime?
+  // Denormalized caches
+  averageRating   Float               @default(0)
+  totalReviews    Int                 @default(0)
+  totalBookings   Int                 @default(0)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  itinerary  TourItineraryDay[]
+  departures TourDeparture[]
+  bookings   TourBooking[]
+  reviews    TourReview[]
+
+  @@index([tenantId])
+  @@index([slug])
+  @@index([category])
+  @@index([isPublished])
+  @@index([isPublished, departureCity])
+  @@index([departureCity])
+  @@index([isDeleted])
+}
+
+// One row per day in the tour itinerary.
+model TourItineraryDay {
+  id                String      @id @default(cuid())
+  tourPackageId     String
+  tourPackage       TourPackage @relation(fields: [tourPackageId], references: [id], onDelete: Cascade)
+  dayNumber         Int
+  title             String
+  description       String
+  // Optional link to a partner hotel for this night
+  accommodationId   String?
+  accommodation     Property?   @relation(fields: [accommodationId], references: [id], onDelete: SetNull)
+  accommodationNote String? // Free text if no specific property assigned
+  meals             Json // { breakfast: bool, lunch: bool, dinner: bool }
+  activities        Json // [{ name, durationHours, description }]
+  transportNote     String?
+
+  @@unique([tourPackageId, dayNumber])
+  @@index([tourPackageId])
+  @@index([accommodationId])
+}
+
+// A specific departure date instance for a TourPackage.
+// See raw migration #3 for the bookedCount <= maxCapacity check constraint.
+model TourDeparture {
+  id            String              @id @default(cuid())
+  tourPackageId String
+  tourPackage   TourPackage         @relation(fields: [tourPackageId], references: [id], onDelete: Cascade)
+  departureDate DateTime            @db.Date
+  returnDate    DateTime            @db.Date
+  maxCapacity   Int
+  bookedCount   Int                 @default(0)
+  status        TourDepartureStatus @default(OPEN)
+  priceOverride Decimal?            @db.Decimal(10, 2)
+  notes         String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  bookings TourBooking[]
+
+  @@unique([tourPackageId, departureDate])
+  @@index([tourPackageId, departureDate])
+  @@index([departureDate])
+  @@index([status])
+}
+
+model TourBooking {
+  id                 String            @id @default(cuid())
+  tourPackageId      String
+  tourPackage        TourPackage       @relation(fields: [tourPackageId], references: [id])
+  tourDepartureId    String
+  tourDeparture      TourDeparture     @relation(fields: [tourDepartureId], references: [id])
+  userId             String
+  user               User              @relation("TourBookingUser", fields: [userId], references: [id])
+  tenantId           String
+  tenant             Tenant            @relation(fields: [tenantId], references: [id])
+  numberOfPeople     Int               @default(1)
+  totalPrice         Decimal           @db.Decimal(10, 2)
+  // Snapshot price at booking time — package price changes must not affect existing bookings
+  priceSnapshot      Decimal           @db.Decimal(10, 2)
+  status             TourBookingStatus @default(PENDING)
+  paymentStatus      PaymentStatus     @default(PENDING)
+  contactName        String
+  contactEmail       String
+  contactPhone       String?
+  specialRequests    String?
+  idempotencyKey     String?           @unique
+  cancellationReason String?
+  cancelledAt        DateTime?
+  refundAmount       Decimal?          @db.Decimal(10, 2)
+  isDeleted          Boolean           @default(false)
+  deletedAt          DateTime?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  payment TourPayment?
+  review  TourReview?
+
+  @@index([userId, status])
+  @@index([tourPackageId])
+  @@index([tourDepartureId])
+  @@index([tenantId])
+  @@index([status, paymentStatus])
+}
