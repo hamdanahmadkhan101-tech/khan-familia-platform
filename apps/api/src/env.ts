@@ -2,9 +2,38 @@ import 'dotenv/config';
 import { appEnvSchema, logLevelSchema, z } from '@khan-familia/validation';
 
 const envSchema = z.object({
+  // Application
   APP_ENV: appEnvSchema.default('local'),
   LOG_LEVEL: logLevelSchema.default('info'),
   PORT: z.coerce.number().int().min(1).max(65535).default(3001),
+  NODE_ENV: z.enum(['development', 'staging', 'production']).default('development'),
+
+  // Database
+  DATABASE_URL: z.string().url(),
+
+  // Redis
+  REDIS_HOST: z.string().default('localhost'),
+  REDIS_PORT: z.coerce.number().int().default(6379),
+  REDIS_PASSWORD: z.string().optional(),
+
+  // Clerk Authentication
+  CLERK_SECRET_KEY: z.string(),
+  CLERK_PUBLISHABLE_KEY: z.string(),
+
+  // Stripe Payments
+  STRIPE_SECRET_KEY: z.string(),
+  STRIPE_WEBHOOK_SECRET: z.string(),
+
+  // Cloudinary Storage
+  CLOUDINARY_CLOUD_NAME: z.string(),
+  CLOUDINARY_API_KEY: z.string(),
+  CLOUDINARY_API_SECRET: z.string(),
+
+  // Svix Webhooks
+  SVIX_API_KEY: z.string(),
+
+  // Resend Email
+  RESEND_API_KEY: z.string(),
 });
 
 export type Env = z.infer<typeof envSchema>;
