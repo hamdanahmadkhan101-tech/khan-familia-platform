@@ -14,3 +14,8 @@
 - Inventory uses quantity-based modeling in MVP; unit-level tracking is optional later.
 - Vendor suspension stops new bookings; existing confirmed bookings require manual resolution.
 - Concurrency uses transactional or optimistic locking for writes; reads may be eventual.
+
+- RBAC is two-tier: `Platform` roles (global) and `Tenant` roles (scoped). Role->permission mapping is explicit and stored in the DB.
+- Platform will act as the payment collector for v1 (tenant payouts recorded as settlements). Keep ledger single-currency for MVP and store amounts in minor units.
+- Use idempotency keys for holds and payment intents to guard retries and webhook replay.
+- Recommend BullMQ for background processing, Cloudinary (or equivalent) for object storage, and a reliable email provider (Resend/Postmark). Prefer Neon for Postgres in infra documentation.

@@ -8,6 +8,11 @@
 - Cancellation: booking state + inventory release + refund initiation.
 - Vendor approval: vendor status + publish eligibility.
 
+Tenant & safety controls
+
+- All 'must be atomic' operations must include `tenantId` in the guarded transaction. Enforce tenant filters at the application layer and consider Postgres Row-Level Security (RLS) for additional safety.
+- Use idempotency keys for holds and payment intents. Transactions that create holds or payment intents should persist an `idempotency_key` and return the existing resource when the same key is used.
+
 ## Can Be Eventually Consistent
 
 - Search index updates.
@@ -18,6 +23,8 @@
 
 - A booking moves to Confirmed only after hold validation and payment resolution.
 - Manual approvals are recorded before payment transitions.
+
+Note: Booking creation, hold acquisition and the initial price snapshot must be in the same DB transaction to avoid stale availability reads.
 
 ## Payment Lifecycle Boundaries
 
