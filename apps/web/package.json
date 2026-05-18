@@ -13,9 +13,9 @@
     "@khan-familia/constants": "workspace:*",
     "@khan-familia/sdk": "workspace:*",
     "@khan-familia/ui": "workspace:*",
-    "next": "^15.0.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "next": "15.5.18",
+    "react": "19.2.6",
+    "react-dom": "19.2.6"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.20",

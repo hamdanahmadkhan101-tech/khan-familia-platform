@@ -14,7 +14,9 @@
     "@khan-familia/constants": "workspace:*",
     "@khan-familia/types": "workspace:*",
     "@khan-familia/validation": "workspace:*",
+    "bullmq": "5.61.2",
     "dotenv": "^16.4.5",
+    "ioredis": "5.8.2",
     "pino": "^9.5.0"
   },
   "devDependencies": {

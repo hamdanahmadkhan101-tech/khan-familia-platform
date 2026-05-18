@@ -1,0 +1,9 @@
+{
+  "extends": "@khan-familia/config/tsconfig/node",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src", "prisma"],
+  "exclude": ["node_modules", "dist"]
+}
