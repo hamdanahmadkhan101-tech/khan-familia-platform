@@ -19,6 +19,7 @@ This repository currently contains infrastructure and scaffolding only (no busin
 - packages/types: shared types scaffolding
 - packages/validation: validation scaffolding
 - packages/constants: constants scaffolding
+- packages/utils: shared utility helpers (financial/date/slug)
 - packages/sdk: SDK scaffolding
 - packages/ui: UI scaffolding (React)
 - docs/ai-agents: AI governance and quality gates
