@@ -2,6 +2,8 @@
 
 This document defines aggregate roots, boundaries, and invariants for persistence design.
 
+Note: All aggregates that represent operational data MUST include `tenantId` as part of their root.
+
 ## Vendor Aggregate
 
 - Root: Vendor
@@ -25,6 +27,12 @@ This document defines aggregate roots, boundaries, and invariants for persistenc
 - Root: PropertyBooking
 - Entities: BookingGuest, BookingSnapshot
 - Invariants: booking requires valid hold and price snapshot.
+
+## Identity & RBAC Aggregate
+
+- Root: Tenant
+- Entities: User, TenantMembership, TenantRole, PlatformRole, Permission, RolePermission
+- Invariants: Role->Permission mapping must be consistent; user memberships scoped to tenants. Platform roles are separate from tenant roles.
 
 ## Tour Package Aggregate
 
@@ -76,3 +84,5 @@ This document defines aggregate roots, boundaries, and invariants for persistenc
 
 - Aggregates listed above should be updated atomically within their boundaries.
 - Cross-aggregate updates should use explicit holds or snapshots.
+
+Important: Accommodation and Tour booking aggregates are separate roots (AccommodationBooking vs TourBooking). Cross-aggregate flows (e.g. quoting from property -> issuing tour add-on) must use explicit snapshots and idempotent hold tokens.
