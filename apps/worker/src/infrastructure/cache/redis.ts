@@ -1,0 +1,26 @@
+import type { Redis as RedisType } from 'ioredis';
+import { Redis } from 'ioredis';
+
+import { env } from '../../env.js';
+
+const globalForRedis = global as unknown as { redis: RedisType };
+
+const redisConfig = {
+  host: env.REDIS_HOST,
+  port: env.REDIS_PORT,
+  lazyConnect: false,
+  enableReadyCheck: true,
+  enableOfflineQueue: true,
+  maxRetriesPerRequest: 3,
+  ...(env.REDIS_PASSWORD && { password: env.REDIS_PASSWORD }),
+};
+
+export const redis: RedisType = globalForRedis.redis || new Redis(redisConfig);
+
+redis.on('error', (err: Error) => {
+  console.error('Redis connection error:', err);
+});
+
+if (process.env['NODE_ENV'] !== 'production') globalForRedis.redis = redis;
+
+export type { RedisType as Redis };
