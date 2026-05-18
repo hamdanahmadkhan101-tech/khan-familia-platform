@@ -17,3 +17,8 @@ Express 5 + TypeScript scaffold with structured logging.
 ## Environment
 
 Copy apps/api/.env.example to apps/api/.env and adjust as needed.
+
+For signed Cloudinary upload support, configure:
+
+- `CLOUDINARY_CLOUD_NAME`
+- `CLOUDINARY_API_SECRET`
