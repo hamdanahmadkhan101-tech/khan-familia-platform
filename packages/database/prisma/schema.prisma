@@ -45,8 +45,7 @@ datasource db {
 
 enum PlatformRole {
   USER
-  PROPERTY_OWNER
-  ADMIN
+  SUPER_ADMIN
 }
 
 enum UserStatus {
@@ -668,7 +667,6 @@ model Booking {
   checkedOutAt        DateTime?
   checkedOutById      String?
   checkedOutBy        User?          @relation("BookingCheckoutStaff", fields: [checkedOutById], references: [id])
-  paymentStatus       PaymentStatus  @default(PENDING)
   holdExpiresAt       DateTime?
   idempotencyKey      String?        @unique
   contactName         String?
@@ -696,7 +694,6 @@ model Booking {
   @@index([propertyId, checkIn])
   @@index([unitId, status, checkIn])
   @@index([status, holdExpiresAt])
-  @@index([status, paymentStatus, holdExpiresAt])
   @@index([unitId, checkIn, checkOut])
   @@index([createdAt])
   @@index([tenantId])
