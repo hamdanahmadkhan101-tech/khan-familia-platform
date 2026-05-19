@@ -14,13 +14,12 @@ export const handleBookingExpiryJob = async (payload: BookingExpiryJobPayload) =
     // 1. Cancel booking if still PENDING
     // 2. Release reserved inventory
     await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const booking = await tx.booking.findUnique({
+      const booking = await tx.accommodationBooking.findUnique({
         where: { id: payload.bookingId },
         select: {
           id: true,
           status: true,
           propertyId: true,
-          unitId: true,
           unitTypeId: true,
           checkIn: true,
           checkOut: true,
@@ -41,7 +40,7 @@ export const handleBookingExpiryJob = async (payload: BookingExpiryJobPayload) =
       }
 
       // Cancel the booking
-      await tx.booking.update({
+      await tx.accommodationBooking.update({
         where: { id: payload.bookingId },
         data: { status: 'CANCELLED', cancellationDate: new Date() },
       });
