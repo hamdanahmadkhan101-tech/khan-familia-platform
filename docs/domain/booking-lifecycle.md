@@ -7,63 +7,48 @@ payments are first-class in MVP.
 
 ### States
 
-- Inquiry: optional manual intake.
-- QuoteIssued: negotiated offer with expiry.
-- Draft: standard cart/checkout stage.
-- HoldRequested: availability hold in progress.
-- Held: availability reserved for a limited time.
-- AwaitingVendorConfirmation: manual approval required by vendor/operator.
-- PendingPayment: payment intent created.
-- AwaitingManualPayment: offline payment pending verification.
-- Confirmed: payment resolved and booking finalized.
-- ChangeRequested: post-confirmation modification request.
-- Reconfirmed: change approved and applied.
-- Cancelled: user or vendor cancellation.
-- Expired: hold or quote expired before confirmation.
-- Failed: payment or validation failure.
+This document previously described a conceptual lifecycle (Inquiry/Quote/Held/etc.). The **implemented**
+database lifecycle for accommodation bookings is the `AccommodationBookingStatus` enum in Prisma:
+
+- `PENDING`: booking created, inventory reserved for a limited time (hold expiry applies)
+- `BOOKED`: payment captured/recorded, awaiting property/operator confirmation
+- `CONFIRMED`: property/operator confirmed
+- `CHECKED_IN`: guest arrived
+- `CHECKED_OUT`: guest departed
+- `CANCELLED`: cancelled by guest/operator/system
+- `NO_SHOW`: guest did not arrive
+
+Anything not listed above is **not represented as a first-class booking status** yet.
 
 ### Automated Flow (Typical)
 
 ```mermaid
 stateDiagram-v2
-  [*] --> Draft
-  Draft --> HoldRequested
-  HoldRequested --> Held
-  Held --> PendingPayment
-  PendingPayment --> Confirmed
-  PendingPayment --> Failed
-  Held --> Expired
-  Confirmed --> Cancelled
-  Failed --> [*]
-  Expired --> [*]
-  Cancelled --> [*]
+  [*] --> PENDING
+  PENDING --> BOOKED
+  BOOKED --> CONFIRMED
+  CONFIRMED --> CHECKED_IN
+  CHECKED_IN --> CHECKED_OUT
+  PENDING --> CANCELLED
+  BOOKED --> CANCELLED
+  CONFIRMED --> CANCELLED
 ```
 
 ### Manual Confirmation Flow
 
 ```mermaid
 stateDiagram-v2
-  [*] --> Inquiry
-  Inquiry --> QuoteIssued
-  QuoteIssued --> HoldRequested
-  HoldRequested --> Held
-  Held --> AwaitingVendorConfirmation
-  AwaitingVendorConfirmation --> PendingPayment
-  PendingPayment --> AwaitingManualPayment
-  AwaitingManualPayment --> Confirmed
-  Confirmed --> ChangeRequested
-  ChangeRequested --> Reconfirmed
-  QuoteIssued --> Expired
-  Held --> Expired
-  PendingPayment --> Failed
+  [*] --> PENDING
+  PENDING --> BOOKED
+  BOOKED --> CONFIRMED
+  CONFIRMED --> CANCELLED
 ```
 
 ### Invariants
 
-- A booking cannot be confirmed without a valid hold and price snapshot.
-- Manual approvals must be audited (who, when, reason).
-- Quote expiries are enforced; re-quoting generates a new snapshot.
-- Hold extensions are manual-only and recorded.
+- A booking should not be moved forward in the lifecycle without an immutable price snapshot (`BookingPriceSnapshot`).
+- Holds expire; pending bookings must be cancelled when the hold expires (worker expiry job).
+- Booking status transitions should be append-only and audited (status history table exists).
 
 ## Tour Booking Lifecycle
 

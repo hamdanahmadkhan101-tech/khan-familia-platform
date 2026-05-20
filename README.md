@@ -1,7 +1,7 @@
 # Khan Familia Platform
 
 Production-grade modular monorepo foundation for a multi-tenant OTA + PMS + tour operations platform.
-This repository currently contains infrastructure and scaffolding only (no business logic, no schema).
+This repository contains infrastructure scaffolding **and** a first-pass **Prisma + PostgreSQL** schema foundation for MVP domains (accommodations + tours), with minimal runtime implementation (API health/auth/tenant middleware, worker jobs).
 
 ## Goals
 

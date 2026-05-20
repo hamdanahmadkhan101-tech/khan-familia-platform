@@ -11,70 +11,76 @@ separate domain from property booking.
 ### Vendor Management
 
 - Purpose: vendor onboarding, compliance, and ownership of catalogs.
-- Aggregates: Vendor, VendorProfile, PayoutProfile.
+- Aggregates (implemented): Tenant, TenantUser, TenantInvite, TenantApplication.
+- Aggregates (planned): PayoutProfile and payout automation.
 - Invariants: a vendor must be approved before publishing inventory; ownership boundaries are strict.
 - Interactions: provides vendor identity to Inventory and Tour contexts.
 
 ### Property Inventory
 
 - Purpose: property catalog, unit types, capacity, and availability.
-- Aggregates: Property, UnitType, Unit, AvailabilitySnapshot.
+- Aggregates (implemented): Property, UnitType, UnitInventory, PropertyHold.
+- Aggregates (planned): Unit (physical rooms), AvailabilitySnapshot exports/materializations.
 - Invariants: inventory is owned by a vendor; availability cannot be negative.
 - Interactions: supplies availability to Property Booking and Pricing.
 
 ### Property Booking
 
 - Purpose: guest reservations for property stays.
-- Aggregates: PropertyBooking, BookingGuest.
+- Aggregates (implemented): AccommodationBooking, BookingGuest, Reservation, BookingPriceSnapshot.
 - Invariants: bookings require a valid hold and price snapshot; overlap is prevented by availability.
 - Interactions: consumes Inventory, Pricing, and Payments.
 
 ### Tour Product
 
 - Purpose: tour packages, itineraries, and departure schedules.
-- Aggregates: TourProduct, Departure.
+- Aggregates (implemented): TourPackage, TourDeparture, TourItineraryDay.
 - Invariants: departures are owned by a vendor; capacity is per departure.
 - Interactions: supplies availability to Tour Booking and Pricing.
 
 ### Tour Booking
 
 - Purpose: guest reservations for tour departures.
-- Aggregates: TourBooking, Participant.
+- Aggregates (implemented): TourBooking (participants are represented by `numberOfPeople` for now).
 - Invariants: bookings require a valid hold and price snapshot; capacity cannot be exceeded.
 - Interactions: consumes Tour Product, Pricing, and Payments.
 
 ### Inquiry and Operations
 
 - Purpose: handle inquiries, quotes, negotiations, and manual tasking.
-- Aggregates: Inquiry, Quote, ManualTask.
+- Aggregates (implemented): PropertyInquiry, SupportTicket, AuditLog.
+- Aggregates (planned): Quote and ManualTask.
 - Invariants: quotes expire; manual overrides are audited.
 - Interactions: feeds Booking, Pricing, and Vendor contexts.
 
 ### Pricing and Offers
 
 - Purpose: compute prices from rate plans, seasonal rules, fees, and taxes.
-- Aggregates: RatePlan, PriceRule, FeeSchedule.
+- Aggregates (planned): RatePlan, PriceRule, FeeSchedule.
 - Invariants: pricing is deterministic for a given snapshot and rule set.
 - Interactions: provides price snapshots to booking contexts.
 
 ### Payments and Payouts
 
 - Purpose: payment intents, captures, refunds, and vendor payouts.
-- Aggregates: PaymentIntent, Refund, PayoutBatch.
+- Aggregates (implemented): PaymentIntent, PaymentRecord, Refund.
+- Aggregates (planned): PayoutBatch / payout automation.
 - Invariants: a booking must have exactly one active payment intent at a time.
 - Interactions: consumes Booking data, exposes payment status.
 
 ### Admin Moderation
 
 - Purpose: review vendors and listings, enforce policies.
-- Aggregates: ModerationCase.
+- Aggregates (implemented): Property approval and tenant application review are modeled via status fields (PropertyApprovalStatus, TenantApplicationStatus) + AuditLog.
+- Aggregates (planned): ModerationCase.
 - Invariants: only moderators can change approval state.
 - Interactions: reads Vendor, Property Inventory, Tour Product.
 
 ### Identity and Access
 
 - Purpose: roles and permissions across the platform.
-- Aggregates: RoleAssignment.
+- Aggregates (implemented): PlatformRole enum (User/Super Admin), TenantRole enum (Owner/Admin/Staff) via TenantUser.
+- Aggregates (planned): permission tables and role assignments.
 - Invariants: least-privilege access; vendor users cannot access other vendors.
 - Interactions: used by all contexts for authorization decisions.
 

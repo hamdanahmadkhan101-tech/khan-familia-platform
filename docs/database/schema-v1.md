@@ -6,22 +6,32 @@ This document is the canonical translation layer between the domain design and t
 
 - Accommodation bookings and tour bookings remain separate aggregates for MVP.
 - Every tenant-owned operational table must carry an explicit `tenantId`.
-- Platform roles remain minimal: `USER` and `PLATFORM_ADMIN` only.
+- Platform roles remain minimal: `USER` and `SUPER_ADMIN` only.
 - Tenant roles remain pragmatic now, but the schema must leave a clean path to permission-based RBAC later.
 - Middleware is only one enforcement layer; repository and service queries must also scope by tenant.
 - Soft delete is allowed only for archive-friendly operational catalog rows.
 - Audit logs remain append-only.
-- Inventory is quantity-based for MVP and `RoomInventory` remains the source of truth.
+- Inventory is quantity-based for MVP and `UnitInventory` remains the source of truth.
 - Denormalized caches are allowed only for search/performance fields such as `Property.minPricePerNight` and `Property.averageRating`.
 - Single currency ledger for MVP, stored in minor units.
 
 ## Reconciliation with the current schema
 
-Use the current schema as a compatibility reference only. The target concepts are:
+Use the current schema as a compatibility reference only.
+
+Naming bridge (legacy → implemented):
+
+- Vendor → `Tenant`
+- VendorUser / TenantMembership → `TenantUser`
+- RoomCategory → `UnitType`
+- RoomInventory / PropertyInventoryDay → `UnitInventory`
+- Booking → `AccommodationBooking`
+
+The target concepts are:
 
 - `TenantUser` becomes the tenant membership boundary; it should eventually evolve toward a user-tenant-role model.
-- `RoomCategory` is conceptually the same as `UnitType`.
-- `RoomInventory` remains the authoritative availability ledger.
+- `UnitType` is the sellable inventory class.
+- `UnitInventory` remains the authoritative availability ledger.
 - `Reservation` remains the immutable per-night lock/audit record.
 - `Booking` becomes `AccommodationBooking`.
 - `TourAvailability` becomes `TourDeparture`.
@@ -35,16 +45,19 @@ Use the current schema as a compatibility reference only. The target concepts ar
 ### Platform roles
 
 - `USER`
-- `PLATFORM_ADMIN`
+- `SUPER_ADMIN`
 
 ### Tenant roles
 
+Implemented (current Prisma enum `TenantRole`):
+
 - `OWNER`
-- `OPERATIONS`
-- `FINANCE`
-- `SUPPORT`
-- `MARKETING`
-- `AUDITOR`
+- `ADMIN`
+- `STAFF`
+
+Planned (not implemented as DB roles yet):
+
+- `OPERATIONS`, `FINANCE`, `SUPPORT`, `MARKETING`, `AUDITOR`
 
 ### RBAC direction
 
@@ -65,16 +78,17 @@ Use the current schema as a compatibility reference only. The target concepts ar
 - TenantInvite
   - invitation lifecycle for tenant onboarding, scoped by tenantId
 
-### Vendor and catalog
+### Tenant and catalog
 
-- Vendor
-  - id, tenantId, name, legal_name, status, payout_profile_id
+Note: the current Prisma schema does not implement a separate `Vendor` table. `Tenant` is the vendor/workspace concept.
+
+- Tenant
 - Property
-  - id, tenantId, vendorId, title, slug, status, location_json
+  - id, tenantId, title/name, slug, status/approval, location fields
 - UnitType
   - id, propertyId, code, title, capacity, default_rate_minor
-- PropertyInventoryDay
-  - id, unitTypeId, date, total_quantity, locked_quantity, booked_quantity
+- UnitInventory
+  - id, propertyId, unitTypeId, date, totalCount, availableCount, bookedCount, blockedCount
 - PropertyHold
   - id, unitTypeId, tenantId, hold_token, start_date, end_date, quantity, status, expires_at, idempotency_key
 

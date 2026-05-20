@@ -4,8 +4,9 @@ This document explains the foundational architecture choices for the platform an
 
 ## Scope
 
-The repository is a modular monolith focused on shared foundations only. Business logic, database
-schemas, and feature modules are intentionally excluded at this stage.
+The repository is a modular monolith focused on shared foundations first. The repo now also includes a **Prisma + PostgreSQL schema foundation** under `packages/database/prisma/schema.prisma`, plus minimal API/worker runtime scaffolding.
+
+Feature modules (domain services, repositories, and HTTP routes) are still intentionally minimal and should be introduced with strict boundaries (see `docs/domain/bounded-contexts.md`).
 
 ## Major Decisions and Rationale
 

@@ -22,6 +22,11 @@ future enhancement.
   - Confirmed bookings
 - Availability snapshots are used by Booking and Pricing.
 
+Implementation note:
+
+- The current Prisma schema represents per-date inventory in `UnitInventory` with `totalCount`, `availableCount`, `bookedCount`, `blockedCount` (with a DB CHECK constraint enforcing their sum).
+- Until hold vs confirm semantics are finalized in code, `PENDING` bookings are treated as consuming inventory for the hold window (released on expiry).
+
 ### Manual Interventions
 
 - Operators can adjust inventory with reason codes.
