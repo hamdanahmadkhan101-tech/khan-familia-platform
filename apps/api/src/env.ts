@@ -11,14 +11,31 @@ const envSchema = z.object({
   // Database
   DATABASE_URL: z.string().url(),
 
-  // Redis
+  // Redis (TLS auto-enabled for *.upstash.io unless REDIS_TLS=false)
   REDIS_HOST: z.string().default('localhost'),
   REDIS_PORT: z.coerce.number().int().default(6379),
   REDIS_PASSWORD: z.string().optional(),
+  REDIS_TLS: z
+    .string()
+    .optional()
+    .transform((s) => {
+      if (s === undefined || s === '') {
+        return undefined;
+      }
+      if (s === 'true' || s === '1') {
+        return true;
+      }
+      if (s === 'false' || s === '0') {
+        return false;
+      }
+      return undefined;
+    }),
 
   // Clerk Authentication
   CLERK_SECRET_KEY: z.string(),
   CLERK_PUBLISHABLE_KEY: z.string(),
+  /** Signing secret from Clerk Dashboard → Webhooks → your endpoint (whsec_...) */
+  CLERK_WEBHOOK_SECRET: z.string().min(1).optional(),
 
   // Stripe Payments
   STRIPE_SECRET_KEY: z.string(),
@@ -29,8 +46,8 @@ const envSchema = z.object({
   CLOUDINARY_API_KEY: z.string(),
   CLOUDINARY_API_SECRET: z.string(),
 
-  // Svix Webhooks
-  SVIX_API_KEY: z.string(),
+  // Reserved for future Svix-backed integrations (optional)
+  SVIX_API_KEY: z.string().optional(),
 
   // Resend Email
   RESEND_API_KEY: z.string(),
