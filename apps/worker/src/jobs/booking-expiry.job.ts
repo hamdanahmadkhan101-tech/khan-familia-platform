@@ -1,18 +1,16 @@
+import { releaseReservedInventoryForStay } from '@khan-familia/database';
+
 import { logger } from '../logger.js';
 import { prisma, type Prisma } from '../infrastructure/database/client.js';
 import type { BookingExpiryJobPayload } from '../shared/types/jobs.js';
 
 /**
- * Handle booking expiry: release hold and revert booking to CANCELLED.
- * Release inventory that was reserved during the hold period.
+ * Handle booking expiry: cancel PENDING booking and release reserved inventory.
  */
 export const handleBookingExpiryJob = async (payload: BookingExpiryJobPayload) => {
   logger.info({ bookingId: payload.bookingId }, 'Processing booking expiry job');
 
   try {
-    // Transaction to atomically:
-    // 1. Cancel booking if still PENDING
-    // 2. Release reserved inventory
     await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const booking = await tx.accommodationBooking.findUnique({
         where: { id: payload.bookingId },
@@ -39,34 +37,18 @@ export const handleBookingExpiryJob = async (payload: BookingExpiryJobPayload) =
         return;
       }
 
-      // Cancel the booking
       await tx.accommodationBooking.update({
         where: { id: payload.bookingId },
         data: { status: 'CANCELLED', cancellationDate: new Date() },
       });
 
-      // Release reserved inventory
       if (booking.unitTypeId) {
-        const inventoryRecords = await tx.unitInventory.findMany({
-          where: {
-            propertyId: booking.propertyId,
-            unitTypeId: booking.unitTypeId,
-            date: {
-              gte: booking.checkIn,
-              lt: booking.checkOut,
-            },
-          },
+        await releaseReservedInventoryForStay(tx, {
+          propertyId: booking.propertyId,
+          unitTypeId: booking.unitTypeId,
+          checkIn: booking.checkIn,
+          checkOut: booking.checkOut,
         });
-
-        for (const inv of inventoryRecords) {
-          await tx.unitInventory.update({
-            where: { id: inv.id },
-            data: {
-              bookedCount: Math.max(0, inv.bookedCount - 1),
-              availableCount: inv.availableCount + 1,
-            },
-          });
-        }
       }
 
       logger.info({ bookingId: payload.bookingId }, 'Booking expiry handled successfully');
