@@ -2,6 +2,7 @@ export { ADMIN_MODULE } from './admin/index.js';
 export { BOOKING_MODULE } from './booking/index.js';
 export { CATALOG_MODULE } from './catalog/index.js';
 export { IAM_MODULE } from './iam/index.js';
+export { iamRouter } from './iam/routes.js';
 export { INVENTORY_MODULE } from './inventory/index.js';
 export { PAYMENTS_MODULE } from './payments/index.js';
 export { TENANCY_MODULE } from './tenancy/index.js';

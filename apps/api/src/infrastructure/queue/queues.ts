@@ -1,6 +1,4 @@
-import type { ConnectionOptions } from 'bullmq';
-
-import { redis } from '../cache/redis.js';
+import { getBullMqConnectionOptions } from '../cache/redis.js';
 
 // ============================================================================
 // Job Type Definitions
@@ -36,11 +34,7 @@ export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
 // ============================================================================
 
 export const getQueueConfig = (name: QueueName) => {
-  const connectionOptions: ConnectionOptions = {
-    host: redis.options.host || 'localhost',
-    port: redis.options.port || 6379,
-    ...(redis.options.password ? { password: redis.options.password } : {}),
-  };
+  const connectionOptions = getBullMqConnectionOptions();
 
   return {
     name,

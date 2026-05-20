@@ -1,7 +1,7 @@
-import type { ConnectionOptions, Worker as BullWorker } from 'bullmq';
+import type { Worker as BullWorker } from 'bullmq';
 import { Worker } from 'bullmq';
 
-import { redis } from '../cache/redis.js';
+import { getBullMqConnectionOptions } from '../cache/redis.js';
 
 /**
  * Simple job processor registry for the worker.
@@ -22,12 +22,7 @@ export const registerProcessor = <T>(queueName: string, processor: JobProcessor<
  */
 export const startWorker = async (): Promise<BullWorker[]> => {
   const workers: BullWorker[] = [];
-
-  const connectionOptions: ConnectionOptions = {
-    host: redis.options.host || 'localhost',
-    port: redis.options.port || 6379,
-    ...(redis.options.password ? { password: redis.options.password } : {}),
-  };
+  const connectionOptions = getBullMqConnectionOptions();
 
   for (const [queueName, processor] of processors.entries()) {
     const worker = new Worker(queueName, async (job) => processor(job.data), {

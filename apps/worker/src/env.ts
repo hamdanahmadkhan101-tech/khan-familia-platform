@@ -14,6 +14,21 @@ const envSchema = z.object({
   REDIS_HOST: z.string().default('localhost'),
   REDIS_PORT: z.coerce.number().int().default(6379),
   REDIS_PASSWORD: z.string().optional(),
+  REDIS_TLS: z
+    .string()
+    .optional()
+    .transform((s) => {
+      if (s === undefined || s === '') {
+        return undefined;
+      }
+      if (s === 'true' || s === '1') {
+        return true;
+      }
+      if (s === 'false' || s === '0') {
+        return false;
+      }
+      return undefined;
+    }),
 
   // Resend Email
   RESEND_API_KEY: z.string(),

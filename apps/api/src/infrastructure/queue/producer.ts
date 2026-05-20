@@ -1,6 +1,6 @@
-import { Queue, type ConnectionOptions } from 'bullmq';
+import { Queue } from 'bullmq';
 
-import { redis } from '../cache/redis.js';
+import { getBullMqConnectionOptions } from '../cache/redis.js';
 import {
   QUEUE_NAMES,
   type BookingExpiryJobPayload,
@@ -16,16 +16,10 @@ const queueCache = new Map<QueueName, Queue>();
 
 const getQueue = (name: QueueName): Queue => {
   if (!queueCache.has(name)) {
-    const connectionOptions: ConnectionOptions = {
-      host: redis.options.host || 'localhost',
-      port: redis.options.port || 6379,
-      ...(redis.options.password ? { password: redis.options.password } : {}),
-    };
-
     queueCache.set(
       name,
       new Queue(name, {
-        connection: connectionOptions,
+        connection: getBullMqConnectionOptions(),
       }),
     );
   }
