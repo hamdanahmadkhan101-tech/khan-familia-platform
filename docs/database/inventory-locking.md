@@ -9,7 +9,9 @@ This repo currently has **two hold-related mechanisms**:
 
 Until the booking module is fully implemented, the **worker expiry job** assumes inventory is reserved during the `PENDING` period and must be released if the booking expires/cancels.
 
-MVP guidance: pick **one** hold primitive and make booking confirmation validate hold ownership.
+**MVP decision (implemented path):** `AccommodationBooking` with `status=PENDING` and `holdExpiresAt` is the canonical hold. Inventory is reserved for the stay window while `PENDING` and released on expiry/cancel via the worker job.
+
+`PropertyHold` remains in the schema for a possible pre-checkout flow later; do not use it in parallel with `PENDING` bookings until a conversion path is implemented.
 
 ## Tour Capacity Holds
 

@@ -1,15 +1,21 @@
 import type { Request } from 'express';
 
 export interface AuthPayload {
-  sub: string; // user id
+  /** Clerk subject (`sub` claim) — not the internal User.id. */
+  sub: string;
   [key: string]: unknown;
 }
 
 export interface AuthenticatedRequest extends Request {
   auth: AuthPayload;
+  /** Internal User.id (cuid), set by resolveInternalUser middleware. */
+  userId?: string;
+  /** Clerk subject, duplicated for convenience after resolveInternalUser. */
+  clerkId?: string;
 }
 
 export interface TenantRequest extends AuthenticatedRequest {
+  userId: string;
   tenantId: string;
 }
 
@@ -18,5 +24,9 @@ export const isAuthenticatedRequest = (req: Request): req is AuthenticatedReques
 };
 
 export const isTenantRequest = (req: Request): req is TenantRequest => {
-  return isAuthenticatedRequest(req) && 'tenantId' in req;
+  return (
+    isAuthenticatedRequest(req) &&
+    typeof req.userId === 'string' &&
+    typeof (req as TenantRequest).tenantId === 'string'
+  );
 };

@@ -118,7 +118,7 @@ enum AmenityCategory {
   BOTH
 }
 
-// 7-state booking lifecycle — mirrors BOOKING_STATUS in shared/constants/booking.ts
+// 7-state booking lifecycle — re-exported from @khan-familia/database (Prisma enum)
 enum AccommodationBookingStatus {
   PENDING // Created, inventory held, awaiting payment
   BOOKED // Payment captured, awaiting property confirmation

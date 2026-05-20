@@ -6,7 +6,7 @@ import type { AuthenticatedRequest, TenantRequest } from '../types/request.js';
 
 /**
  * Middleware to resolve tenantId from authenticated request.
- * Requires auth to be present; use after authenticateRequired.
+ * Requires auth + internal user; use after authenticateRequired and resolveInternalUser.
  *
  * Resolution order:
  * 1. Query param: ?tenantId=xyz
@@ -22,13 +22,15 @@ export const resolveTenant = async (
     throw AppError.unauthorized('Authentication required');
   }
 
-  // Check query param or header
+  if (!req.userId) {
+    throw AppError.unauthorized('Internal user context required; use resolveInternalUser first');
+  }
+
   let tenantId = (req.query['tenantId'] as string) || (req.headers['x-tenant-id'] as string);
 
   if (!tenantId) {
-    // Resolve default tenant
     const user = await prisma.user.findUnique({
-      where: { id: req.auth.sub },
+      where: { id: req.userId },
       select: { defaultTenantId: true },
     });
 
@@ -39,10 +41,9 @@ export const resolveTenant = async (
     tenantId = user.defaultTenantId;
   }
 
-  // Verify user has access to this tenant
   const tenantMember = await prisma.tenantUser.findFirst({
     where: {
-      userId: req.auth.sub,
+      userId: req.userId,
       tenantId,
       status: 'ACTIVE',
     },
@@ -52,6 +53,7 @@ export const resolveTenant = async (
     throw AppError.forbidden('Access denied to this tenant');
   }
 
-  (req as TenantRequest).tenantId = tenantId;
+  const tenantRequest = req as TenantRequest;
+  tenantRequest.tenantId = tenantId;
   next();
 };
