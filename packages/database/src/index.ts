@@ -4,9 +4,13 @@ export {
   AccommodationBookingStatus,
   BookingChannel,
   BookingType,
+  BusinessVertical,
   PaymentStatus,
   PlatformRole,
+  TenantInviteStatus,
   TenantRole,
+  TenantStatus,
+  TenantUserStatus,
 } from '@prisma/client';
 export * from './repositories/index.js';
 export { releaseReservedInventoryForStay } from './inventory/release-reserved-inventory.js';

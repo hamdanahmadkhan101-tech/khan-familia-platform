@@ -1,3 +1,4 @@
+import type { TenantRole } from '@khan-familia/database';
 import type { Request } from 'express';
 
 export interface AuthPayload {
@@ -17,6 +18,8 @@ export interface AuthenticatedRequest extends Request {
 export interface TenantRequest extends AuthenticatedRequest {
   userId: string;
   tenantId: string;
+  /** Set by resolveTenant from TenantUser membership. */
+  tenantRole: TenantRole;
 }
 
 export const isAuthenticatedRequest = (req: Request): req is AuthenticatedRequest => {

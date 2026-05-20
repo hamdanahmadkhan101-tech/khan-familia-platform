@@ -54,6 +54,8 @@ export const resolveTenant = async (
   }
 
   const tenantRequest = req as TenantRequest;
+  tenantRequest.userId = req.userId;
   tenantRequest.tenantId = tenantId;
+  tenantRequest.tenantRole = tenantMember.role;
   next();
 };
