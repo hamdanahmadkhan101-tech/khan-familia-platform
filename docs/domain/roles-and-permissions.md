@@ -2,24 +2,27 @@
 
 ## Roles (MVP)
 
-- PlatformAdmin
-- Moderator
-- OperationsAgent
-- VendorAdmin
-- VendorStaff
-- Customer
+The current Prisma schema implements a minimal **two-tier** RBAC model:
+
+### Platform roles (`PlatformRole`)
+
+- `USER`
+- `SUPER_ADMIN`
+
+### Tenant roles (`TenantRole`)
+
+- `OWNER`
+- `ADMIN`
+- `STAFF`
+
+Note: richer platform roles (Moderator/OperationsAgent) and permission matrices are planned but are **not implemented** as first-class DB tables yet.
 
 ## Permission Matrix (High Level)
 
-| Capability             | PlatformAdmin | Moderator | OperationsAgent | VendorAdmin | VendorStaff | Customer  |
-| ---------------------- | ------------- | --------- | --------------- | ----------- | ----------- | --------- |
-| Approve vendors        | Yes           | Yes       | No              | No          | No          | No        |
-| Publish inventory      | Yes           | Yes       | No              | Yes         | Limited     | No        |
-| Manage pricing         | Yes           | No        | Limited         | Yes         | Limited     | No        |
-| View bookings          | Yes           | Yes       | Yes             | Yes (own)   | Yes (own)   | Yes (own) |
-| Manage bookings        | Yes           | Yes       | Yes             | Yes (own)   | Limited     | Limited   |
-| Verify manual payments | Yes           | No        | Yes             | No          | No          | No        |
-| Manage payouts         | Yes           | No        | No              | Yes (own)   | No          | No        |
+This section is intentionally **non-binding** until permission tables are introduced. For now, authorization must be expressed using:
+
+- platform role checks (`SUPER_ADMIN`)
+- tenant membership + tenant role checks (`OWNER`/`ADMIN`/`STAFF`)
 
 ## Notes
 

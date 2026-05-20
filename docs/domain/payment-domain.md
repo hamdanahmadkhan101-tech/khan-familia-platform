@@ -9,9 +9,9 @@ property and tour bookings.
 
 - PaymentIntent
 - PaymentRecord
-- ManualPaymentProof
 - Refund
-- PayoutBatch
+
+Note: `ManualPaymentProof` and `PayoutBatch` are documented concepts but are **not implemented in the current Prisma schema**.
 
 ## Supported Methods (MVP)
 
@@ -24,19 +24,14 @@ property and tour bookings.
 
 ```mermaid
 stateDiagram-v2
-  [*] --> Created
-  Created --> Authorized
-  Created --> AwaitingManualPayment
-  Created --> Failed
-  Authorized --> Captured
-  Authorized --> Cancelled
-  AwaitingManualPayment --> Verified
-  AwaitingManualPayment --> Failed
-  Verified --> Captured
-  Captured --> Refunded
-  Failed --> [*]
-  Cancelled --> [*]
-  Refunded --> [*]
+  [*] --> PENDING
+  PENDING --> PAID
+  PENDING --> FAILED
+  PENDING --> CANCELLED
+  PAID --> REFUNDED
+  FAILED --> [*]
+  CANCELLED --> [*]
+  REFUNDED --> [*]
 ```
 
 ## Manual Payment Flow
@@ -46,10 +41,11 @@ stateDiagram-v2
 3. Operator verifies and records PaymentRecord.
 4. Booking is confirmed once payment is verified.
 
+Note: The current Prisma model does not represent `AwaitingManualPayment` as a distinct status; implementers can model manual verification using `PaymentProvider=MANUAL` and `PaymentStatus=PENDING` until expanded.
+
 ## Invariants
 
 - One active payment intent per booking.
-- Capture only after booking confirmation or manual verification.
 - Manual payments must store proof and operator identity.
 - Refunds must reference a captured payment.
 
@@ -58,3 +54,5 @@ stateDiagram-v2
 - Payouts are aggregated by vendor.
 - Platform fees are deducted prior to payout.
 - Payouts are triggered after stay or tour completion.
+
+Note: payout entities are not implemented in the current Prisma schema.
