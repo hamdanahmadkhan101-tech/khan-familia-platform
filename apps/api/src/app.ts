@@ -4,6 +4,7 @@ import { requestLogger } from './logger.js';
 import { notFoundHandler } from './middleware/not-found.js';
 import { clerkWebhookHandler } from './modules/iam/clerk-webhook.js';
 import { iamRouter } from './modules/iam/routes.js';
+import { catalogAdminRouter, catalogRouter } from './modules/catalog/routes.js';
 import { tenancyRouter } from './modules/tenancy/routes.js';
 import { healthRouter } from './routes/health.js';
 import { errorHandler } from './shared/middleware/error.js';
@@ -26,6 +27,8 @@ export const createApp = () => {
   app.use('/health', healthRouter);
   app.use('/iam', iamRouter);
   app.use('/tenants', tenancyRouter);
+  app.use('/properties', catalogRouter);
+  app.use('/admin/properties', catalogAdminRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

@@ -26,6 +26,25 @@ Express 5 + TypeScript scaffold with structured logging.
 - `DELETE /tenants/:tenantId/invites/:inviteId` — revoke invite (OWNER/ADMIN)
 - `DELETE /tenants/:tenantId/members/:userId` — remove member (OWNER/ADMIN)
 
+### Catalog (tenant context: `X-Tenant-ID` or default tenant)
+
+- `POST /properties` — create property (OWNER/ADMIN); starts `PENDING` approval
+- `GET /properties` — list tenant properties (OWNER/ADMIN/STAFF)
+- `GET /properties/:propertyId` — property details
+- `PATCH /properties/:propertyId` — update (OWNER/ADMIN); rejected → back to `PENDING`
+- `DELETE /properties/:propertyId` — soft delete (OWNER/ADMIN)
+- `POST /properties/:propertyId/unit-types` — create unit type (OWNER/ADMIN)
+- `GET /properties/:propertyId/unit-types` — list unit types
+- `GET /properties/:propertyId/unit-types/:unitTypeId` — unit type details
+- `PATCH /properties/:propertyId/unit-types/:unitTypeId` — update unit type
+- `DELETE /properties/:propertyId/unit-types/:unitTypeId` — delete (blocked if inventory/bookings exist)
+
+### Platform moderation (`User.role` = `SUPER_ADMIN`)
+
+- `GET /admin/properties/pending` — list properties awaiting approval
+- `POST /admin/properties/:propertyId/approve` — approve listing
+- `POST /admin/properties/:propertyId/reject` — reject with `{ "reason": "..." }`
+
 ## Environment
 
 Copy apps/api/.env.example to apps/api/.env and adjust as needed.

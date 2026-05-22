@@ -7,10 +7,11 @@ platform provides onboarding, moderation, and payment facilitation.
 
 ## Vendor Onboarding (MVP)
 
-- Account creation
-- Business profile submission
-- Payout setup
-- Admin moderation approval
+- Account creation (Clerk + `User` sync)
+- **Implemented:** self-serve workspace via `POST /tenants` (user becomes OWNER)
+- **Planned:** `TenantApplication` submission and admin approval before tenant creation
+- Payout setup (planned)
+- Property listing moderation via `Property.approvalStatus` (API implemented; booking/public gating planned)
 
 ## Vendor Responsibilities
 

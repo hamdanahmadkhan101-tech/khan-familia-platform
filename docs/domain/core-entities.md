@@ -11,11 +11,14 @@
 
 - Represents a property listing.
 - Contains unit types.
+- API (implemented): create/list/get/update/soft-delete under `/properties` (tenant context via `X-Tenant-ID` or default tenant).
+- New listings start with `approvalStatus=PENDING`; rejected listings return to `PENDING` on tenant update.
 
 ### UnitType
 
 - Defines a sellable inventory class (e.g., Standard Room).
 - Contains capacity and pricing defaults.
+- API (implemented): CRUD under `/properties/:propertyId/unit-types` (delete blocked when inventory rows or bookings exist).
 
 ### Unit
 
