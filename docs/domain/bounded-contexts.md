@@ -11,15 +11,20 @@ separate domain from property booking.
 ### Vendor Management
 
 - Purpose: vendor onboarding, compliance, and ownership of catalogs.
-- Aggregates (implemented): Tenant, TenantUser, TenantInvite, TenantApplication.
+- Aggregates (implemented): Tenant, TenantUser, TenantInvite, TenantApplication (schema only).
+- API (implemented): `POST/GET/PATCH /tenants`, invites, members (`apps/api/src/modules/tenancy`).
+- API (planned): `TenantApplication` submit/review before tenant creation.
+- Note (MVP): `POST /tenants` is self-serve today (caller becomes OWNER); platform approval of vendors is **not** enforced yet.
 - Aggregates (planned): PayoutProfile and payout automation.
-- Invariants: a vendor must be approved before publishing inventory; ownership boundaries are strict.
+- Invariants: a vendor must be approved before publishing inventory (enforcement planned); ownership boundaries are strict.
 - Interactions: provides vendor identity to Inventory and Tour contexts.
 
 ### Property Inventory
 
 - Purpose: property catalog, unit types, capacity, and availability.
 - Aggregates (implemented): Property, UnitType, UnitInventory, PropertyHold.
+- API (implemented): tenant-scoped property + unit type CRUD under `/properties` (`apps/api/src/modules/catalog`).
+- API (planned): `UnitInventory` horizon management, public discovery/search.
 - Aggregates (planned): Unit (physical rooms), AvailabilitySnapshot exports/materializations.
 - Invariants: inventory is owned by a vendor; availability cannot be negative.
 - Interactions: supplies availability to Property Booking and Pricing.
@@ -72,6 +77,8 @@ separate domain from property booking.
 
 - Purpose: review vendors and listings, enforce policies.
 - Aggregates (implemented): Property approval and tenant application review are modeled via status fields (PropertyApprovalStatus, TenantApplicationStatus) + AuditLog.
+- API (implemented): `GET /admin/properties/pending`, `POST /admin/properties/:id/approve|reject` (`SUPER_ADMIN` via `User.role`).
+- API (planned): tenant application review endpoints; public/booking enforcement of `APPROVED` listings.
 - Aggregates (planned): ModerationCase.
 - Invariants: only moderators can change approval state.
 - Interactions: reads Vendor, Property Inventory, Tour Product.
