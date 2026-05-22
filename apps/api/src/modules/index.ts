@@ -6,3 +6,4 @@ export { iamRouter } from './iam/routes.js';
 export { INVENTORY_MODULE } from './inventory/index.js';
 export { PAYMENTS_MODULE } from './payments/index.js';
 export { TENANCY_MODULE } from './tenancy/index.js';
+export { tenancyRouter } from './tenancy/routes.js';
