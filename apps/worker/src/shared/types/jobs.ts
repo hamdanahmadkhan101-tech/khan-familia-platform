@@ -14,11 +14,19 @@ export interface NotificationJobPayload {
   data: Record<string, unknown>;
 }
 
-export type JobPayload = BookingExpiryJobPayload | NotificationJobPayload;
+export interface InventoryHorizonJobPayload {
+  propertyId: string;
+}
+
+export type JobPayload =
+  | BookingExpiryJobPayload
+  | NotificationJobPayload
+  | InventoryHorizonJobPayload;
 
 export const QUEUE_NAMES = {
   BOOKING_EXPIRY: 'booking-expiry',
   NOTIFICATIONS: 'notifications',
+  INVENTORY_HORIZON: 'inventory-horizon',
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
