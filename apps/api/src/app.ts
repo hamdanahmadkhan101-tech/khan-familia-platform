@@ -1,5 +1,10 @@
 import express from 'express';
+import compression from 'compression';
+import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 
+import { env } from './env.js';
 import { requestLogger } from './logger.js';
 import { notFoundHandler } from './middleware/not-found.js';
 import { clerkWebhookHandler } from './modules/iam/clerk-webhook.js';
@@ -9,16 +14,48 @@ import { tenancyRouter } from './modules/tenancy/routes.js';
 import { healthRouter } from './routes/health.js';
 import { errorHandler } from './shared/middleware/error.js';
 
+const allowedOrigins = [env.CORS_ORIGIN, ...(env.CORS_ORIGINS?.split(',') ?? [])]
+  .filter((origin): origin is string => typeof origin === 'string' && origin.trim().length > 0)
+  .map((origin) => origin.trim());
+
+const corsOptions =
+  allowedOrigins.length > 0
+    ? {
+        origin: allowedOrigins,
+        credentials: true,
+      }
+    : {
+        origin: false,
+      };
+
+const rateLimiter = rateLimit({
+  windowMs: env.RATE_LIMIT_WINDOW_MS,
+  limit: env.RATE_LIMIT_MAX,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.path === '/health' || req.path === '/webhooks/clerk',
+});
+
 export const createApp = () => {
   const app = express();
 
   app.disable('x-powered-by');
+  app.set('trust proxy', 1);
+
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      crossOriginEmbedderPolicy: false,
+    }),
+  );
+  app.use(cors(corsOptions));
+  app.use(compression());
+  app.use(requestLogger);
+  app.use(rateLimiter);
+  app.use(express.json({ limit: '1mb' }));
 
   // Clerk webhooks require the raw body for Svix signature verification.
   app.post('/webhooks/clerk', express.raw({ type: 'application/json' }), clerkWebhookHandler);
-
-  app.use(express.json());
-  app.use(requestLogger);
 
   app.get('/', (_req, res) => {
     res.status(200).json({ status: 'ok' });
