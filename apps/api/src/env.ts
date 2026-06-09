@@ -8,6 +8,12 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(3001),
   NODE_ENV: z.enum(['development', 'staging', 'production']).default('development'),
 
+  // HTTP
+  CORS_ORIGIN: z.string().url().optional(),
+  CORS_ORIGINS: z.string().optional(),
+  RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
+  RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
+
   // Database
   DATABASE_URL: z.string().url(),
 

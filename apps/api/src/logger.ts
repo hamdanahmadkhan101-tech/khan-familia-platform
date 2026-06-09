@@ -1,5 +1,6 @@
 import pino from 'pino';
-import type { NextFunction, Request, Response } from 'express';
+import { pinoHttp, type GenReqId } from 'pino-http';
+import { randomUUID } from 'node:crypto';
 
 import { SERVICE_NAMES } from '@khan-familia/constants';
 
@@ -11,22 +12,26 @@ export const logger = pino({
   base: { service: SERVICE_NAMES.api, appEnv: env.APP_ENV },
 });
 
-export const requestLogger = (req: Request, res: Response, next: NextFunction) => {
-  const startedAt = Date.now();
+const generateRequestId: GenReqId = (req, res) => {
+  const requestIdHeader = req.headers['x-request-id'];
 
-  res.on('finish', () => {
-    const durationMs = Date.now() - startedAt;
+  if (typeof requestIdHeader === 'string' && requestIdHeader.length > 0) {
+    return requestIdHeader;
+  }
 
-    logger.info(
-      {
-        method: req.method,
-        path: req.originalUrl,
-        statusCode: res.statusCode,
-        durationMs,
-      },
-      'request completed',
-    );
-  });
+  if (Array.isArray(requestIdHeader) && requestIdHeader[0]) {
+    return requestIdHeader[0];
+  }
 
-  next();
+  return req.id ?? res.getHeader('x-request-id')?.toString() ?? randomUUID();
 };
+
+export const requestLogger = pinoHttp({
+  logger,
+  genReqId: generateRequestId,
+  customProps: (req, res) => {
+    void res;
+
+    return { requestId: req.id };
+  },
+});
