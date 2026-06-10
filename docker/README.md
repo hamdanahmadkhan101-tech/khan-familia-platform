@@ -1,14 +1,26 @@
-# Docker Strategy (Scaffold)
+# Docker Strategy
 
-Docker support is intentionally scaffolded but not enabled yet. The intent is to keep a clear
-layout for future containerization without introducing runtime complexity during foundation work.
+The repository keeps Docker concerns split by purpose so each phase stays small and reviewable.
 
-Planned layout:
+Current layout:
 
-- docker/Dockerfile.web: web app image
-- docker/Dockerfile.api: API app image
-- docker/Dockerfile.worker: worker image
-- docker/compose.dev.yml: local development composition
+- `docker/compose.observability.yml`: local observability stack for the API
+- `docker/observability/*`: collector, Prometheus, Tempo, and Grafana provisioning files
 
-When Dockerization begins, the goal is to keep images small, deterministic, and aligned with the
-monorepo build graph managed by Turborepo.
+Planned later layout:
+
+- `docker/Dockerfile.web`: web app image
+- `docker/Dockerfile.api`: API app image
+- `docker/Dockerfile.worker`: worker image
+- `docker/compose.apps.yml`: app container runtime composition
+
+How the current observability compose works:
+
+1. The API exports traces and metrics to the local OpenTelemetry Collector over OTLP.
+2. The collector exports metrics to Prometheus and traces to Tempo.
+3. Grafana reads Prometheus and Tempo as data sources and shows the data in one UI.
+
+This compose file is intentionally separate from future app-containerization work. That lets us
+keep observability running while later adding a second compose file for the apps themselves.
+In practice, we can combine them with multiple `-f` files or a future root `compose.yml` if we
+want everything started together.
