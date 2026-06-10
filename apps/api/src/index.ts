@@ -1,3 +1,5 @@
-import { startServer } from './server.js';
+await import('./observability/register.js');
+
+const { startServer } = await import('./server.js');
 
 startServer();

@@ -1,5 +1,24 @@
 import 'dotenv/config';
+import { SERVICE_NAMES } from '@khan-familia/constants';
 import { appEnvSchema, logLevelSchema, z } from '@khan-familia/validation';
+
+const parseBooleanEnv = (value: string | undefined) => {
+  if (value === undefined || value.trim().length === 0) {
+    return false;
+  }
+
+  const normalized = value.trim().toLowerCase();
+
+  if (normalized === 'true' || normalized === '1') {
+    return true;
+  }
+
+  if (normalized === 'false' || normalized === '0') {
+    return false;
+  }
+
+  throw new Error(`Invalid boolean environment value: ${value}`);
+};
 
 const envSchema = z.object({
   // Application
@@ -13,6 +32,13 @@ const envSchema = z.object({
   CORS_ORIGINS: z.string().optional(),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
+
+  // Observability
+  OTEL_ENABLED: z.string().optional().transform(parseBooleanEnv),
+  OTEL_SERVICE_NAME: z.string().default(SERVICE_NAMES.api),
+  OTEL_EXPORTER_OTLP_ENDPOINT: z.string().url().default('http://localhost:4318'),
+  OTEL_METRICS_EXPORT_INTERVAL_MS: z.coerce.number().int().positive().default(10_000),
+  OTEL_DIAGNOSTICS: z.string().optional().transform(parseBooleanEnv),
 
   // Database
   DATABASE_URL: z.string().url(),
