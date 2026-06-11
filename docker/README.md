@@ -20,6 +20,25 @@ How the current observability compose works:
 2. The collector exports metrics to Prometheus and traces to Tempo.
 3. Grafana reads Prometheus and Tempo as data sources and shows the data in one UI.
 
+Run the local observability stack from the repository root:
+
+```bash
+docker compose -f docker/compose.observability.yml up
+```
+
+Then start the API with observability enabled:
+
+```bash
+OTEL_ENABLED=true OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 pnpm --filter @khan-familia/api dev
+```
+
+Local endpoints:
+
+- Grafana: http://localhost:3002 (`admin` / `admin`)
+- Prometheus: http://localhost:9090
+- Tempo: http://localhost:3200
+- OpenTelemetry Collector OTLP HTTP: http://localhost:4318
+
 This compose file is intentionally separate from future app-containerization work. That lets us
 keep observability running while later adding a second compose file for the apps themselves.
 In practice, we can combine them with multiple `-f` files or a future root `compose.yml` if we
