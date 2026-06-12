@@ -1,3 +1,6 @@
+// Copyright (c) 2025 Khan Familia Travels — Hamdan Ahmad Khan
+// All rights reserved.
+
 import express from 'express';
 import compression from 'compression';
 import cors from 'cors';

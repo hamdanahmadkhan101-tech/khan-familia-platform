@@ -5,9 +5,7 @@ import { authenticateRequired } from '../../shared/middleware/authenticate.js';
 import { requirePlatformRole } from '../../shared/middleware/require-platform-role.js';
 import { resolveInternalUser } from '../../shared/middleware/resolve-user.js';
 import { resolveTenant } from '../../shared/middleware/tenant.js';
-import { validateBody } from '../../shared/middleware/validate.js';
-import { validateParams } from '../../shared/middleware/validate.js';
-import type { AuthenticatedRequest, TenantRequest } from '../../shared/types/request.js';
+import { validateBody, validateParams } from '../../shared/middleware/validate.js';
 import { requireTenantRole } from '../tenancy/middleware/require-tenant-role.js';
 import {
   approveProperty,
@@ -18,10 +16,10 @@ import {
   rejectProperty,
   softDeleteProperty,
   updateProperty,
-} from './property.service.js';
+} from './property.controller.js';
 import {
-  createUnitTypeBodySchema,
   createPropertyBodySchema,
+  createUnitTypeBodySchema,
   propertyIdParamsSchema,
   rejectPropertyBodySchema,
   unitTypeParamsSchema,
@@ -34,7 +32,7 @@ import {
   getUnitType,
   listUnitTypesForProperty,
   updateUnitType,
-} from './unit-type.service.js';
+} from './unit-type.controller.js';
 
 export const catalogRouter = Router();
 export const catalogAdminRouter = Router();
@@ -60,43 +58,18 @@ catalogRouter.post(
   '/',
   ...tenantWriteChain,
   validateBody(createPropertyBodySchema),
-  async (req, res, next) => {
-    try {
-      const tenantReq = req as TenantRequest;
-      const property = await createProperty(tenantReq.tenantId, req.body);
-      res.status(201).json(property);
-    } catch (err) {
-      next(err);
-    }
-  },
+  createProperty,
 );
 
 /** List properties for the active tenant. */
-catalogRouter.get('/', ...tenantReadChain, async (req, res, next) => {
-  try {
-    const tenantReq = req as TenantRequest;
-    const properties = await listPropertiesForTenant(tenantReq.tenantId);
-    res.status(200).json({ properties });
-  } catch (err) {
-    next(err);
-  }
-});
+catalogRouter.get('/', ...tenantReadChain, listPropertiesForTenant);
 
 /** Get one property in the active tenant. */
 catalogRouter.get(
   '/:propertyId',
   ...tenantReadChain,
   validateParams(propertyIdParamsSchema),
-  async (req, res, next) => {
-    try {
-      const tenantReq = req as TenantRequest;
-      const { propertyId } = req.params as { propertyId: string };
-      const property = await getPropertyForTenant(tenantReq.tenantId, propertyId);
-      res.status(200).json(property);
-    } catch (err) {
-      next(err);
-    }
-  },
+  getPropertyForTenant,
 );
 
 /** Update a property; rejected listings return to PENDING on edit. */
@@ -105,16 +78,7 @@ catalogRouter.patch(
   ...tenantWriteChain,
   validateParams(propertyIdParamsSchema),
   validateBody(updatePropertyBodySchema),
-  async (req, res, next) => {
-    try {
-      const tenantReq = req as TenantRequest;
-      const { propertyId } = req.params as { propertyId: string };
-      const property = await updateProperty(tenantReq.tenantId, propertyId, req.body);
-      res.status(200).json(property);
-    } catch (err) {
-      next(err);
-    }
-  },
+  updateProperty,
 );
 
 /** Soft-delete a property. */
@@ -122,16 +86,7 @@ catalogRouter.delete(
   '/:propertyId',
   ...tenantWriteChain,
   validateParams(propertyIdParamsSchema),
-  async (req, res, next) => {
-    try {
-      const tenantReq = req as TenantRequest;
-      const { propertyId } = req.params as { propertyId: string };
-      await softDeleteProperty(tenantReq.tenantId, propertyId);
-      res.status(204).send();
-    } catch (err) {
-      next(err);
-    }
-  },
+  softDeleteProperty,
 );
 
 const unitTypeRouter = Router({ mergeParams: true });
@@ -141,51 +96,21 @@ unitTypeRouter.post(
   ...tenantWriteChain,
   validateParams(propertyIdParamsSchema),
   validateBody(createUnitTypeBodySchema),
-  async (req, res, next) => {
-    try {
-      const tenantReq = req as TenantRequest;
-      const { propertyId } = req.params as { propertyId: string };
-      const unitType = await createUnitType(tenantReq.tenantId, propertyId, req.body);
-      res.status(201).json(unitType);
-    } catch (err) {
-      next(err);
-    }
-  },
+  createUnitType,
 );
 
 unitTypeRouter.get(
   '/',
   ...tenantReadChain,
   validateParams(propertyIdParamsSchema),
-  async (req, res, next) => {
-    try {
-      const tenantReq = req as TenantRequest;
-      const { propertyId } = req.params as { propertyId: string };
-      const unitTypes = await listUnitTypesForProperty(tenantReq.tenantId, propertyId);
-      res.status(200).json({ unitTypes });
-    } catch (err) {
-      next(err);
-    }
-  },
+  listUnitTypesForProperty,
 );
 
 unitTypeRouter.get(
   '/:unitTypeId',
   ...tenantReadChain,
   validateParams(unitTypeParamsSchema),
-  async (req, res, next) => {
-    try {
-      const tenantReq = req as TenantRequest;
-      const { propertyId, unitTypeId } = req.params as {
-        propertyId: string;
-        unitTypeId: string;
-      };
-      const unitType = await getUnitType(tenantReq.tenantId, propertyId, unitTypeId);
-      res.status(200).json(unitType);
-    } catch (err) {
-      next(err);
-    }
-  },
+  getUnitType,
 );
 
 unitTypeRouter.patch(
@@ -193,38 +118,14 @@ unitTypeRouter.patch(
   ...tenantWriteChain,
   validateParams(unitTypeParamsSchema),
   validateBody(updateUnitTypeBodySchema),
-  async (req, res, next) => {
-    try {
-      const tenantReq = req as TenantRequest;
-      const { propertyId, unitTypeId } = req.params as {
-        propertyId: string;
-        unitTypeId: string;
-      };
-      const unitType = await updateUnitType(tenantReq.tenantId, propertyId, unitTypeId, req.body);
-      res.status(200).json(unitType);
-    } catch (err) {
-      next(err);
-    }
-  },
+  updateUnitType,
 );
 
 unitTypeRouter.delete(
   '/:unitTypeId',
   ...tenantWriteChain,
   validateParams(unitTypeParamsSchema),
-  async (req, res, next) => {
-    try {
-      const tenantReq = req as TenantRequest;
-      const { propertyId, unitTypeId } = req.params as {
-        propertyId: string;
-        unitTypeId: string;
-      };
-      await deleteUnitType(tenantReq.tenantId, propertyId, unitTypeId);
-      res.status(204).send();
-    } catch (err) {
-      next(err);
-    }
-  },
+  deleteUnitType,
 );
 
 catalogRouter.use('/:propertyId/unit-types', unitTypeRouter);
@@ -235,14 +136,7 @@ catalogAdminRouter.get(
   requireAuth,
   attachUser,
   requireSuperAdmin,
-  async (_req, res, next) => {
-    try {
-      const properties = await listPendingProperties();
-      res.status(200).json({ properties });
-    } catch (err) {
-      next(err);
-    }
-  },
+  listPendingProperties,
 );
 
 /** Approve a property (platform moderator). */
@@ -252,16 +146,7 @@ catalogAdminRouter.post(
   attachUser,
   requireSuperAdmin,
   validateParams(propertyIdParamsSchema),
-  async (req, res, next) => {
-    try {
-      const authReq = req as AuthenticatedRequest;
-      const { propertyId } = req.params as { propertyId: string };
-      const property = await approveProperty(propertyId, authReq.userId!);
-      res.status(200).json(property);
-    } catch (err) {
-      next(err);
-    }
-  },
+  approveProperty,
 );
 
 /** Reject a property with a reason (platform moderator). */
@@ -272,14 +157,5 @@ catalogAdminRouter.post(
   requireSuperAdmin,
   validateParams(propertyIdParamsSchema),
   validateBody(rejectPropertyBodySchema),
-  async (req, res, next) => {
-    try {
-      const authReq = req as AuthenticatedRequest;
-      const { propertyId } = req.params as { propertyId: string };
-      const property = await rejectProperty(propertyId, authReq.userId!, req.body);
-      res.status(200).json(property);
-    } catch (err) {
-      next(err);
-    }
-  },
+  rejectProperty,
 );
