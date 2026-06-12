@@ -1,3 +1,6 @@
+// Copyright (c) 2025 Khan Familia Travels — Hamdan Ahmad Khan
+// All rights reserved.
+
 import type { Server } from 'node:http';
 
 import { createApp } from './app.js';
