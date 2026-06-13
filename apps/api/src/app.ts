@@ -10,10 +10,9 @@ import rateLimit from 'express-rate-limit';
 import { env } from './env.js';
 import { requestLogger } from './logger.js';
 import { notFoundHandler } from './middleware/not-found.js';
-import { clerkWebhookHandler } from './modules/iam/clerk-webhook.js';
-import { iamRouter } from './modules/iam/routes.js';
-import { catalogAdminRouter, catalogRouter } from './modules/catalog/routes.js';
-import { tenancyRouter } from './modules/tenancy/routes.js';
+import { clerkWebhookHandler, iamRouter } from './modules/iam/index.js';
+import { catalogAdminRouter, catalogRouter } from './modules/catalog/index.js';
+import { tenancyRouter } from './modules/tenancy/index.js';
 import { healthRouter } from './routes/health.js';
 import { errorHandler } from './shared/middleware/error.js';
 
