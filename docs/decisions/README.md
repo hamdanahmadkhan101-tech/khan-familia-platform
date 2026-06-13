@@ -10,4 +10,5 @@ Process:
 
 Current ADRs:
 
-- [adr-20260514-monorepo-foundation.md](docs/decisions/adr-20260514-monorepo-foundation.md)
+- [adr-20260514-monorepo-foundation.md](adr-20260514-monorepo-foundation.md)
+- [adr-20260613-controller-barrel-patterns.md](adr-20260613-controller-barrel-patterns.md)
