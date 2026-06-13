@@ -9,7 +9,13 @@ import { AppError } from '../errors/AppError.js';
 export const validateBody = <T extends z.ZodTypeAny>(schema: T) => {
   return async (req: Request, _res: Response, next: NextFunction) => {
     try {
-      req.body = await schema.parseAsync(req.body);
+      const parsedBody = await schema.parseAsync(req.body);
+      Object.defineProperty(req, 'body', {
+        value: parsedBody,
+        configurable: true,
+        enumerable: true,
+        writable: true,
+      });
       next();
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -35,7 +41,13 @@ export const validateBody = <T extends z.ZodTypeAny>(schema: T) => {
 export const validateQuery = <T extends z.ZodTypeAny>(schema: T) => {
   return async (req: Request, _res: Response, next: NextFunction) => {
     try {
-      req.query = await schema.parseAsync(req.query);
+      const parsedQuery = await schema.parseAsync(req.query);
+      Object.defineProperty(req, 'query', {
+        value: parsedQuery,
+        configurable: true,
+        enumerable: true,
+        writable: true,
+      });
       next();
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -61,7 +73,13 @@ export const validateQuery = <T extends z.ZodTypeAny>(schema: T) => {
 export const validateParams = <T extends z.ZodTypeAny>(schema: T) => {
   return async (req: Request, _res: Response, next: NextFunction) => {
     try {
-      req.params = await schema.parseAsync(req.params);
+      const parsedParams = await schema.parseAsync(req.params);
+      Object.defineProperty(req, 'params', {
+        value: parsedParams,
+        configurable: true,
+        enumerable: true,
+        writable: true,
+      });
       next();
     } catch (error) {
       if (error instanceof z.ZodError) {
