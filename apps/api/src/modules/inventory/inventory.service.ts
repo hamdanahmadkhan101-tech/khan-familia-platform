@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import type { Prisma } from '@khan-familia/database';
 import { AppError } from '../../shared/errors/AppError.js';
 import { prisma } from '../../infrastructure/database/client.js';
@@ -161,4 +162,97 @@ export const setPriceOverride = async (
   });
 
   return count;
+};
+
+export const acquireHold = async (
+  tenantId: string,
+  propertyId: string,
+  unitTypeId: string,
+  startDate: Date,
+  endDate: Date,
+  quantity: number,
+) => {
+  return await prisma.$transaction(async (tx) => {
+    const rows = await tx.unitInventory.findMany({
+      where: {
+        tenantId,
+        propertyId,
+        unitTypeId,
+        date: { gte: startDate, lte: endDate },
+      },
+    });
+
+    const overbooked = rows.filter((r) => r.availableCount < quantity);
+    if (overbooked.length > 0) {
+      throw AppError.badRequest('Insufficient availability on some dates for hold', {
+        dates: overbooked.map((r) => r.date.toISOString().split('T')[0]).join(', '),
+      });
+    }
+
+    const { count } = await tx.unitInventory.updateMany({
+      where: {
+        tenantId,
+        propertyId,
+        unitTypeId,
+        date: { gte: startDate, lte: endDate },
+        availableCount: { gte: quantity },
+      },
+      data: {
+        bookedCount: { increment: quantity },
+        availableCount: { decrement: quantity },
+        version: { increment: 1 },
+      },
+    });
+
+    if (count !== rows.length) {
+      throw AppError.conflict('Concurrency conflict during hold operation. Please try again.');
+    }
+
+    const holdToken = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+
+    const hold = await tx.propertyHold.create({
+      data: {
+        tenantId,
+        unitTypeId,
+        holdToken,
+        startDate,
+        endDate,
+        quantity,
+        expiresAt,
+      },
+    });
+
+    return hold;
+  });
+};
+
+export const releaseHold = async (holdToken: string) => {
+  return await prisma.$transaction(async (tx) => {
+    const hold = await tx.propertyHold.findUnique({
+      where: { holdToken },
+    });
+
+    if (!hold) {
+      throw AppError.notFound('Hold not found');
+    }
+
+    await tx.unitInventory.updateMany({
+      where: {
+        tenantId: hold.tenantId,
+        unitTypeId: hold.unitTypeId,
+        date: { gte: hold.startDate, lte: hold.endDate },
+        bookedCount: { gte: hold.quantity },
+      },
+      data: {
+        bookedCount: { decrement: hold.quantity },
+        availableCount: { increment: hold.quantity },
+        version: { increment: 1 },
+      },
+    });
+
+    await tx.propertyHold.delete({
+      where: { id: hold.id },
+    });
+  });
 };
