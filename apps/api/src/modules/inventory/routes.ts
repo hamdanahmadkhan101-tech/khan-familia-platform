@@ -18,7 +18,7 @@ import {
   propertyIdParamsSchema,
   setPricingBodySchema,
   unblockInventoryBodySchema,
-} from './schemas.js';
+} from '@khan-familia/validation';
 
 export const inventoryRouter = Router();
 

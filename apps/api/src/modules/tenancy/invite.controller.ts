@@ -9,7 +9,7 @@ import {
   listTenantInvites as listTenantInvitesService,
   revokeTenantInvite as revokeTenantInviteService,
 } from './invite.service.js';
-import type { AcceptInviteBody, CreateInviteBody } from './schemas.js';
+import type { AcceptInviteBody, CreateInviteBody } from '@khan-familia/validation';
 
 export const acceptTenantInvite = async (
   req: Request,

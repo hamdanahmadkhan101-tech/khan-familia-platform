@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { redis } from './redis.js';
 
 const DEFAULT_LOCK_EXPIRY = 30; // seconds
@@ -18,7 +19,7 @@ export const acquireLock = async (
   options: LockOptions = {},
 ): Promise<string | null> => {
   const { expirySeconds = DEFAULT_LOCK_EXPIRY, retries = 1 } = options;
-  const token = Math.random().toString(36).substring(2);
+  const token = crypto.randomUUID();
 
   for (let i = 0; i < retries; i++) {
     const result = await redis.set(key, token, 'EX', expirySeconds, 'NX');

@@ -2,7 +2,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { prisma } from '../../infrastructure/database/client.js';
 import { AppError } from '../../shared/errors/AppError.js';
 import { acquireHold, releaseHold } from '../inventory/inventory.service.js';
-import type { CreateHoldBody, ReleaseHoldParams } from './schemas.js';
+import type { CreateHoldBody, ReleaseHoldParams } from '@khan-familia/validation';
 import type { AuthenticatedRequest } from '../../shared/types/request.js';
 
 export const createHoldController = async (

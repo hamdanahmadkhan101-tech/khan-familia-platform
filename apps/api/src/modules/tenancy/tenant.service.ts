@@ -3,7 +3,7 @@ import { generateShortId, generateSlug } from '@khan-familia/utils';
 
 import { prisma } from '../../infrastructure/database/client.js';
 import { AppError } from '../../shared/errors/AppError.js';
-import type { CreateTenantBody, UpdateTenantBody } from './schemas.js';
+import type { CreateTenantBody, UpdateTenantBody } from '@khan-familia/validation';
 
 const tenantSelect = {
   id: true,

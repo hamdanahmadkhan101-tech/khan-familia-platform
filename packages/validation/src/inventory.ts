@@ -1,9 +1,5 @@
 import { z } from 'zod';
 
-export const propertyIdParamsSchema = z.object({
-  propertyId: z.string().cuid(),
-});
-
 export const getAvailabilityQuerySchema = z
   .object({
     startDate: z.string().date(),

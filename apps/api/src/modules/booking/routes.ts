@@ -4,7 +4,7 @@ import { authenticateRequired } from '../../shared/middleware/authenticate.js';
 import { resolveInternalUser } from '../../shared/middleware/resolve-user.js';
 import { validateBody, validateParams } from '../../shared/middleware/validate.js';
 import { createHoldController, releaseHoldController } from './booking.controller.js';
-import { createHoldBodySchema, releaseHoldParamsSchema } from './schemas.js';
+import { createHoldBodySchema, releaseHoldParamsSchema } from '@khan-familia/validation';
 
 export const bookingRouter = Router();
 
