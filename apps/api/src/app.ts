@@ -15,6 +15,8 @@ import { catalogAdminRouter, catalogRouter } from './modules/catalog/index.js';
 import { tenancyRouter } from './modules/tenancy/index.js';
 import { inventoryRouter } from './modules/inventory/index.js';
 import { bookingRouter } from './modules/booking/index.js';
+import { paymentsRouter } from './modules/payments/index.js';
+import { stripeWebhookController } from './modules/payments/payment.controller.js';
 import { healthRouter } from './routes/health.js';
 import { errorHandler } from './shared/middleware/error.js';
 
@@ -56,10 +58,20 @@ export const createApp = () => {
   app.use(compression());
   app.use(requestLogger);
   app.use(rateLimiter);
-  app.use(express.json({ limit: '1mb' }));
 
   // Clerk webhooks require the raw body for Svix signature verification.
   app.post('/webhooks/clerk', express.raw({ type: 'application/json' }), clerkWebhookHandler);
+
+  // Stripe webhooks require the raw body for signature verification.
+  // This MUST be registered BEFORE express.json() is applied globally.
+  app.post(
+    '/payments/webhooks/stripe',
+    express.raw({ type: 'application/json' }),
+    stripeWebhookController,
+  );
+
+  // Parse JSON bodies for all other routes
+  app.use(express.json({ limit: '1mb' }));
 
   app.get('/', (_req, res) => {
     res.status(200).json({ status: 'ok' });
@@ -72,6 +84,7 @@ export const createApp = () => {
   app.use('/admin/properties', catalogAdminRouter);
   app.use('/inventory', inventoryRouter);
   app.use('/booking', bookingRouter);
+  app.use('/payments', paymentsRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
