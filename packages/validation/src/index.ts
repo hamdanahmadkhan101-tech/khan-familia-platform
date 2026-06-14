@@ -14,3 +14,9 @@ export const healthStatusSchema: z.ZodType<HealthStatus> = z.object({
   service: serviceNameSchema,
   timestamp: z.string(),
 });
+
+export * from './booking.js';
+export * from './catalog.js';
+export * from './inventory.js';
+export * from './payments.js';
+export * from './tenancy.js';

@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import type { Prisma } from '@khan-familia/database';
+import { addMinutes } from '@khan-familia/utils';
 import { AppError } from '../../shared/errors/AppError.js';
 import { prisma } from '../../infrastructure/database/client.js';
 
@@ -209,7 +210,7 @@ export const acquireHold = async (
     }
 
     const holdToken = crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+    const expiresAt = addMinutes(new Date(), 15); // 15 mins
 
     const hold = await tx.propertyHold.create({
       data: {

@@ -2,7 +2,7 @@ import type { Prisma } from '@khan-familia/database';
 
 import { prisma } from '../../infrastructure/database/client.js';
 import { AppError } from '../../shared/errors/AppError.js';
-import type { CreateUnitTypeBody, UpdateUnitTypeBody } from './schemas.js';
+import type { CreateUnitTypeBody, UpdateUnitTypeBody } from '@khan-familia/validation';
 
 const unitTypeSelect = {
   id: true,

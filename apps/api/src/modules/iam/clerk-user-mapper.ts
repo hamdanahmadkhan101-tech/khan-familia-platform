@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from '@khan-familia/validation';
 
 const emailAddressSchema = z.object({
   id: z.string(),

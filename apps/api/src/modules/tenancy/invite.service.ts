@@ -3,7 +3,7 @@ import { generateNanoId } from '@khan-familia/utils';
 
 import { prisma } from '../../infrastructure/database/client.js';
 import { AppError } from '../../shared/errors/AppError.js';
-import type { CreateInviteBody } from './schemas.js';
+import type { CreateInviteBody } from '@khan-familia/validation';
 import { countActiveMembers } from './tenant.service.js';
 
 const INVITE_TTL_DAYS = 7;

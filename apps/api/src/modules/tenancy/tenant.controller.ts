@@ -2,7 +2,7 @@ import type { NextFunction, Request, Response } from 'express';
 
 import { AppError } from '../../shared/errors/AppError.js';
 import type { AuthenticatedRequest, TenantRequest } from '../../shared/types/request.js';
-import type { CreateTenantBody, UpdateTenantBody } from './schemas.js';
+import type { CreateTenantBody, UpdateTenantBody } from '@khan-familia/validation';
 import {
   createTenant as createTenantService,
   getTenantById as getTenantByIdService,

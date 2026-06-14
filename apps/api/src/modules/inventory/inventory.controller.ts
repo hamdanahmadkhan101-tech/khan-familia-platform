@@ -6,7 +6,7 @@ import type {
   GetAvailabilityQuery,
   SetPricingBody,
   UnblockInventoryBody,
-} from './schemas.js';
+} from '@khan-familia/validation';
 import {
   blockInventory,
   getAvailabilityForProperty,

@@ -25,7 +25,7 @@ import {
   unitTypeParamsSchema,
   updatePropertyBodySchema,
   updateUnitTypeBodySchema,
-} from './schemas.js';
+} from '@khan-familia/validation';
 import {
   createUnitType,
   deleteUnitType,

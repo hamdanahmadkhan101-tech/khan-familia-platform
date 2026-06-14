@@ -1,4 +1,5 @@
 import { Queue } from 'bullmq';
+import { calculateDelayMs } from '@khan-familia/utils';
 
 import { getBullMqConnectionOptions } from '../cache/redis.js';
 import {
@@ -34,7 +35,7 @@ const getQueue = (name: QueueName): Queue => {
 export const enqueueBookingExpiryJob = async (payload: BookingExpiryJobPayload) => {
   const queue = getQueue(QUEUE_NAMES.BOOKING_EXPIRY);
   return queue.add(`booking-expiry-${payload.bookingId}`, payload, {
-    delay: new Date(payload.holdExpiresAt).getTime() - Date.now(),
+    delay: calculateDelayMs(new Date(payload.holdExpiresAt)),
   });
 };
 

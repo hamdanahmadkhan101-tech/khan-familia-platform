@@ -3,7 +3,7 @@ import { env } from '../../env.js';
 import { AppError } from '../../shared/errors/AppError.js';
 import type { AuthenticatedRequest } from '../../shared/types/request.js';
 import { createStripePaymentIntent, handleStripeWebhookEvent } from './payment.service.js';
-import type { CreatePaymentIntentBody } from './schemas.js';
+import type { CreatePaymentIntentBody } from '@khan-familia/validation';
 
 /** POST /payments/intent — Creates a Stripe PaymentIntent for a given hold */
 export const createPaymentIntentController = async (

@@ -21,7 +21,7 @@ import {
   tenantInviteParamsSchema,
   tenantMemberParamsSchema,
   updateTenantBodySchema,
-} from './schemas.js';
+} from '@khan-familia/validation';
 import {
   createTenant,
   getTenantById,

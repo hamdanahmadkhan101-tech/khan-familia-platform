@@ -3,7 +3,7 @@ import { authenticateRequired } from '../../shared/middleware/authenticate.js';
 import { resolveInternalUser } from '../../shared/middleware/resolve-user.js';
 import { validateBody } from '../../shared/middleware/validate.js';
 import { createPaymentIntentController } from './payment.controller.js';
-import { createPaymentIntentBodySchema } from './schemas.js';
+import { createPaymentIntentBodySchema } from '@khan-familia/validation';
 
 export const paymentsRouter = Router();
 
