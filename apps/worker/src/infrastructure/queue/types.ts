@@ -1,10 +1,10 @@
 /**
- * Re-export queue types from shared types location
+ * Re-export queue types from shared packages
  */
-export {
-  QUEUE_NAMES,
-  type BookingExpiryJobPayload,
-  type NotificationJobPayload,
-  type JobPayload,
-  type QueueName,
-} from '../../shared/types/jobs.js';
+export { QUEUE_NAMES, type QueueName } from '@khan-familia/constants';
+export type {
+  BookingExpiryJobPayload,
+  NotificationJobPayload,
+  InventoryHorizonJobPayload,
+  JobPayload,
+} from '@khan-familia/types';

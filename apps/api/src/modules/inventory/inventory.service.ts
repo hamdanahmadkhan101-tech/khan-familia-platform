@@ -4,6 +4,8 @@ import { addMinutes } from '@khan-familia/utils';
 import { AppError } from '../../shared/errors/AppError.js';
 import { prisma } from '../../infrastructure/database/client.js';
 
+const HOLD_TTL_MINUTES = 15;
+
 export const getAvailabilityForProperty = async (
   tenantId: string,
   propertyId: string,
@@ -172,8 +174,36 @@ export const acquireHold = async (
   startDate: Date,
   endDate: Date,
   quantity: number,
+  idempotencyKey?: string,
 ) => {
   return await prisma.$transaction(async (tx) => {
+    if (idempotencyKey) {
+      const existingHold = await tx.propertyHold.findUnique({
+        where: { idempotencyKey },
+      });
+
+      if (existingHold) {
+        const sameHoldRequest =
+          existingHold.tenantId === tenantId &&
+          existingHold.unitTypeId === unitTypeId &&
+          existingHold.startDate.getTime() === startDate.getTime() &&
+          existingHold.endDate.getTime() === endDate.getTime() &&
+          existingHold.quantity === quantity;
+
+        if (!sameHoldRequest) {
+          throw AppError.conflict('Idempotency-Key already belongs to a different hold request');
+        }
+
+        if (existingHold.expiresAt <= new Date()) {
+          throw AppError.conflict(
+            'Idempotency-Key belongs to an expired hold; start a new checkout',
+          );
+        }
+
+        return existingHold;
+      }
+    }
+
     const rows = await tx.unitInventory.findMany({
       where: {
         tenantId,
@@ -210,7 +240,7 @@ export const acquireHold = async (
     }
 
     const holdToken = crypto.randomUUID();
-    const expiresAt = addMinutes(new Date(), 15); // 15 mins
+    const expiresAt = addMinutes(new Date(), HOLD_TTL_MINUTES);
 
     const hold = await tx.propertyHold.create({
       data: {
@@ -221,6 +251,7 @@ export const acquireHold = async (
         endDate,
         quantity,
         expiresAt,
+        ...(idempotencyKey ? { idempotencyKey } : {}),
       },
     });
 
@@ -238,11 +269,22 @@ export const releaseHold = async (holdToken: string) => {
       throw AppError.notFound('Hold not found');
     }
 
-    await tx.unitInventory.updateMany({
+    const inventoryRows = await tx.unitInventory.findMany({
       where: {
         tenantId: hold.tenantId,
         unitTypeId: hold.unitTypeId,
         date: { gte: hold.startDate, lte: hold.endDate },
+      },
+      select: { id: true },
+    });
+
+    if (inventoryRows.length === 0) {
+      throw AppError.conflict('No inventory rows found for hold release');
+    }
+
+    const releasedInventory = await tx.unitInventory.updateMany({
+      where: {
+        id: { in: inventoryRows.map((row) => row.id) },
         bookedCount: { gte: hold.quantity },
       },
       data: {
@@ -251,6 +293,10 @@ export const releaseHold = async (holdToken: string) => {
         version: { increment: 1 },
       },
     });
+
+    if (releasedInventory.count !== inventoryRows.length) {
+      throw AppError.conflict('Could not release every inventory row for this hold');
+    }
 
     await tx.propertyHold.delete({
       where: { id: hold.id },

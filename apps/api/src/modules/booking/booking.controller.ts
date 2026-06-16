@@ -5,6 +5,21 @@ import { acquireHold, releaseHold } from '../inventory/inventory.service.js';
 import type { CreateHoldBody, ReleaseHoldParams } from '@khan-familia/validation';
 import type { AuthenticatedRequest } from '../../shared/types/request.js';
 
+const getIdempotencyKey = (req: Request): string | undefined => {
+  const value = req.headers['idempotency-key'];
+  const key = Array.isArray(value) ? value[0] : value;
+
+  if (key === undefined || key.trim().length === 0) {
+    return undefined;
+  }
+
+  if (key.trim().length > 128) {
+    throw AppError.badRequest('Idempotency-Key header must be 128 characters or fewer');
+  }
+
+  return key.trim();
+};
+
 export const createHoldController = async (
   req: Request,
   res: Response,
@@ -43,6 +58,7 @@ export const createHoldController = async (
       new Date(body.startDate),
       new Date(body.endDate),
       body.quantity,
+      getIdempotencyKey(req),
     );
 
     res.status(201).json({

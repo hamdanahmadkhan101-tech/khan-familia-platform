@@ -3,6 +3,7 @@ import { stripe } from '../../infrastructure/stripe/client.js';
 import { prisma } from '../../infrastructure/database/client.js';
 import { AppError } from '../../shared/errors/AppError.js';
 import { calculateNights, multiplyMoney } from '@khan-familia/utils';
+import { releaseHold } from '../inventory/inventory.service.js';
 
 /**
  * Payment Service — Provider-agnostic layer.
@@ -57,7 +58,8 @@ export const createStripePaymentIntent = async (holdToken: string, userId: strin
     metadata: {
       holdToken,
       userId,
-      propertyId: hold.tenantId, // extra context for webhook
+      tenantId: hold.tenantId,
+      propertyId: hold.unitType.propertyId,
       unitTypeId: hold.unitTypeId,
       nights: nights.toString(),
     },
@@ -198,29 +200,18 @@ export const handleStripeWebhookEvent = async (
     const { holdToken } = stripeIntent.metadata;
 
     if (holdToken) {
-      // Release the hold so the room goes back on the market
-      const hold = await prisma.propertyHold.findUnique({ where: { holdToken } });
-      if (hold) {
-        await prisma.$transaction(async (tx) => {
-          await tx.unitInventory.updateMany({
-            where: {
-              tenantId: hold.tenantId,
-              unitTypeId: hold.unitTypeId,
-              date: { gte: hold.startDate, lte: hold.endDate },
-            },
-            data: {
-              bookedCount: { decrement: hold.quantity },
-              availableCount: { increment: hold.quantity },
-              version: { increment: 1 },
-            },
-          });
-          await tx.propertyHold.delete({ where: { id: hold.id } });
-          await tx.paymentIntent.update({
-            where: { id: stripeIntent.id },
-            data: { status: 'FAILED' },
-          });
-        });
+      try {
+        await releaseHold(holdToken);
+      } catch (error) {
+        if (!(error instanceof AppError && error.code === 'NOT_FOUND')) {
+          throw error;
+        }
       }
+
+      await prisma.paymentIntent.updateMany({
+        where: { id: stripeIntent.id },
+        data: { status: 'FAILED' },
+      });
     }
   }
 

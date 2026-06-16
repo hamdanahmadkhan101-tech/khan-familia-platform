@@ -31,7 +31,7 @@ const envSchema = z.object({
     }),
 
   // Resend Email
-  RESEND_API_KEY: z.string(),
+  RESEND_API_KEY: z.string().optional(),
 
   // Stripe (for payment webhook processing if needed)
   STRIPE_SECRET_KEY: z.string().optional(),
