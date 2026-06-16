@@ -2,12 +2,8 @@ import { Queue } from 'bullmq';
 import { calculateDelayMs } from '@khan-familia/utils';
 
 import { getBullMqConnectionOptions } from '../cache/redis.js';
-import {
-  QUEUE_NAMES,
-  type BookingExpiryJobPayload,
-  type NotificationJobPayload,
-  type QueueName,
-} from './queues.js';
+import { QUEUE_NAMES, type QueueName } from '@khan-familia/constants';
+import type { BookingExpiryJobPayload, NotificationJobPayload } from '@khan-familia/types';
 
 // ============================================================================
 // Queue Instances (Lazy Initialization)

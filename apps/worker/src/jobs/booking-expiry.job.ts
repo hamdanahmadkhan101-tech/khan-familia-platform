@@ -2,7 +2,7 @@ import { releaseReservedInventoryForStay } from '@khan-familia/database';
 
 import { logger } from '../logger.js';
 import { prisma, type Prisma } from '../infrastructure/database/client.js';
-import type { BookingExpiryJobPayload } from '../shared/types/jobs.js';
+import type { BookingExpiryJobPayload } from '@khan-familia/types';
 
 /**
  * Handle booking expiry: cancel PENDING booking and release reserved inventory.

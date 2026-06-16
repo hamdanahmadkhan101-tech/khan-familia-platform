@@ -4,6 +4,8 @@ export type LogLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal';
 
 export type ServiceName = 'web' | 'api' | 'worker';
 
+export * from './jobs.js';
+
 export type HealthStatus = {
   status: 'ok';
   service: ServiceName;

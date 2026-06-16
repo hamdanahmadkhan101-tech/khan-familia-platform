@@ -1,5 +1,5 @@
 import { logger } from '../logger.js';
-import type { NotificationJobPayload } from '../shared/types/jobs.js';
+import type { NotificationJobPayload } from '@khan-familia/types';
 
 /**
  * Handle notification job: send emails via Resend.

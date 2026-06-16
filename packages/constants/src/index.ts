@@ -11,3 +11,11 @@ export const SERVICE_NAMES = {
 } as const;
 
 export const DEFAULT_LOG_LEVEL = 'info';
+
+export const QUEUE_NAMES = {
+  BOOKING_EXPIRY: 'booking-expiry',
+  NOTIFICATIONS: 'notifications',
+  INVENTORY_HORIZON: 'inventory-horizon',
+} as const;
+
+export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];

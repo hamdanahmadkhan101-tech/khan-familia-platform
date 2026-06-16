@@ -2,7 +2,7 @@ import type { Prisma } from '@khan-familia/database';
 
 import { prisma } from '../infrastructure/database/client.js';
 import { logger } from '../logger.js';
-import type { InventoryHorizonJobPayload } from '../shared/types/jobs.js';
+import type { InventoryHorizonJobPayload } from '@khan-familia/types';
 
 /**
  * Timezone-safe helper to generate a range of UTC midnight dates starting from today.
