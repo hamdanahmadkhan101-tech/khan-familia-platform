@@ -8,10 +8,11 @@ import {
   registerProcessor,
   startWorker as startQueueWorker,
 } from './infrastructure/queue/consumer.js';
-import { QUEUE_NAMES } from './shared/types/jobs.js';
+import { QUEUE_NAMES } from '@khan-familia/constants';
 import { handleBookingExpiryJob } from './jobs/booking-expiry.job.js';
 import { handleNotificationJob } from './jobs/notification.job.js';
 import { handleInventoryHorizonQueueJob } from './jobs/inventory-horizon.job.js';
+import { startHoldSweepInterval } from './jobs/hold-sweep.js';
 
 export const startWorker = async () => {
   logger.info(
@@ -34,10 +35,19 @@ export const startWorker = async () => {
 
   // Run scheduler jobs
   await runJobs(jobs, logger);
+  const holdSweepInterval = startHoldSweepInterval();
 
   // Register shutdown hooks for graceful shutdown
+  let isShuttingDown = false;
+
   const shutdown = async () => {
+    if (isShuttingDown) {
+      return;
+    }
+
+    isShuttingDown = true;
     logger.info('Shutting down worker...');
+    clearInterval(holdSweepInterval);
     for (const w of queueWorkers) {
       await w.close();
     }

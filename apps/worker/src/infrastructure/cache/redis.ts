@@ -12,6 +12,7 @@ const tlsOptions = shouldUseRedisTls() ? { tls: {} } : {};
 const redisConfig = {
   host: env.REDIS_HOST,
   port: env.REDIS_PORT,
+  username: 'default',
   lazyConnect: false,
   enableReadyCheck: true,
   enableOfflineQueue: true,
@@ -31,6 +32,7 @@ if (process.env['NODE_ENV'] !== 'production') globalForRedis.redis = redis;
 export const getBullMqConnectionOptions = (): ConnectionOptions => ({
   host: env.REDIS_HOST,
   port: env.REDIS_PORT,
+  username: 'default',
   ...(env.REDIS_PASSWORD ? { password: env.REDIS_PASSWORD } : {}),
   ...tlsOptions,
 });
