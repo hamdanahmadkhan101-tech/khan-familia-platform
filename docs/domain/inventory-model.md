@@ -25,7 +25,7 @@ future enhancement.
 Implementation note:
 
 - The current Prisma schema represents per-date inventory in `UnitInventory` with `totalCount`, `availableCount`, `bookedCount`, `blockedCount` (with a DB CHECK constraint enforcing their sum).
-- Until hold vs confirm semantics are finalized in code, `PENDING` bookings are treated as consuming inventory for the hold window (released on expiry).
+- Current code uses `PropertyHold` for temporary checkout reservations. Holds consume inventory during the hold window and are released by manual release, failed/canceled payment, or the worker expiry sweeper.
 
 ### Manual Interventions
 

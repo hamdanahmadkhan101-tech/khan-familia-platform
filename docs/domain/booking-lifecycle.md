@@ -20,6 +20,15 @@ database lifecycle for accommodation bookings is the `AccommodationBookingStatus
 
 Anything not listed above is **not represented as a first-class booking status** yet.
 
+### Implemented Checkout Flow
+
+The current accommodation checkout implementation uses `PropertyHold` as the temporary reservation before payment. An `AccommodationBooking` row is created only after Stripe confirms `payment_intent.succeeded`.
+
+1. `POST /booking/holds` creates a `PropertyHold` and reserves inventory for the hold window.
+2. `POST /payments/intent` creates or reuses a pending Stripe-backed `PaymentIntent` for that hold.
+3. `payment_intent.succeeded` converts the hold into a `BOOKED` `AccommodationBooking`, records the payment, and deletes the hold.
+4. `payment_intent.payment_failed`, `payment_intent.canceled`, manual release, or worker expiry releases the hold and restores inventory without creating a booking.
+
 ### Automated Flow (Typical)
 
 ```mermaid
@@ -47,7 +56,7 @@ stateDiagram-v2
 ### Invariants
 
 - A booking should not be moved forward in the lifecycle without an immutable price snapshot (`BookingPriceSnapshot`).
-- Holds expire; pending bookings must be cancelled when the hold expires (worker expiry job).
+- Holds expire; the worker releases expired `PropertyHold` rows and restores inventory. Current code does not create a pending accommodation booking before payment.
 - Booking status transitions should be append-only and audited (status history table exists).
 
 ## Tour Booking Lifecycle
