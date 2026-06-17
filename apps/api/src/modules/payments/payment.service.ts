@@ -51,6 +51,27 @@ export const createStripePaymentIntent = async (holdToken: string, userId: strin
     );
   }
 
+  const reusableIntent = await prisma.paymentIntent.findFirst({
+    where: {
+      bookingId: holdToken,
+      status: 'PENDING',
+      expiresAt: { gt: new Date() },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (reusableIntent) {
+    const stripeIntent = await stripe.paymentIntents.retrieve(reusableIntent.id);
+
+    return {
+      clientSecret: stripeIntent.client_secret,
+      paymentIntentId: reusableIntent.id,
+      amount: reusableIntent.amount,
+      currency: reusableIntent.currency,
+      expiresAt: reusableIntent.expiresAt,
+    };
+  }
+
   // 3. Create Stripe PaymentIntent
   const stripeIntent = await stripe.paymentIntents.create({
     amount: totalMinor, // Stripe uses smallest currency unit
@@ -195,11 +216,13 @@ export const handleStripeWebhookEvent = async (
     });
   }
 
-  if (event.type === 'payment_intent.payment_failed') {
+  if (event.type === 'payment_intent.payment_failed' || event.type === 'payment_intent.canceled') {
     const stripeIntent = event.data.object;
     const { holdToken } = stripeIntent.metadata;
 
     if (holdToken) {
+      const paymentStatus = event.type === 'payment_intent.canceled' ? 'CANCELLED' : 'FAILED';
+
       try {
         await releaseHold(holdToken);
       } catch (error) {
@@ -209,8 +232,8 @@ export const handleStripeWebhookEvent = async (
       }
 
       await prisma.paymentIntent.updateMany({
-        where: { id: stripeIntent.id },
-        data: { status: 'FAILED' },
+        where: { id: stripeIntent.id, status: 'PENDING' },
+        data: { status: paymentStatus },
       });
     }
   }

@@ -45,6 +45,10 @@ Express 5 + TypeScript scaffold with structured logging.
 - `POST /admin/properties/:propertyId/approve` — approve listing
 - `POST /admin/properties/:propertyId/reject` — reject with `{ "reason": "..." }`
 
+## Booking checkout flow
+
+See `../../docs/workflows/booking-payment-flow.md` for the local backend runbook covering holds, Stripe PaymentIntents, webhooks, worker expiry cleanup, and expected database state changes.
+
 ## Environment
 
 Copy apps/api/.env.example to apps/api/.env and adjust as needed.
