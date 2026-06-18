@@ -1,6 +1,7 @@
 import { prisma } from '@khan-familia/database';
 
 const TEST_DATABASE_HINTS = ['test', 'testing', 'ci'];
+const TEST_DATABASE_CONFIRMATION_FLAG = 'TEST_DATABASE_CONFIRM';
 
 export const testPrisma = prisma;
 
@@ -17,10 +18,11 @@ export const assertTestDatabaseUrl = () => {
 
   const normalizedUrl = databaseUrl.toLowerCase();
   const isClearlyTestDatabase = TEST_DATABASE_HINTS.some((hint) => normalizedUrl.includes(hint));
+  const isExplicitlyConfirmedTestDatabase = process.env[TEST_DATABASE_CONFIRMATION_FLAG] === 'true';
 
-  if (!isClearlyTestDatabase) {
+  if (!isClearlyTestDatabase && !isExplicitlyConfirmedTestDatabase) {
     throw new Error(
-      'Refusing to run database tests because DATABASE_URL does not look like a test database. Include "test", "testing", or "ci" in the database name, Neon branch, or host.',
+      'Refusing to run database tests because DATABASE_URL does not look like a test database. Include "test", "testing", or "ci" in the database name, Neon branch, or host, or set TEST_DATABASE_CONFIRM=true for an isolated test database.',
     );
   }
 };

@@ -13,8 +13,14 @@ const setDefaultEnv = (key: string, value: string) => {
 };
 
 setDefaultEnv('APP_ENV', 'test');
-setDefaultEnv('NODE_ENV', 'development');
-setDefaultEnv('LOG_LEVEL', 'silent');
+if (process.env['APP_ENV'] === 'test' && process.env['NODE_ENV'] === 'development') {
+  process.env['NODE_ENV'] = 'production';
+}
+setDefaultEnv('NODE_ENV', 'production');
+if (process.env['LOG_LEVEL'] === 'silent') {
+  process.env['LOG_LEVEL'] = 'error';
+}
+setDefaultEnv('LOG_LEVEL', 'error');
 setDefaultEnv('PORT', '3001');
 setDefaultEnv('RATE_LIMIT_WINDOW_MS', '60000');
 setDefaultEnv('RATE_LIMIT_MAX', '100000');
