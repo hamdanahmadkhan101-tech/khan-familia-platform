@@ -7,7 +7,7 @@ import prettier from 'eslint-config-prettier';
 
 const tsFiles = ['**/*.ts', '**/*.tsx'];
 const tsProject = {
-  project: ['./tsconfig.json', './apps/*/tsconfig.json', './packages/*/tsconfig.json'],
+  project: ['./tsconfig.json', './apps/*/tsconfig.json', './packages/*/tsconfig.json', './apps/api/tsconfig.eslint.json'],
   tsconfigRootDir: import.meta.dirname,
 };
 
