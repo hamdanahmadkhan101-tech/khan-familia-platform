@@ -24,7 +24,7 @@ Anything not listed above is **not represented as a first-class booking status**
 
 The current accommodation checkout implementation uses `PropertyHold` as the temporary reservation before payment. An `AccommodationBooking` row is created only after Stripe confirms `payment_intent.succeeded`.
 
-1. `POST /booking/holds` creates a `PropertyHold` and reserves inventory for the hold window.
+1. `POST /bookings/holds` creates a `PropertyHold` and reserves inventory for the hold window.
 2. `POST /payments/intent` creates or reuses a pending Stripe-backed `PaymentIntent` for that hold.
 3. `payment_intent.succeeded` converts the hold into a `BOOKED` `AccommodationBooking`, records the payment, and deletes the hold.
 4. `payment_intent.payment_failed`, `payment_intent.canceled`, manual release, or worker expiry releases the hold and restores inventory without creating a booking.
@@ -52,6 +52,14 @@ stateDiagram-v2
   BOOKED --> CONFIRMED
   CONFIRMED --> CANCELLED
 ```
+
+### Guest Cancellation Behavior
+
+Guests may cancel their own accommodation bookings before operational terminal states such as `CHECKED_IN`, `CHECKED_OUT`, `CANCELLED`, or `NO_SHOW`. Current cancellation stores the reason/date, appends status history, and restores reserved inventory. Refund automation and cancellation policy evaluation are future work.
+
+### Future Policy Layer
+
+Booking rules should move toward a domain-level policy layer as they grow. That layer should centralize hold eligibility, same-day and advance-notice rules, cancellation windows, refund eligibility, and date-change policy so controllers, validation schemas, payment webhooks, and workers do not each invent their own booking behavior.
 
 ### Invariants
 

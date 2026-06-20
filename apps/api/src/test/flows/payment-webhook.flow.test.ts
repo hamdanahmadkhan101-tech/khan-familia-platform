@@ -53,7 +53,7 @@ describeDb('payment integration flow', () => {
   const createPaidHold = async () => {
     const fixture = await createBookableInventoryFixture();
     const response = await createTestAgent()
-      .post('/booking/holds')
+      .post('/bookings/holds')
       .set('Authorization', authHeaderFor(fixture.guest.clerkId))
       .set('Idempotency-Key', 'payment-flow-hold')
       .send({
