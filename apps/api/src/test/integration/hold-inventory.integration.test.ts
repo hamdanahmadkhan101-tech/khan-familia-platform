@@ -90,7 +90,7 @@ describeDb('inventory and hold integration flow', () => {
     };
 
     const firstHold = await agent
-      .post('/booking/holds')
+      .post('/bookings/holds')
       .set('Authorization', authHeaderFor(guest.clerkId))
       .set('Idempotency-Key', idempotencyKey)
       .send(holdPayload);
@@ -99,7 +99,7 @@ describeDb('inventory and hold integration flow', () => {
     expect(firstHold.body.holdToken).toEqual(expect.any(String));
 
     const duplicateHold = await agent
-      .post('/booking/holds')
+      .post('/bookings/holds')
       .set('Authorization', authHeaderFor(guest.clerkId))
       .set('Idempotency-Key', idempotencyKey)
       .send(holdPayload);
@@ -124,7 +124,7 @@ describeDb('inventory and hold integration flow', () => {
     );
 
     const releaseResponse = await agent
-      .delete(`/booking/holds/${firstHold.body.holdToken}`)
+      .delete(`/bookings/holds/${firstHold.body.holdToken}`)
       .set('Authorization', authHeaderFor(guest.clerkId));
 
     expect(releaseResponse.status).toBe(200);
@@ -148,11 +148,32 @@ describeDb('inventory and hold integration flow', () => {
     );
   });
 
+  it('rejects holds that start in the past', async () => {
+    const { guest, property, unitType } = await createBookableInventoryFixture();
+
+    const response = await createTestAgent()
+      .post('/bookings/holds')
+      .set('Authorization', authHeaderFor(guest.clerkId))
+      .send({
+        propertyId: property.id,
+        unitTypeId: unitType.id,
+        startDate: '2026-06-16',
+        endDate: '2026-06-19',
+        quantity: 1,
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.message).toContain('Validation failed');
+    expect(response.body.error.details).toMatchObject({
+      startDate: 'startDate must be today or a future date',
+    });
+  });
+
   it('prevents tenant staff from booking their own property as a guest', async () => {
     const { owner, property, unitType } = await createBookableInventoryFixture();
 
     const response = await createTestAgent()
-      .post('/booking/holds')
+      .post('/bookings/holds')
       .set('Authorization', authHeaderFor(owner.clerkId))
       .send({
         propertyId: property.id,
