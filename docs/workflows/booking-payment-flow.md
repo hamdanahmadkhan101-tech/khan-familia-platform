@@ -4,7 +4,7 @@ This runbook documents the current backend-only accommodation checkout flow. It 
 
 ## Current Flow
 
-1. A guest creates a temporary property hold with `POST /booking/holds`.
+1. A guest creates a temporary property hold with `POST /bookings/holds`.
 2. The API reserves inventory by decrementing `UnitInventory.availableCount` and incrementing `UnitInventory.bookedCount` for every date in the hold range.
 3. The hold is stored in `PropertyHold` with a 15 minute expiry.
 4. The guest creates a Stripe PaymentIntent with `POST /payments/intent` using the `holdToken`.
@@ -58,7 +58,7 @@ That warning is from BullMQ Redis requirements. It is not an application crash, 
 2. Create a hold:
 
 ```http
-POST /booking/holds
+POST /bookings/holds
 Authorization: Bearer <guest-jwt>
 Idempotency-Key: hold-local-001
 Content-Type: application/json
@@ -145,14 +145,18 @@ For local manual testing, avoid committing temporary TTL reductions. If the TTL 
 The manual release endpoint should remain available even with the worker running. It is useful for guest cancellation, local recovery, and debugging.
 
 ```http
-POST /booking/holds/<hold-token>/release
+DELETE /bookings/holds/<hold-token>
 Authorization: Bearer <guest-jwt>
 ```
 
 This endpoint does not need an `Idempotency-Key`. The `holdToken` identifies the release target. A repeated release after success can return `404 Hold not found` because the hold has already been deleted.
 
+## After Payment: Guest Booking Management
+
+After a successful payment creates an `AccommodationBooking`, guests can manage their own bookings through the guest booking workflow. See `docs/workflows/guest-bookings.md` for list, detail, and cancellation behavior.
+
 ## Known Gaps
 
-- No automated backend tests cover this flow yet. Add those in a dedicated tests branch.
+- Backend tests now cover hold creation, manual release, payment webhook conversion, and guest booking management. Continue expanding coverage as cancellation policy, refunds, and notifications mature.
 - Notification jobs exist, but booking confirmation emails are not wired end-to-end yet.
 - Frontend checkout screens are intentionally out of scope for this backend polish branch.
