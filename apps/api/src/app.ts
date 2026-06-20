@@ -83,7 +83,7 @@ export const createApp = () => {
   app.use('/properties', catalogRouter);
   app.use('/admin/properties', catalogAdminRouter);
   app.use('/inventory', inventoryRouter);
-  app.use('/booking', bookingRouter);
+  app.use('/bookings', bookingRouter);
   app.use('/payments', paymentsRouter);
 
   app.use(notFoundHandler);

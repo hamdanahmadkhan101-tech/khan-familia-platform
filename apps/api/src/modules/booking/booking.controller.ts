@@ -2,7 +2,14 @@ import type { NextFunction, Request, Response } from 'express';
 import { prisma } from '../../infrastructure/database/client.js';
 import { AppError } from '../../shared/errors/AppError.js';
 import { acquireHold, releaseHold } from '../inventory/inventory.service.js';
-import type { CreateHoldBody, ReleaseHoldParams } from '@khan-familia/validation';
+import { cancelGuestBooking, getGuestBookingById, listGuestBookings } from './booking.service.js';
+import type {
+  BookingIdParams,
+  CancelGuestBookingBody,
+  CreateHoldBody,
+  GuestBookingListQuery,
+  ReleaseHoldParams,
+} from '@khan-familia/validation';
 import type { AuthenticatedRequest } from '../../shared/types/request.js';
 
 const getIdempotencyKey = (req: Request): string | undefined => {
@@ -18,6 +25,67 @@ const getIdempotencyKey = (req: Request): string | undefined => {
   }
 
   return key.trim();
+};
+
+export const listGuestBookingsController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    if (!authReq.userId) {
+      throw AppError.unauthorized('Authentication required');
+    }
+
+    const query = req.query as unknown as GuestBookingListQuery;
+    const bookings = await listGuestBookings(authReq.userId, query);
+
+    res.status(200).json({ bookings });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getGuestBookingController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    if (!authReq.userId) {
+      throw AppError.unauthorized('Authentication required');
+    }
+
+    const params = req.params as BookingIdParams;
+    const booking = await getGuestBookingById(authReq.userId, params.bookingId);
+
+    res.status(200).json({ booking });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const cancelGuestBookingController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    if (!authReq.userId) {
+      throw AppError.unauthorized('Authentication required');
+    }
+
+    const params = req.params as BookingIdParams;
+    const body = req.body as CancelGuestBookingBody;
+    const booking = await cancelGuestBooking(authReq.userId, params.bookingId, body);
+
+    res.status(200).json({ message: 'Booking cancelled successfully', booking });
+  } catch (err) {
+    next(err);
+  }
 };
 
 export const createHoldController = async (
