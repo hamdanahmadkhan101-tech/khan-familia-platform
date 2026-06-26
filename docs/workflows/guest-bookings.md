@@ -66,22 +66,24 @@ These are intentionally future work:
 - Booking notifications by email or in-app notification.
 - Guest support/contact-property conversation flow.
 
-## Future Booking Policy Service
+## Booking Policy Service
 
-The next backend branch should introduce a domain-level booking policy layer instead of letting business rules spread across controllers, validation schemas, payment webhooks, and workers. Suggested starting point:
-
-- booking-policy.service.ts: decides whether a hold, cancellation, or future amendment is allowed.
-- booking-availability.service.ts: centralizes date-window and inventory availability checks.
-- booking-cancellation.service.ts: evaluates cancellation windows, refund eligibility, and audit output.
-
-Initial policies to move or formalize there:
+The booking-policy-service branch introduced a small domain-level policy layer so booking rules do not keep spreading through controllers. Current policy coverage:
 
 - Past dates are not allowed for new guest holds.
+- Checkout date must not be before check-in date.
+- Tenant staff cannot create guest holds for their own tenant properties.
+- Guest cancellation is blocked after terminal or operational states.
+
+The booking controller now delegates guest hold creation and manual release to booking service functions instead of importing Prisma directly.
+
+Policy work intentionally left for future branches:
+
 - Same-day booking should be explicitly allowed or blocked per property policy.
 - Minimum advance notice should be enforceable per property.
-- Guest cancellation should be blocked after terminal or operational states.
 - Refund behavior should be policy-driven before Stripe refund automation is added.
 - Payment webhook conversion should share core date and ownership assumptions with hold creation.
+- Manual hold release should enforce ownership once PropertyHold stores the creating user id.
 
 ## Date Change Policy Direction
 

@@ -1,15 +1,18 @@
-import type { AccommodationBookingStatus, Prisma } from '@khan-familia/database';
+import type { Prisma } from '@khan-familia/database';
 
 import { prisma } from '../../infrastructure/database/client.js';
 import { AppError } from '../../shared/errors/AppError.js';
-import type { CancelGuestBookingBody, GuestBookingListQuery } from '@khan-familia/validation';
-
-const terminalGuestCancellationStatuses: AccommodationBookingStatus[] = [
-  'CHECKED_IN',
-  'CHECKED_OUT',
-  'CANCELLED',
-  'NO_SHOW',
-];
+import { acquireHold, releaseHold } from '../inventory/inventory.service.js';
+import {
+  assertGuestCanCancelBookingStatus,
+  assertGuestCanCreateHoldForTenant,
+  assertHoldDatesAllowed,
+} from './booking-policy.service.js';
+import type {
+  CancelGuestBookingBody,
+  CreateHoldBody,
+  GuestBookingListQuery,
+} from '@khan-familia/validation';
 
 const bookingSelect = {
   id: true,
@@ -166,6 +169,47 @@ const attachPayments = async <T extends BookingDto>(booking: T) => {
   return { ...booking, paymentIntents };
 };
 
+export const createGuestHold = async (
+  userId: string,
+  input: CreateHoldBody,
+  idempotencyKey?: string,
+) => {
+  const startDate = new Date(input.startDate);
+  const endDate = new Date(input.endDate);
+
+  assertHoldDatesAllowed(startDate, endDate);
+
+  const property = await prisma.property.findUnique({
+    where: { id: input.propertyId },
+    select: { tenantId: true },
+  });
+
+  if (!property) {
+    throw AppError.notFound('Property not found');
+  }
+
+  const tenantMembership = await prisma.tenantUser.findFirst({
+    where: { tenantId: property.tenantId, userId },
+    select: { userId: true },
+  });
+
+  assertGuestCanCreateHoldForTenant({ isTenantStaff: Boolean(tenantMembership) });
+
+  return acquireHold(
+    property.tenantId,
+    input.propertyId,
+    input.unitTypeId,
+    startDate,
+    endDate,
+    input.quantity,
+    idempotencyKey,
+  );
+};
+
+export const releaseGuestHold = async (holdToken: string) => {
+  await releaseHold(holdToken);
+};
+
 export const listGuestBookings = async (userId: string, query: GuestBookingListQuery) => {
   const bookings = await prisma.accommodationBooking.findMany({
     where: listWhere(userId, query),
@@ -244,13 +288,7 @@ export const cancelGuestBooking = async (
       throw AppError.notFound('Booking not found');
     }
 
-    if (booking.status === 'CANCELLED') {
-      throw AppError.conflict('Booking is already cancelled');
-    }
-
-    if (terminalGuestCancellationStatuses.includes(booking.status)) {
-      throw AppError.conflict(`Booking cannot be cancelled from ${booking.status} status`);
-    }
+    assertGuestCanCancelBookingStatus(booking.status);
 
     await releaseBookedInventory(tx, booking);
 
