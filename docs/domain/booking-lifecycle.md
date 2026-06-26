@@ -59,7 +59,7 @@ Guests may cancel their own accommodation bookings before operational terminal s
 
 ### Future Policy Layer
 
-Booking rules should move toward a domain-level policy layer as they grow. That layer should centralize hold eligibility, same-day and advance-notice rules, cancellation windows, refund eligibility, and date-change policy so controllers, validation schemas, payment webhooks, and workers do not each invent their own booking behavior.
+Booking rules now have an initial domain-level policy layer for guest hold eligibility and cancellation status rules. As the platform grows, this layer should expand to same-day and advance-notice rules, cancellation windows, refund eligibility, date-change policy, and shared assumptions between hold creation, payment webhooks, and workers.
 
 ### Invariants
 
