@@ -196,6 +196,7 @@ export const createGuestHold = async (
   assertGuestCanCreateHoldForTenant({ isTenantStaff: Boolean(tenantMembership) });
 
   return acquireHold(
+    userId,
     property.tenantId,
     input.propertyId,
     input.unitTypeId,
@@ -206,8 +207,8 @@ export const createGuestHold = async (
   );
 };
 
-export const releaseGuestHold = async (holdToken: string) => {
-  await releaseHold(holdToken);
+export const releaseGuestHold = async (holdToken: string, userId: string) => {
+  await releaseHold(holdToken, userId);
 };
 
 export const listGuestBookings = async (userId: string, query: GuestBookingListQuery) => {
@@ -237,7 +238,7 @@ export const getGuestBookingById = async (userId: string, bookingId: string) => 
 
 const releaseBookedInventory = async (
   tx: Prisma.TransactionClient,
-  booking: Pick<BookingDto, 'propertyId' | 'unitTypeId' | 'checkIn' | 'checkOut' | 'guests'>,
+  booking: Pick<BookingDto, 'id' | 'propertyId' | 'unitTypeId' | 'checkIn' | 'checkOut' | 'guests'>,
 ) => {
   if (!booking.unitTypeId) {
     return;
@@ -255,6 +256,10 @@ const releaseBookedInventory = async (
   if (inventoryRows.length === 0) {
     throw AppError.conflict('No inventory rows found for booking cancellation');
   }
+
+  await tx.reservation.deleteMany({
+    where: { bookingId: booking.id },
+  });
 
   const released = await tx.unitInventory.updateMany({
     where: {

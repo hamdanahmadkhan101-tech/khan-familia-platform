@@ -298,6 +298,7 @@ model User {
 
   approvedProperties      Property[]                          @relation("PropertyApprover")
   rejectedProperties      Property[]                          @relation("PropertyRejector")
+  holds                   PropertyHold[]
   bookings                AccommodationBooking[]              @relation("BookingUser")
   confirmedBookings       AccommodationBooking[]              @relation("BookingConfirmer")
   checkedInBookings       AccommodationBooking[]              @relation("BookingCheckinStaff")
@@ -458,6 +459,7 @@ model Property {
   wishlists          WishlistProperty[]
   inquiries          PropertyInquiry[]
   tourItineraryDays  TourItineraryDay[]
+  holds              PropertyHold[]
 
   @@unique([tenantId, slug])
   @@index([approvalStatus])
@@ -1157,8 +1159,12 @@ model TourBooking {
 
 model PropertyHold {
   id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
   tenantId       String
   tenant         Tenant   @relation(fields: [tenantId], references: [id])
+  propertyId     String
+  property       Property @relation(fields: [propertyId], references: [id])
   unitTypeId     String
   unitType       UnitType @relation(fields: [unitTypeId], references: [id])
   holdToken      String   @unique
@@ -1169,7 +1175,9 @@ model PropertyHold {
   idempotencyKey String?  @unique
   createdAt      DateTime @default(now())
 
+  @@index([userId])
   @@index([tenantId])
+  @@index([propertyId])
   @@index([unitTypeId, startDate, endDate])
   @@index([expiresAt])
 }

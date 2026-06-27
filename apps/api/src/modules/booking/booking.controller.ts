@@ -125,9 +125,14 @@ export const releaseHoldController = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
+    const authReq = req as AuthenticatedRequest;
+    if (!authReq.userId) {
+      throw AppError.unauthorized('Authentication required');
+    }
+
     const params = req.params as ReleaseHoldParams;
 
-    await releaseGuestHold(params.holdToken);
+    await releaseGuestHold(params.holdToken, authReq.userId);
 
     res.status(200).json({ message: 'Hold released successfully' });
   } catch (err) {

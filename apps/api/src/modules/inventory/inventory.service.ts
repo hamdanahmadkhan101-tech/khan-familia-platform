@@ -168,6 +168,7 @@ export const setPriceOverride = async (
 };
 
 export const acquireHold = async (
+  userId: string,
   tenantId: string,
   propertyId: string,
   unitTypeId: string,
@@ -184,7 +185,9 @@ export const acquireHold = async (
 
       if (existingHold) {
         const sameHoldRequest =
+          existingHold.userId === userId &&
           existingHold.tenantId === tenantId &&
+          existingHold.propertyId === propertyId &&
           existingHold.unitTypeId === unitTypeId &&
           existingHold.startDate.getTime() === startDate.getTime() &&
           existingHold.endDate.getTime() === endDate.getTime() &&
@@ -244,7 +247,9 @@ export const acquireHold = async (
 
     const hold = await tx.propertyHold.create({
       data: {
+        userId,
         tenantId,
+        propertyId,
         unitTypeId,
         holdToken,
         startDate,
@@ -259,7 +264,7 @@ export const acquireHold = async (
   });
 };
 
-export const releaseHold = async (holdToken: string) => {
+export const releaseHold = async (holdToken: string, userId?: string) => {
   return await prisma.$transaction(async (tx) => {
     const hold = await tx.propertyHold.findUnique({
       where: { holdToken },
@@ -267,6 +272,10 @@ export const releaseHold = async (holdToken: string) => {
 
     if (!hold) {
       throw AppError.notFound('Hold not found');
+    }
+
+    if (userId && hold.userId !== userId) {
+      throw AppError.forbidden('You do not have permission to release this hold');
     }
 
     const inventoryRows = await tx.unitInventory.findMany({
