@@ -36,6 +36,10 @@ export const createStripePaymentIntent = async (holdToken: string, userId: strin
     throw AppError.notFound('Hold not found or has already expired');
   }
 
+  if (hold.userId !== userId) {
+    throw AppError.forbidden('You do not have permission to pay for this hold');
+  }
+
   if (hold.expiresAt < new Date()) {
     throw AppError.badRequest('This hold has expired. Please start a new checkout.');
   }
@@ -176,6 +180,28 @@ export const handleStripeWebhookEvent = async (
           confirmedAt: new Date(),
         },
       });
+
+      // Find unit inventory rows for reservations
+      const inventoryRows = await tx.unitInventory.findMany({
+        where: {
+          propertyId: hold.unitType.propertyId,
+          unitTypeId: hold.unitTypeId,
+          date: { gte: hold.startDate, lte: hold.endDate },
+        },
+        select: { id: true, date: true },
+      });
+
+      if (inventoryRows.length > 0) {
+        // We create one reservation per inventory row (per date).
+        // Note: quantity is handled via UnitInventory.bookedCount which is already incremented.
+        await tx.reservation.createMany({
+          data: inventoryRows.map((row) => ({
+            bookingId: booking.id,
+            unitInventoryId: row.id,
+            date: row.date,
+          })),
+        });
+      }
 
       // Persist price snapshot
       await tx.bookingPriceSnapshot.create({

@@ -27,11 +27,14 @@
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:migrate:reset": "prisma migrate reset --force",
-    "prisma:db:seed": "node -e \"console.log('Seed placeholder: implement packages/database/prisma/seed')\"",
+    "prisma:db:seed": "prisma db seed",
     "push": "prisma db push",
     "studio": "prisma studio",
     "lint": "eslint src --max-warnings=0",
     "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "5.22.0"
@@ -40,6 +43,7 @@
     "@khan-familia/config": "workspace:*",
     "@types/node": "22.19.19",
     "prisma": "5.22.0",
+    "tsx": "^4.0.0",
     "typescript": "5.9.3"
   }
 }
