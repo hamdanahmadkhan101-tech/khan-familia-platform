@@ -3,7 +3,7 @@
  */
 export { QUEUE_NAMES, type QueueName } from '@khan-familia/constants';
 export type {
-  BookingExpiryJobPayload,
+  HoldExpiryJobPayload,
   NotificationJobPayload,
   InventoryHorizonJobPayload,
   JobPayload,

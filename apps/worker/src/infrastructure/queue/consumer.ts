@@ -28,6 +28,8 @@ export const startWorker = async (): Promise<BullWorker[]> => {
     const worker = new Worker(queueName, async (job) => processor(job.data), {
       connection: connectionOptions,
       concurrency: 5,
+      stalledInterval: 300000, // 5 minutes
+      maxStalledCount: 1,
     });
 
     worker.on('failed', (job, err) => {

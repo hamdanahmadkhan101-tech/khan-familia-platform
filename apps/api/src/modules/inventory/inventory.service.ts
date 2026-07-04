@@ -3,6 +3,7 @@ import type { Prisma } from '@khan-familia/database';
 import { addMinutes } from '@khan-familia/utils';
 import { AppError } from '../../shared/errors/AppError.js';
 import { prisma } from '../../infrastructure/database/client.js';
+import { enqueueHoldExpiryJob } from '../../infrastructure/queue/producer.js';
 
 const HOLD_TTL_MINUTES = 15;
 
@@ -258,6 +259,12 @@ export const acquireHold = async (
         expiresAt,
         ...(idempotencyKey ? { idempotencyKey } : {}),
       },
+    });
+
+    await enqueueHoldExpiryJob({
+      holdId: hold.id,
+      holdToken: hold.holdToken,
+      holdExpiresAt: hold.expiresAt.toISOString(),
     });
 
     return hold;

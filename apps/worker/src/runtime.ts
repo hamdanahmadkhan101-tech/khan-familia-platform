@@ -9,10 +9,9 @@ import {
   startWorker as startQueueWorker,
 } from './infrastructure/queue/consumer.js';
 import { QUEUE_NAMES } from '@khan-familia/constants';
-import { handleBookingExpiryJob } from './jobs/booking-expiry.job.js';
+import { handleHoldExpiryJob } from './jobs/hold-expiry.job.js';
 import { handleNotificationJob } from './jobs/notification.job.js';
 import { handleInventoryHorizonQueueJob } from './jobs/inventory-horizon.job.js';
-import { startHoldSweepInterval } from './jobs/hold-sweep.js';
 
 export const startWorker = async () => {
   logger.info(
@@ -24,7 +23,7 @@ export const startWorker = async () => {
   );
 
   // Register BullMQ processors
-  registerProcessor(QUEUE_NAMES.BOOKING_EXPIRY, handleBookingExpiryJob);
+  registerProcessor(QUEUE_NAMES.HOLD_EXPIRY, handleHoldExpiryJob);
   registerProcessor(QUEUE_NAMES.NOTIFICATIONS, handleNotificationJob);
   registerProcessor(QUEUE_NAMES.INVENTORY_HORIZON, handleInventoryHorizonQueueJob);
 
@@ -35,7 +34,6 @@ export const startWorker = async () => {
 
   // Run scheduler jobs
   await runJobs(jobs, logger);
-  const holdSweepInterval = startHoldSweepInterval();
 
   // Register shutdown hooks for graceful shutdown
   let isShuttingDown = false;
@@ -47,7 +45,6 @@ export const startWorker = async () => {
 
     isShuttingDown = true;
     logger.info('Shutting down worker...');
-    clearInterval(holdSweepInterval);
     for (const w of queueWorkers) {
       await w.close();
     }
