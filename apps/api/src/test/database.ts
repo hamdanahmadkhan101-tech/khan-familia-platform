@@ -27,6 +27,8 @@ export const assertTestDatabaseUrl = () => {
   }
 };
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export const truncateTestDatabase = async () => {
   assertTestDatabaseUrl();
 
@@ -42,7 +44,24 @@ export const truncateTestDatabase = async () => {
   }
 
   const tableList = tables.map(({ tablename }) => `"public"."${tablename}"`).join(', ');
-  await testPrisma.$executeRawUnsafe(`TRUNCATE TABLE ${tableList} RESTART IDENTITY CASCADE`);
+
+  // Retry up to 3 times on deadlock (PG code 40P01) or serialization failure (40001)
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      await testPrisma.$executeRawUnsafe(`TRUNCATE TABLE ${tableList} RESTART IDENTITY CASCADE`);
+      return;
+    } catch (err: unknown) {
+      const code = (err as { code?: string }).code;
+      if (code === '40P01' || code === '40001') {
+        lastError = err;
+        await sleep(50 * (attempt + 1));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastError;
 };
 
 export const disconnectTestDatabase = async () => {
