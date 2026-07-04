@@ -3,7 +3,7 @@ import { calculateDelayMs } from '@khan-familia/utils';
 
 import { getBullMqConnectionOptions } from '../cache/redis.js';
 import { QUEUE_NAMES, type QueueName } from '@khan-familia/constants';
-import type { BookingExpiryJobPayload, NotificationJobPayload } from '@khan-familia/types';
+import type { HoldExpiryJobPayload, NotificationJobPayload } from '@khan-familia/types';
 
 // ============================================================================
 // Queue Instances (Lazy Initialization)
@@ -17,6 +17,10 @@ const getQueue = (name: QueueName): Queue => {
       name,
       new Queue(name, {
         connection: getBullMqConnectionOptions(),
+        defaultJobOptions: {
+          removeOnComplete: { count: 100 },
+          removeOnFail: { count: 500 },
+        },
       }),
     );
   }
@@ -28,9 +32,9 @@ const getQueue = (name: QueueName): Queue => {
 // Job Enqueueing Functions
 // ============================================================================
 
-export const enqueueBookingExpiryJob = async (payload: BookingExpiryJobPayload) => {
-  const queue = getQueue(QUEUE_NAMES.BOOKING_EXPIRY);
-  return queue.add(`booking-expiry-${payload.bookingId}`, payload, {
+export const enqueueHoldExpiryJob = async (payload: HoldExpiryJobPayload) => {
+  const queue = getQueue(QUEUE_NAMES.HOLD_EXPIRY);
+  return queue.add(`hold-expiry-${payload.holdId}`, payload, {
     delay: calculateDelayMs(new Date(payload.holdExpiresAt)),
   });
 };
@@ -40,6 +44,11 @@ export const enqueueNotificationJob = async (payload: NotificationJobPayload) =>
   return queue.add(`notification-${payload.userId}`, payload, {
     priority: payload.type === 'email' ? 5 : 1,
   });
+};
+
+export const enqueueInventoryHorizonJob = async (propertyId: string) => {
+  const queue = getQueue(QUEUE_NAMES.INVENTORY_HORIZON);
+  return queue.add(`inventory-horizon-${propertyId}`, { propertyId });
 };
 
 /**

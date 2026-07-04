@@ -1,5 +1,6 @@
-export interface BookingExpiryJobPayload {
-  bookingId: string;
+export interface HoldExpiryJobPayload {
+  holdId: string;
+  holdToken: string;
   holdExpiresAt: string;
 }
 
@@ -14,7 +15,4 @@ export interface InventoryHorizonJobPayload {
   propertyId: string;
 }
 
-export type JobPayload =
-  | BookingExpiryJobPayload
-  | NotificationJobPayload
-  | InventoryHorizonJobPayload;
+export type JobPayload = HoldExpiryJobPayload | NotificationJobPayload | InventoryHorizonJobPayload;

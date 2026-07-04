@@ -13,7 +13,7 @@ export const SERVICE_NAMES = {
 export const DEFAULT_LOG_LEVEL = 'info';
 
 export const QUEUE_NAMES = {
-  BOOKING_EXPIRY: 'booking-expiry',
+  HOLD_EXPIRY: 'hold-expiry',
   NOTIFICATIONS: 'notifications',
   INVENTORY_HORIZON: 'inventory-horizon',
 } as const;

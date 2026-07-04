@@ -4,6 +4,7 @@ import { generateShortId, generateSlug } from '@khan-familia/utils';
 
 import { prisma } from '../../infrastructure/database/client.js';
 import { AppError } from '../../shared/errors/AppError.js';
+import { enqueueInventoryHorizonJob } from '../../infrastructure/queue/producer.js';
 import type {
   CreatePropertyBody,
   RejectPropertyBody,
@@ -338,7 +339,7 @@ export const approveProperty = async (
     throw AppError.conflict('Property is already approved');
   }
 
-  return prisma.property.update({
+  const updated = await prisma.property.update({
     where: { id: propertyId },
     data: {
       approvalStatus: PropertyApprovalStatus.APPROVED,
@@ -350,6 +351,10 @@ export const approveProperty = async (
     },
     select: propertySelect,
   });
+
+  await enqueueInventoryHorizonJob(propertyId);
+
+  return updated;
 };
 
 export const rejectProperty = async (
