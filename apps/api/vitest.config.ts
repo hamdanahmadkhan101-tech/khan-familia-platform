@@ -17,6 +17,7 @@ export default defineConfig({
     globals: false,
     include: ['src/**/*.test.ts', 'src/**/*.spec.ts'],
     passWithNoTests: true,
+    fileParallelism: false,
     pool: 'forks',
     poolOptions: {
       forks: {
