@@ -435,6 +435,7 @@ model Property {
   totalReviews            Int                    @default(0)
   tenantId                String
   tenant                  Tenant                 @relation(fields: [tenantId], references: [id])
+  requiresApproval        Boolean                @default(false)
   approvalStatus          PropertyApprovalStatus @default(PENDING)
   approvedAt              DateTime?
   approvedById            String?
@@ -499,6 +500,7 @@ model UnitType {
   tenant     Tenant   @relation(fields: [tenantId], references: [id])
   name       String
 
+  unitCount   Int      @default(1)
   capacity    Int      @default(2)
   description String?
   images      Json?

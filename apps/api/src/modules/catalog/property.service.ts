@@ -32,6 +32,7 @@ const propertySelect = {
   averageRating: true,
   totalReviews: true,
   tenantId: true,
+  requiresApproval: true,
   approvalStatus: true,
   approvedAt: true,
   rejectedAt: true,
@@ -120,6 +121,7 @@ export const createProperty = async (
       country: body.country,
       images: body.images,
       isWholePropertyBookable: body.isWholePropertyBookable ?? false,
+      requiresApproval: body.requiresApproval ?? false,
       approvalStatus: PropertyApprovalStatus.PENDING,
     };
 
@@ -233,6 +235,7 @@ export const updateProperty = async (
     ...(body.wholePropertyBasePrice !== undefined
       ? { wholePropertyBasePrice: body.wholePropertyBasePrice }
       : {}),
+    ...(body.requiresApproval !== undefined ? { requiresApproval: body.requiresApproval } : {}),
     ...(body.checkInTime !== undefined ? { checkInTime: body.checkInTime } : {}),
     ...(body.checkOutTime !== undefined ? { checkOutTime: body.checkOutTime } : {}),
     ...(body.timezone !== undefined ? { timezone: body.timezone } : {}),

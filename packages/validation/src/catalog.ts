@@ -37,6 +37,7 @@ export const createPropertyBodySchema = z.object({
   checkInTime: z.string().trim().max(16).optional(),
   checkOutTime: z.string().trim().max(16).optional(),
   timezone: z.string().trim().max(64).optional(),
+  requiresApproval: z.boolean().optional(),
   location: locationSchema.optional(),
 });
 
@@ -56,6 +57,7 @@ export const unitTypeParamsSchema = propertyIdParamsSchema.extend({
 
 export const createUnitTypeBodySchema = z.object({
   name: z.string().trim().min(1).max(120),
+  unitCount: z.number().int().min(1).max(1000).default(1),
   capacity: z.number().int().min(1).max(50).default(2),
   description: z.string().trim().max(5000).optional(),
   defaultRate: z.number().int().min(0).optional(),

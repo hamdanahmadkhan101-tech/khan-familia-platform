@@ -9,6 +9,7 @@ const unitTypeSelect = {
   propertyId: true,
   tenantId: true,
   name: true,
+  unitCount: true,
   capacity: true,
   description: true,
   images: true,
@@ -50,6 +51,7 @@ export const createUnitType = async (
     tenantId,
     propertyId,
     name: body.name,
+    unitCount: body.unitCount,
     capacity: body.capacity,
     images: body.images ?? [],
   };
@@ -124,6 +126,7 @@ export const updateUnitType = async (
     where: { id: unitTypeId },
     data: {
       ...(body.name !== undefined ? { name: body.name } : {}),
+      ...(body.unitCount !== undefined ? { unitCount: body.unitCount } : {}),
       ...(body.capacity !== undefined ? { capacity: body.capacity } : {}),
       ...(body.description !== undefined ? { description: body.description } : {}),
       ...(body.defaultRate !== undefined ? { defaultRate: body.defaultRate } : {}),

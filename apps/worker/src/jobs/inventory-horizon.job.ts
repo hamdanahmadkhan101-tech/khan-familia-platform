@@ -41,6 +41,7 @@ export const generateInventoryHorizonForProperty = async (
       unitTypes: {
         select: {
           id: true,
+          unitCount: true,
         },
       },
     },
@@ -78,8 +79,8 @@ export const generateInventoryHorizonForProperty = async (
         unitTypeId: unitType.id,
         tenantId: property.tenantId,
         date,
-        totalCount: 1,
-        availableCount: 1,
+        totalCount: unitType.unitCount,
+        availableCount: unitType.unitCount,
         bookedCount: 0,
         blockedCount: 0,
       });
