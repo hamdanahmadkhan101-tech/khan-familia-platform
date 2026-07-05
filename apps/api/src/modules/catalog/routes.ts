@@ -1,19 +1,15 @@
-import { PlatformRole, TenantRole } from '@khan-familia/database';
+import { TenantRole } from '@khan-familia/database';
 import { Router, type RequestHandler } from 'express';
 
 import { authenticateRequired } from '../../shared/middleware/authenticate.js';
-import { requirePlatformRole } from '../../shared/middleware/require-platform-role.js';
 import { resolveInternalUser } from '../../shared/middleware/resolve-user.js';
 import { resolveTenant } from '../../shared/middleware/tenant.js';
 import { validateBody, validateParams } from '../../shared/middleware/validate.js';
 import { requireTenantRole } from '../tenancy/middleware/require-tenant-role.js';
 import {
-  approveProperty,
   createProperty,
   getPropertyForTenant,
-  listPendingProperties,
   listPropertiesForTenant,
-  rejectProperty,
   softDeleteProperty,
   updateProperty,
 } from './property.controller.js';
@@ -21,7 +17,6 @@ import {
   createPropertyBodySchema,
   createUnitTypeBodySchema,
   propertyIdParamsSchema,
-  rejectPropertyBodySchema,
   unitTypeParamsSchema,
   updatePropertyBodySchema,
   updateUnitTypeBodySchema,
@@ -35,12 +30,10 @@ import {
 } from './unit-type.controller.js';
 
 export const catalogRouter = Router();
-export const catalogAdminRouter = Router();
 
 const requireAuth = authenticateRequired as RequestHandler;
 const attachUser = resolveInternalUser as RequestHandler;
 const attachTenant = resolveTenant as RequestHandler;
-const requireSuperAdmin = requirePlatformRole(PlatformRole.SUPER_ADMIN) as RequestHandler;
 
 const ownerAdminOrStaffRead = requireTenantRole(
   TenantRole.OWNER,
@@ -129,33 +122,3 @@ unitTypeRouter.delete(
 );
 
 catalogRouter.use('/:propertyId/unit-types', unitTypeRouter);
-
-/** List properties awaiting platform approval. */
-catalogAdminRouter.get(
-  '/pending',
-  requireAuth,
-  attachUser,
-  requireSuperAdmin,
-  listPendingProperties,
-);
-
-/** Approve a property (platform moderator). */
-catalogAdminRouter.post(
-  '/:propertyId/approve',
-  requireAuth,
-  attachUser,
-  requireSuperAdmin,
-  validateParams(propertyIdParamsSchema),
-  approveProperty,
-);
-
-/** Reject a property with a reason (platform moderator). */
-catalogAdminRouter.post(
-  '/:propertyId/reject',
-  requireAuth,
-  attachUser,
-  requireSuperAdmin,
-  validateParams(propertyIdParamsSchema),
-  validateBody(rejectPropertyBodySchema),
-  rejectProperty,
-);

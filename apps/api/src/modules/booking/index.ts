@@ -3,4 +3,4 @@
  */
 export const BOOKING_MODULE = 'booking' as const;
 
-export { bookingRouter } from './routes.js';
+export { bookingRouter, hostBookingRouter } from './routes.js';

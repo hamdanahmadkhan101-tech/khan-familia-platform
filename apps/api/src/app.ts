@@ -11,7 +11,8 @@ import { env } from './env.js';
 import { requestLogger } from './logger.js';
 import { notFoundHandler } from './middleware/not-found.js';
 import { clerkWebhookHandler, iamRouter } from './modules/iam/index.js';
-import { catalogAdminRouter, catalogRouter } from './modules/catalog/index.js';
+import { catalogRouter } from './modules/catalog/index.js';
+import { adminRouter } from './modules/admin/index.js';
 import { tenancyRouter } from './modules/tenancy/index.js';
 import { inventoryRouter } from './modules/inventory/index.js';
 import { bookingRouter } from './modules/booking/index.js';
@@ -81,7 +82,7 @@ export const createApp = () => {
   app.use('/iam', iamRouter);
   app.use('/tenants', tenancyRouter);
   app.use('/properties', catalogRouter);
-  app.use('/admin/properties', catalogAdminRouter);
+  app.use('/admin', adminRouter);
   app.use('/inventory', inventoryRouter);
   app.use('/bookings', bookingRouter);
   app.use('/payments', paymentsRouter);

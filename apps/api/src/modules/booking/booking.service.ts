@@ -12,7 +12,12 @@ import type {
   CancelGuestBookingBody,
   CreateHoldBody,
   GuestBookingListQuery,
+  RejectBookingBody,
 } from '@khan-familia/validation';
+import {
+  cancelStripePaymentIntent,
+  captureStripePaymentIntent,
+} from '../payments/payment.service.js';
 
 const bookingSelect = {
   id: true,
@@ -321,4 +326,119 @@ export const cancelGuestBooking = async (
   });
 
   return attachPayments(cancelled);
+};
+
+export const approveGuestBooking = async (tenantId: string, bookingId: string, userId: string) => {
+  const approved = await prisma.$transaction(async (tx) => {
+    const booking = await tx.accommodationBooking.findFirst({
+      where: { id: bookingId, tenantId },
+      select: bookingSelect,
+    });
+
+    if (!booking) {
+      throw AppError.notFound('Booking not found');
+    }
+
+    if (booking.status !== 'BOOKED') {
+      throw AppError.conflict('Only BOOKED status can be approved');
+    }
+
+    // Get the payment intent id to capture
+    const paymentRecord = await tx.paymentRecord.findFirst({
+      where: {
+        paymentIntent: { bookingId: booking.id },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!paymentRecord || !paymentRecord.paymentIntentId) {
+      throw AppError.internal('Payment intent not found for booking');
+    }
+
+    // Capture the payment using Stripe
+    await captureStripePaymentIntent(paymentRecord.paymentIntentId);
+
+    const updated = await tx.accommodationBooking.update({
+      where: { id: booking.id },
+      data: {
+        status: 'CONFIRMED',
+      },
+      select: bookingSelect,
+    });
+
+    await tx.accommodationBookingStatusHistory.create({
+      data: {
+        bookingId: booking.id,
+        oldStatus: booking.status,
+        newStatus: 'CONFIRMED',
+        changedById: userId,
+        reason: 'Host approved booking',
+      },
+    });
+
+    return updated;
+  });
+
+  return attachPayments(approved);
+};
+
+export const rejectGuestBooking = async (
+  tenantId: string,
+  bookingId: string,
+  userId: string,
+  input: RejectBookingBody,
+) => {
+  const rejected = await prisma.$transaction(async (tx) => {
+    const booking = await tx.accommodationBooking.findFirst({
+      where: { id: bookingId, tenantId },
+      select: bookingSelect,
+    });
+
+    if (!booking) {
+      throw AppError.notFound('Booking not found');
+    }
+
+    if (booking.status !== 'BOOKED') {
+      throw AppError.conflict('Only BOOKED status can be rejected');
+    }
+
+    // Release inventory
+    await releaseBookedInventory(tx, booking);
+
+    // Get the payment intent id to cancel
+    const paymentRecord = await tx.paymentRecord.findFirst({
+      where: {
+        paymentIntent: { bookingId: booking.id },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (paymentRecord && paymentRecord.paymentIntentId) {
+      await cancelStripePaymentIntent(paymentRecord.paymentIntentId);
+    }
+
+    const updated = await tx.accommodationBooking.update({
+      where: { id: booking.id },
+      data: {
+        status: 'CANCELLED',
+        cancellationReason: input.reason,
+        cancellationDate: new Date(),
+      },
+      select: bookingSelect,
+    });
+
+    await tx.accommodationBookingStatusHistory.create({
+      data: {
+        bookingId: booking.id,
+        oldStatus: booking.status,
+        newStatus: 'CANCELLED',
+        changedById: userId,
+        reason: input.reason,
+      },
+    });
+
+    return updated;
+  });
+
+  return attachPayments(rejected);
 };
