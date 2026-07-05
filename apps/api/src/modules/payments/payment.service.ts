@@ -1,4 +1,5 @@
 import { BookingType } from '@khan-familia/database';
+import Stripe from 'stripe';
 import { stripe } from '../../infrastructure/stripe/client.js';
 import { prisma } from '../../infrastructure/database/client.js';
 import { AppError } from '../../shared/errors/AppError.js';
@@ -27,6 +28,11 @@ export const createStripePaymentIntent = async (holdToken: string, userId: strin
           name: true,
           defaultRate: true,
           propertyId: true,
+          property: {
+            select: {
+              requiresApproval: true,
+            },
+          },
         },
       },
     },
@@ -80,6 +86,7 @@ export const createStripePaymentIntent = async (holdToken: string, userId: strin
   const stripeIntent = await stripe.paymentIntents.create({
     amount: totalMinor, // Stripe uses smallest currency unit
     currency: 'pkr',
+    capture_method: hold.unitType.property.requiresApproval ? 'manual' : 'automatic',
     metadata: {
       holdToken,
       userId,
@@ -130,8 +137,11 @@ export const handleStripeWebhookEvent = async (
     throw AppError.badRequest('Invalid Stripe webhook signature');
   }
 
-  if (event.type === 'payment_intent.succeeded') {
-    const stripeIntent = event.data.object;
+  const isSucceeded = event.type === 'payment_intent.succeeded';
+  const isCapturable = event.type === 'payment_intent.amount_capturable_updated';
+
+  if (isSucceeded || isCapturable) {
+    const stripeIntent = event.data.object as Stripe.PaymentIntent;
     const { holdToken, userId } = stripeIntent.metadata;
 
     if (!holdToken || !userId) {
@@ -139,11 +149,26 @@ export const handleStripeWebhookEvent = async (
       return { received: true };
     }
 
-    // Idempotency: if a booking for this holdToken already exists, skip
+    // Idempotency: if a booking for this holdToken already exists, handle subsequent events
     const existing = await prisma.accommodationBooking.findFirst({
       where: { idempotencyKey: holdToken },
     });
+
     if (existing) {
+      if (isSucceeded) {
+        // If the booking was previously created by amount_capturable_updated, we now mark the payment as PAID
+        await prisma.paymentRecord.updateMany({
+          where: { paymentIntentId: stripeIntent.id },
+          data: {
+            status: 'PAID',
+            amountCaptured: stripeIntent.amount_received,
+          },
+        });
+        await prisma.paymentIntent.updateMany({
+          where: { id: stripeIntent.id },
+          data: { status: 'PAID' },
+        });
+      }
       return { received: true };
     }
 
@@ -162,6 +187,9 @@ export const handleStripeWebhookEvent = async (
     const baseRate = hold.unitType.defaultRate ?? 0;
     const totalMinor = multiplyMoney(baseRate, nights * hold.quantity);
 
+    const bookingStatus = isCapturable ? 'BOOKED' : 'CONFIRMED';
+    const paymentStatus = isCapturable ? 'PENDING' : 'PAID';
+
     // Run everything as a transaction: create booking, record payment, clean up hold
     await prisma.$transaction(async (tx) => {
       // Create the confirmed booking
@@ -175,7 +203,7 @@ export const handleStripeWebhookEvent = async (
           checkOut: hold.endDate,
           nights,
           guests: hold.quantity,
-          status: 'BOOKED',
+          status: bookingStatus,
           idempotencyKey: holdToken,
           confirmedAt: new Date(),
         },
@@ -222,9 +250,9 @@ export const handleStripeWebhookEvent = async (
       const paymentRecordData = {
         paymentIntentId: stripeIntent.id,
         transactionId: stripeIntent.id,
-        amountCaptured: stripeIntent.amount_received,
+        amountCaptured: stripeIntent.amount_received || stripeIntent.amount_capturable || 0,
         currency: 'PKR',
-        status: 'PAID' as const,
+        status: paymentStatus as 'PAID' | 'PENDING',
         ...(stripeIntent.payment_method
           ? { paymentMethod: { id: stripeIntent.payment_method as string } }
           : {}),
@@ -237,7 +265,7 @@ export const handleStripeWebhookEvent = async (
       // Update the PaymentIntent record to reference the real booking ID
       await tx.paymentIntent.update({
         where: { id: stripeIntent.id },
-        data: { bookingId: booking.id, status: 'PAID' },
+        data: { bookingId: booking.id, status: paymentStatus },
       });
     });
   }
@@ -265,4 +293,12 @@ export const handleStripeWebhookEvent = async (
   }
 
   return { received: true };
+};
+
+export const captureStripePaymentIntent = async (paymentIntentId: string) => {
+  return stripe.paymentIntents.capture(paymentIntentId);
+};
+
+export const cancelStripePaymentIntent = async (paymentIntentId: string) => {
+  return stripe.paymentIntents.cancel(paymentIntentId);
 };

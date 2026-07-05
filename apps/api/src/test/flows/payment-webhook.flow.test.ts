@@ -116,7 +116,7 @@ describeDb('payment integration flow', () => {
       userId: guest.id,
       propertyId: property.id,
       unitTypeId: unitType.id,
-      status: 'BOOKED',
+      status: 'CONFIRMED',
     });
 
     await expect(testPrisma.propertyHold.findUnique({ where: { holdToken } })).resolves.toBeNull();
