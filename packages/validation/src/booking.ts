@@ -55,8 +55,13 @@ export const cancelGuestBookingBodySchema = z.object({
   reason: z.string().trim().min(3).max(1000),
 });
 
+export const rejectBookingBodySchema = z.object({
+  reason: z.string().trim().min(3).max(1000),
+});
+
 export type CreateHoldBody = z.infer<typeof createHoldBodySchema>;
 export type ReleaseHoldParams = z.infer<typeof releaseHoldParamsSchema>;
 export type GuestBookingListQuery = z.infer<typeof guestBookingListQuerySchema>;
 export type BookingIdParams = z.infer<typeof bookingIdParamsSchema>;
 export type CancelGuestBookingBody = z.infer<typeof cancelGuestBookingBodySchema>;
+export type RejectBookingBody = z.infer<typeof rejectBookingBodySchema>;

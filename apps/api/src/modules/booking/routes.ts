@@ -10,15 +10,18 @@ import {
   listGuestBookingsController,
   releaseHoldController,
 } from './booking.controller.js';
+import { approveBookingController, rejectBookingController } from './host-booking.controller.js';
 import {
   bookingIdParamsSchema,
   cancelGuestBookingBodySchema,
   createHoldBodySchema,
   guestBookingListQuerySchema,
+  rejectBookingBodySchema,
   releaseHoldParamsSchema,
 } from '@khan-familia/validation';
 
 export const bookingRouter = Router();
+export const hostBookingRouter = Router({ mergeParams: true });
 
 const requireAuth = authenticateRequired as RequestHandler;
 const attachUser = resolveInternalUser as RequestHandler;
@@ -64,4 +67,23 @@ bookingRouter.delete(
   ...guestChain,
   validateParams(releaseHoldParamsSchema),
   releaseHoldController,
+);
+
+/** Approve a guest booking for a property owned by the active tenant. */
+hostBookingRouter.post(
+  '/:bookingId/approve',
+  requireAuth,
+  attachUser,
+  validateParams(bookingIdParamsSchema),
+  approveBookingController,
+);
+
+/** Reject a guest booking for a property owned by the active tenant. */
+hostBookingRouter.post(
+  '/:bookingId/reject',
+  requireAuth,
+  attachUser,
+  validateParams(bookingIdParamsSchema),
+  validateBody(rejectBookingBodySchema),
+  rejectBookingController,
 );

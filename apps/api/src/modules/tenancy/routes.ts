@@ -30,6 +30,7 @@ import {
   removeTenantMember,
   updateTenant,
 } from './tenant.controller.js';
+import { hostBookingRouter } from '../booking/index.js';
 
 export const tenancyRouter = Router();
 
@@ -128,4 +129,14 @@ tenancyRouter.delete(
   attachTenant,
   ownerOrAdmin,
   removeTenantMember,
+);
+
+tenancyRouter.use(
+  '/:tenantId/bookings',
+  requireAuth,
+  attachUser,
+  validateParams(tenantIdParamsSchema),
+  attachTenant,
+  requireTenantRole(TenantRole.OWNER, TenantRole.ADMIN, TenantRole.STAFF) as RequestHandler,
+  hostBookingRouter,
 );
