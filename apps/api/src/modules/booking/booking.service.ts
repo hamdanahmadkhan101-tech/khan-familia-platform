@@ -329,7 +329,8 @@ export const cancelGuestBooking = async (
 };
 
 export const approveGuestBooking = async (tenantId: string, bookingId: string, userId: string) => {
-  const approved = await prisma.$transaction(async (tx) => {
+  // Phase 1: Validate state and fetch the payment record (short read, no external calls).
+  const { booking, paymentRecord } = await prisma.$transaction(async (tx) => {
     const booking = await tx.accommodationBooking.findFirst({
       where: { id: bookingId, tenantId },
       select: bookingSelect,
@@ -343,43 +344,40 @@ export const approveGuestBooking = async (tenantId: string, bookingId: string, u
       throw AppError.conflict('Only BOOKED status can be approved');
     }
 
-    // Get the payment intent id to capture
     const paymentRecord = await tx.paymentRecord.findFirst({
-      where: {
-        paymentIntent: { bookingId: booking.id },
-      },
+      where: { paymentIntent: { bookingId: booking.id } },
       orderBy: { createdAt: 'desc' },
     });
 
-    if (!paymentRecord || !paymentRecord.paymentIntentId) {
+    if (!paymentRecord?.paymentIntentId) {
       throw AppError.internal('Payment intent not found for booking');
     }
 
-    // Capture the payment using Stripe
-    await captureStripePaymentIntent(paymentRecord.paymentIntentId);
-
-    const updated = await tx.accommodationBooking.update({
-      where: { id: booking.id },
-      data: {
-        status: 'CONFIRMED',
-      },
-      select: bookingSelect,
-    });
-
-    await tx.accommodationBookingStatusHistory.create({
-      data: {
-        bookingId: booking.id,
-        oldStatus: booking.status,
-        newStatus: 'CONFIRMED',
-        changedById: userId,
-        reason: 'Host approved booking',
-      },
-    });
-
-    return updated;
+    return { booking, paymentRecord };
   });
 
-  return attachPayments(approved);
+  // Phase 2: Call Stripe OUTSIDE the transaction. Network latency must not
+  // block a DB connection. If this throws, the booking stays BOOKED (safe).
+  await captureStripePaymentIntent(paymentRecord.paymentIntentId);
+
+  // Phase 3: Write the confirmed state now that Stripe has settled.
+  const updated = await prisma.accommodationBooking.update({
+    where: { id: booking.id },
+    data: { status: 'CONFIRMED' },
+    select: bookingSelect,
+  });
+
+  await prisma.accommodationBookingStatusHistory.create({
+    data: {
+      bookingId: booking.id,
+      oldStatus: booking.status,
+      newStatus: 'CONFIRMED',
+      changedById: userId,
+      reason: 'Host approved booking',
+    },
+  });
+
+  return attachPayments(updated);
 };
 
 export const rejectGuestBooking = async (
@@ -388,7 +386,8 @@ export const rejectGuestBooking = async (
   userId: string,
   input: RejectBookingBody,
 ) => {
-  const rejected = await prisma.$transaction(async (tx) => {
+  // Phase 1: Validate state and fetch payment record.
+  const { booking, paymentRecord } = await prisma.$transaction(async (tx) => {
     const booking = await tx.accommodationBooking.findFirst({
       where: { id: bookingId, tenantId },
       select: bookingSelect,
@@ -402,20 +401,24 @@ export const rejectGuestBooking = async (
       throw AppError.conflict('Only BOOKED status can be rejected');
     }
 
-    // Release inventory
-    await releaseBookedInventory(tx, booking);
-
-    // Get the payment intent id to cancel
     const paymentRecord = await tx.paymentRecord.findFirst({
-      where: {
-        paymentIntent: { bookingId: booking.id },
-      },
+      where: { paymentIntent: { bookingId: booking.id } },
       orderBy: { createdAt: 'desc' },
     });
 
-    if (paymentRecord && paymentRecord.paymentIntentId) {
-      await cancelStripePaymentIntent(paymentRecord.paymentIntentId);
-    }
+    return { booking, paymentRecord };
+  });
+
+  // Phase 2: Cancel the Stripe authorization OUTSIDE the transaction.
+  // If this fails, the booking stays BOOKED and no DB state is corrupted.
+  if (paymentRecord?.paymentIntentId) {
+    await cancelStripePaymentIntent(paymentRecord.paymentIntentId);
+  }
+
+  // Phase 3: Release inventory and write the cancelled state.
+  const cancelled = await prisma.$transaction(async (tx) => {
+    // Release the inventory slots that were held for this booking.
+    await releaseBookedInventory(tx, booking);
 
     const updated = await tx.accommodationBooking.update({
       where: { id: booking.id },
@@ -440,5 +443,5 @@ export const rejectGuestBooking = async (
     return updated;
   });
 
-  return attachPayments(rejected);
+  return attachPayments(cancelled);
 };

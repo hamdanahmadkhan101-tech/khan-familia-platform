@@ -296,9 +296,31 @@ export const handleStripeWebhookEvent = async (
 };
 
 export const captureStripePaymentIntent = async (paymentIntentId: string) => {
-  return stripe.paymentIntents.capture(paymentIntentId);
+  try {
+    return await stripe.paymentIntents.capture(paymentIntentId);
+  } catch (error) {
+    const stripeError = error as { code?: string; message?: string };
+    if (
+      stripeError.code === 'payment_intent_unexpected_state' &&
+      stripeError.message?.includes('already been captured')
+    ) {
+      return; // Idempotent success
+    }
+    throw error;
+  }
 };
 
 export const cancelStripePaymentIntent = async (paymentIntentId: string) => {
-  return stripe.paymentIntents.cancel(paymentIntentId);
+  try {
+    return await stripe.paymentIntents.cancel(paymentIntentId);
+  } catch (error) {
+    const stripeError = error as { code?: string; message?: string };
+    if (
+      stripeError.code === 'payment_intent_unexpected_state' &&
+      stripeError.message?.includes('already been canceled')
+    ) {
+      return; // Idempotent success
+    }
+    throw error;
+  }
 };
