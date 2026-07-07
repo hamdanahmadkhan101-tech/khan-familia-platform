@@ -1,118 +1,149 @@
 # Booking Lifecycle
 
-This platform supports automated and manual booking flows. Manual confirmations and offline
-payments are first-class in MVP.
+This platform supports two booking domains — **Accommodation** and **Tours** — with distinct
+lifecycle models. Manual confirmations and offline payments are first-class in MVP.
 
-## Property Booking Lifecycle
+---
+
+## Accommodation Booking Lifecycle
 
 ### States
 
-This document previously described a conceptual lifecycle (Inquiry/Quote/Held/etc.). The **implemented**
-database lifecycle for accommodation bookings is the `AccommodationBookingStatus` enum in Prisma:
+The implemented database lifecycle for accommodation bookings is the `AccommodationBookingStatus`
+enum in Prisma:
 
-- `PENDING`: booking created, inventory reserved for a limited time (hold expiry applies)
-- `BOOKED`: payment captured/recorded, awaiting property/operator confirmation
-- `CONFIRMED`: property/operator confirmed
-- `CHECKED_IN`: guest arrived
-- `CHECKED_OUT`: guest departed
-- `CANCELLED`: cancelled by guest/operator/system
-- `NO_SHOW`: guest did not arrive
+| Status        | Meaning                                                      |
+| ------------- | ------------------------------------------------------------ |
+| `PENDING`     | Booking created, awaiting payment (webhook not yet received) |
+| `BOOKED`      | Payment authorized or captured; awaiting host confirmation   |
+| `CONFIRMED`   | Host confirmed; guest is scheduled to arrive                 |
+| `CHECKED_IN`  | Guest has arrived at the property                            |
+| `CHECKED_OUT` | Guest has departed                                           |
+| `CANCELLED`   | Cancelled by guest, host, or system                          |
+| `NO_SHOW`     | Guest did not arrive                                         |
 
-Anything not listed above is **not represented as a first-class booking status** yet.
+### Pre-Booking: The Hold System
 
-### Implemented Checkout Flow
+An `AccommodationBooking` row is **not** created until Stripe confirms payment. Before payment,
+inventory is reserved via a `PropertyHold`:
 
-The current accommodation checkout implementation uses `PropertyHold` as the temporary reservation before payment. An `AccommodationBooking` row is created only after Stripe confirms `payment_intent.succeeded`.
+1. `POST /bookings/holds` → creates a `PropertyHold` and decrements `UnitInventory.availableCount`.
+2. `POST /payments/intent` → creates or reuses a pending `PaymentIntent` for that hold.
+3. Stripe webhook `payment_intent.succeeded` (or `payment_intent.amount_capturable_updated` for
+   manual-capture properties) → booking is created.
+4. Hold expiry, payment failure, or manual release → hold is deleted and inventory restored.
 
-1. `POST /bookings/holds` creates a `PropertyHold` and reserves inventory for the hold window.
-2. `POST /payments/intent` creates or reuses a pending Stripe-backed `PaymentIntent` for that hold.
-3. `payment_intent.succeeded` converts the hold into a `BOOKED` `AccommodationBooking`, records the payment, and deletes the hold.
-4. `payment_intent.payment_failed`, `payment_intent.canceled`, manual release, or worker expiry releases the hold and restores inventory without creating a booking.
+### Approval-Required Properties (`requiresApproval = true`)
 
-### Automated Flow (Typical)
+Some properties require the host to manually confirm before charging the guest. These use Stripe's
+**manual capture** strategy:
+
+```mermaid
+sequenceDiagram
+  Guest->>API: POST /bookings/holds
+  API->>Stripe: Create PaymentIntent (capture_method: manual)
+  Guest->>Stripe: Confirm payment (authorizes only, no charge)
+  Stripe->>API: payment_intent.amount_capturable_updated
+  API->>DB: Create AccommodationBooking (status: BOOKED)
+  Host->>API: POST /tenants/:id/bookings/:id/approve
+  API->>Stripe: Capture payment
+  API->>DB: Update status: CONFIRMED
+```
+
+Rejection flow:
+
+```mermaid
+sequenceDiagram
+  Host->>API: POST /tenants/:id/bookings/:id/reject
+  API->>Stripe: Cancel PaymentIntent (no charge to guest)
+  API->>DB: Release inventory, update status: CANCELLED
+```
+
+> **Key rule:** Stripe API calls (capture, cancel) must **never** occur inside a Prisma interactive
+> transaction. Network latency will exceed the 5-second timeout. Use the Read → Act → Write pattern.
+
+### Standard Flow (No Approval Required)
 
 ```mermaid
 stateDiagram-v2
-  [*] --> PENDING
-  PENDING --> BOOKED
-  BOOKED --> CONFIRMED
+  [*] --> BOOKED : payment_intent.succeeded
+  BOOKED --> CONFIRMED : auto (requiresApproval=false)
   CONFIRMED --> CHECKED_IN
   CHECKED_IN --> CHECKED_OUT
-  PENDING --> CANCELLED
   BOOKED --> CANCELLED
   CONFIRMED --> CANCELLED
 ```
 
-### Manual Confirmation Flow
+### Manual Confirmation Flow (`requiresApproval = true`)
 
 ```mermaid
 stateDiagram-v2
-  [*] --> PENDING
-  PENDING --> BOOKED
-  BOOKED --> CONFIRMED
+  [*] --> BOOKED : payment_intent.amount_capturable_updated
+  BOOKED --> CONFIRMED : host approves (Stripe capture)
+  BOOKED --> CANCELLED : host rejects (Stripe cancel)
+  CONFIRMED --> CHECKED_IN
   CONFIRMED --> CANCELLED
 ```
 
-### Guest Cancellation Behavior
+### Guest Cancellation
 
-Guests may cancel their own accommodation bookings before operational terminal states such as `CHECKED_IN`, `CHECKED_OUT`, `CANCELLED`, or `NO_SHOW`. Current cancellation stores the reason/date, appends status history, and restores reserved inventory. Refund automation and cancellation policy evaluation are future work.
+Guests can cancel bookings in `PENDING`, `BOOKED`, or `CONFIRMED` states. The service:
 
-### Future Policy Layer
-
-Booking rules now have an initial domain-level policy layer for guest hold eligibility and cancellation status rules. As the platform grows, this layer should expand to same-day and advance-notice rules, cancellation windows, refund eligibility, date-change policy, and shared assumptions between hold creation, payment webhooks, and workers.
+- Restores reserved inventory.
+- Records a cancellation reason and date.
+- Appends an entry to `AccommodationBookingStatusHistory`.
+- Refund automation is future work; currently stored as `refundAmount` on the booking.
 
 ### Invariants
 
-- A booking should not be moved forward in the lifecycle without an immutable price snapshot (`BookingPriceSnapshot`).
-- Holds expire; the worker releases expired `PropertyHold` rows and restores inventory. Current code does not create a pending accommodation booking before payment.
-- Booking status transitions should be append-only and audited (status history table exists).
+- Every booking must have an immutable `BookingPriceSnapshot` attached.
+- Booking status transitions are append-only and audited via `AccommodationBookingStatusHistory`.
+- Stripe calls are idempotent: calling capture/cancel on an already-processed intent is handled gracefully.
+
+---
 
 ## Tour Booking Lifecycle
 
-Tours have two booking patterns: fixed departures and custom requests.
+The Tours module uses a fundamentally different inventory model. Instead of calendar availability,
+tours operate on **TourDepartures** — specific dated slots with a fixed `maxCapacity`.
 
-### Fixed Departure Flow (MVP)
+### States
+
+The `TourBookingStatus` enum:
+
+| Status      | Meaning                                                  |
+| ----------- | -------------------------------------------------------- |
+| `PENDING`   | Booking submitted, awaiting payment confirmation         |
+| `CONFIRMED` | Payment complete; participant is booked on the departure |
+| `CANCELLED` | Cancelled by participant or operator                     |
+| `COMPLETED` | Departure has occurred                                   |
+
+### Tour Booking Flow
+
+Tours do **not** use a Hold model. Seat reservation is atomic with booking creation:
+
+1. Guest submits `POST /tours/:id/departures/:departureId/book` with `numberOfPeople` and participant details.
+2. API validates `bookedCount + numberOfPeople <= maxCapacity` inside a transaction.
+3. Stripe payment is initiated. On success, `bookedCount` is atomically incremented.
+4. Database constraint `CHECK (bookedCount <= maxCapacity)` enforces the hard cap at the DB level.
+
+### Approval-Required Tours (`requiresApproval = true`)
+
+Individual `TourPackage` records can set `requiresApproval = true` (e.g., private charters,
+honeymoon packages). The flow mirrors the accommodation approval flow:
 
 ```mermaid
 stateDiagram-v2
-  [*] --> Draft
-  Draft --> HoldRequested
-  HoldRequested --> Held
-  Held --> PendingPayment
-  PendingPayment --> Confirmed
-  Held --> Expired
-  PendingPayment --> Failed
-  Confirmed --> Cancelled
-  Expired --> [*]
-  Failed --> [*]
-```
-
-### Custom Tour Request Flow
-
-```mermaid
-stateDiagram-v2
-  [*] --> Inquiry
-  Inquiry --> QuoteIssued
-  QuoteIssued --> Negotiating
-  Negotiating --> QuoteIssued
-  QuoteIssued --> HoldRequested
-  HoldRequested --> Held
-  Held --> AwaitingVendorConfirmation
-  AwaitingVendorConfirmation --> PendingPayment
-  PendingPayment --> AwaitingManualPayment
-  AwaitingManualPayment --> Confirmed
-  QuoteIssued --> Expired
+  [*] --> PENDING : payment authorized
+  PENDING --> CONFIRMED : operator approves
+  PENDING --> CANCELLED : operator rejects
+  CONFIRMED --> COMPLETED
+  CONFIRMED --> CANCELLED
 ```
 
 ### Invariants
 
-- Departure capacity is enforced for fixed tours.
-- Custom tours require an accepted quote before holds.
-- Manual confirmation is required when operators are coordinating.
-
-## Concurrency and Holds
-
-- Holds are first-come, first-served and time-boxed.
-- Holds must be idempotent by client request ID.
-- Confirmations re-validate hold ownership and quote validity.
-- Booking status transitions are append-only and audited.
+- `TourDeparture.bookedCount` is the source of truth for capacity. It must never exceed `maxCapacity`.
+- `TourParticipant` rows must be created for every person in the booking (for passenger manifests).
+- Price snapshots (`BookingPriceSnapshot`) are attached at booking creation and are immutable.
+- Abandoned `PENDING` tour bookings (no payment after 30 minutes) are swept by the background worker.

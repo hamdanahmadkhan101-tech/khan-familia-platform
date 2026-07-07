@@ -2,46 +2,56 @@
 
 ## Overview
 
-Vendors are independent suppliers who own inventory and pricing for properties and tours. The
-platform provides onboarding, moderation, and payment facilitation.
+Vendors are businesses (or individuals) approved to supply inventory on the Khan Familia platform.
+The platform provides onboarding (via admin-reviewed applications), moderation, and payment facilitation.
 
-## Vendor Onboarding (MVP)
+There are two vendor types, distinguished by `Tenant.businessVertical`:
 
-- Account creation (Clerk + `User` sync)
-- **Implemented:** self-serve workspace via `POST /tenants` (user becomes OWNER)
-- **Planned:** `TenantApplication` submission and admin approval before tenant creation
-- Payout setup (planned)
-- Property listing moderation via `Property.approvalStatus` (API implemented; booking/public gating planned)
+- **Accommodation Vendors** (`ACCOMMODATIONS_STAYS`): Hotels, villas, guest houses, apartments.
+- **Tour Operators** (`EXPERIENCES_TOURS`): Tour agencies, experience providers.
+
+See `docs/domain/vendor-onboarding.md` for the onboarding flow.
+See `docs/domain/tour-operator-model.md` for tour-specific details.
+
+---
+
+## Tenant Roles
+
+All vendor staff use the standard `TenantRole` enum (not a separate vendor-specific enum):
+
+| Role    | Access                                                                             |
+| ------- | ---------------------------------------------------------------------------------- |
+| `OWNER` | Full control: settings, billing, staff management, all operations.                 |
+| `ADMIN` | Manage inventory, bookings, listings. Cannot transfer ownership or manage billing. |
+| `STAFF` | Operations access: view bookings, manage check-ins. Cannot modify pricing.         |
+
+Invitations to staff are scoped to a single tenant.
+
+---
 
 ## Vendor Responsibilities
 
 - Maintain accurate inventory and availability.
-- Respond to manual confirmation requests.
-- Set pricing rules within allowed constraints.
+- Respond to manual booking confirmation requests promptly.
+- Set pricing within allowed platform constraints.
 - Comply with platform policies and local regulations.
+- Provide accurate and legal business identity documents during onboarding.
 
-## Vendor Staff and Roles
-
-- VendorAdmin: full control over inventory and pricing.
-- VendorStaff: limited access for operations and confirmations.
-- Invitations are tracked and scoped to a single vendor.
-
-## Vendor Statuses
-
-- Draft: profile created, not submitted
-- PendingReview: submitted for moderation
-- Active: approved and can publish
-- Suspended: temporarily blocked
+---
 
 ## Suspension Effects
 
-- New bookings are blocked.
-- Existing confirmed bookings require manual resolution.
-- Inventory visibility can be hidden by moderators.
+If suspended by the platform admin:
+
+- New bookings are blocked immediately.
+- Existing confirmed bookings require manual resolution with affected guests.
+- Inventory and listing visibility can be hidden from public search.
+
+---
 
 ## Invariants
 
-- Only active vendors can publish inventory.
-- A vendor owns all inventory they create.
-- Vendor users can access only their vendor data.
-- Ownership transfer requires admin approval and audit.
+- Only tenants with an active status can publish inventory or accept bookings.
+- A vendor owns all inventory and listings they create.
+- Vendor users can only access data scoped to their own tenant.
+- Ownership transfer between users requires `SUPER_ADMIN` approval and creates an audit log entry.

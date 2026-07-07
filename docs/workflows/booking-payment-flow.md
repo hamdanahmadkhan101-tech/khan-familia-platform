@@ -1,162 +1,226 @@
-# Booking Payment Flow Runbook
+# Booking & Payment Flow Runbook
 
-This runbook documents the current backend-only accommodation checkout flow. It is meant for local development and agent handoffs before frontend checkout screens are built.
+This runbook documents the current backend-only checkout flows for both **Accommodation** and
+**Tour** bookings. It is meant for local development and agent handoffs before frontend screens
+are built.
 
-## Current Flow
+---
 
-1. A guest creates a temporary property hold with `POST /bookings/holds`.
-2. The API reserves inventory by decrementing `UnitInventory.availableCount` and incrementing `UnitInventory.bookedCount` for every date in the hold range.
-3. The hold is stored in `PropertyHold` with a 15 minute expiry.
-4. The guest creates a Stripe PaymentIntent with `POST /payments/intent` using the `holdToken`.
-5. Stripe sends webhook events to `POST /payments/webhooks/stripe`.
-6. On `payment_intent.succeeded`, the API creates an `AccommodationBooking`, creates a `BookingPriceSnapshot`, creates a `PaymentRecord`, marks the internal `PaymentIntent` as `PAID`, and deletes the `PropertyHold`.
-7. On `payment_intent.payment_failed` or `payment_intent.canceled`, the API releases the hold, restores inventory, and marks the internal `PaymentIntent` as `FAILED` or `CANCELLED` while it is still pending.
-8. The worker sweeps expired holds and restores inventory if the guest never pays or cancels manually.
+## Accommodation Booking Flow
 
-## Important Invariants
+### Standard Properties (`requiresApproval = false`)
 
-- `PropertyHold` is the temporary reservation. A booking row is not created until successful payment.
-- Hold creation should use `Idempotency-Key` for retry safety.
-- Reusing the same `Idempotency-Key` with the same hold request returns the existing hold and does not reserve inventory twice.
-- Reusing the same `Idempotency-Key` with a different hold request returns a conflict.
-- Payment intent creation reuses an existing pending internal `PaymentIntent` for the same hold while the hold is still valid.
-- Successful payment deletes the hold but does not restore inventory, because the reservation becomes a confirmed booking.
-- Failed, canceled, manually released, and expired holds restore inventory before deleting the hold.
-- Stripe webhook retries should be safe: successful payments use the hold token as the booking idempotency key.
+In this mode, the guest's card is charged immediately on payment confirmation. The booking
+moves from `PENDING` → `BOOKED` → `CONFIRMED` automatically.
 
-## Local Services
+```
+POST /bookings/holds          → PropertyHold created, inventory decremented
+POST /payments/intent         → Stripe PaymentIntent created (capture_method: automatic)
+  [Stripe CLI: confirm PI]
+webhook: payment_intent.succeeded → AccommodationBooking created (BOOKED → auto-CONFIRMED)
+```
 
-Run the API:
+### Approval-Required Properties (`requiresApproval = true`)
+
+In this mode, Stripe **authorizes** the payment but does not capture it. The host must explicitly
+approve (which captures the money) or reject (which voids the authorization).
+
+```
+POST /bookings/holds          → PropertyHold created, inventory decremented
+POST /payments/intent         → Stripe PaymentIntent created (capture_method: manual)
+  [Stripe CLI: confirm PI]
+webhook: payment_intent.amount_capturable_updated → AccommodationBooking created (status: BOOKED)
+POST /tenants/:id/bookings/:id/approve → Stripe capture, status: CONFIRMED
+POST /tenants/:id/bookings/:id/reject  → Stripe cancel, inventory released, status: CANCELLED
+```
+
+> **Critical:** Stripe API calls happen **outside** Prisma transactions to avoid the 5-second
+> transaction timeout. The pattern is: read → act (Stripe) → write.
+> Both `captureStripePaymentIntent` and `cancelStripePaymentIntent` are idempotent — they
+> gracefully handle "already captured/canceled" errors.
+
+### Important Invariants
+
+- `PropertyHold` is the temporary reservation. A booking row is **not** created until payment.
+- Use `Idempotency-Key` header for hold creation (retry safety).
+- Same idempotency key + same request body → returns existing hold, no duplicate reservation.
+- Same idempotency key + different body → returns `409 Conflict`.
+- Payment intent creation reuses an existing pending `PaymentIntent` for the same hold.
+- Successful payment deletes the hold without restoring inventory (reservation becomes booking).
+- Failed, canceled, expired, or manually released holds restore inventory.
+
+---
+
+## Tour Booking Flow
+
+Tours do not use a hold system. Seat reservation is atomic with booking creation.
+
+```
+POST /tours/:id/departures/:departureId/book
+  → Validate bookedCount + numberOfPeople <= maxCapacity (inside transaction)
+  → Create TourBooking (status: PENDING)
+  → Create TourParticipant rows (one per person)
+  → Stripe PaymentIntent created
+  [Stripe CLI: confirm PI]
+webhook: payment_intent.succeeded → TourBooking status: CONFIRMED, bookedCount incremented
+```
+
+For `requiresApproval = true` tours, the same manual capture flow applies as accommodation.
+
+---
+
+## Local Development Setup
+
+**Run the API:**
 
 ```bash
 pnpm --filter @khan-familia/api dev
 ```
 
-Run the worker:
+API runs on **port 3001**.
+
+**Run the background worker:**
 
 ```bash
 pnpm --filter @khan-familia/worker dev
 ```
 
-Run Stripe CLI forwarding:
+**Run Stripe CLI forwarding (must point to port 3001):**
 
 ```bash
-stripe listen --forward-to localhost:3001/payments/webhooks/stripe
+stripe listen \
+  --api-key sk_test_YOUR_KEY \
+  --forward-to localhost:3001/payments/webhooks/stripe
 ```
 
-The worker may print this Redis warning when using some hosted Redis providers:
+Copy the `whsec_...` secret printed by the CLI into your `.env` as `STRIPE_WEBHOOK_SECRET`.
+Restart the API after updating `.env`.
 
-```text
-IMPORTANT! Eviction policy is optimistic-volatile. It should be "noeviction"
-```
+> The worker may print: `Eviction policy is optimistic-volatile. It should be "noeviction"`.
+> This is a BullMQ/Redis warning, not a crash. Production Redis should use `noeviction`.
 
-That warning is from BullMQ Redis requirements. It is not an application crash, but production Redis should use `noeviction` if the provider allows it.
+---
 
-## Manual Happy Path
+## Manual Happy Path — Accommodation (No Approval)
 
-1. Get a fresh guest JWT.
-2. Create a hold:
+**1. Create a hold:**
 
 ```http
 POST /bookings/holds
 Authorization: Bearer <guest-jwt>
 Idempotency-Key: hold-local-001
 Content-Type: application/json
-```
 
-```json
 {
   "propertyId": "<property-id>",
   "unitTypeId": "<unit-type-id>",
-  "startDate": "2026-07-01",
-  "endDate": "2026-07-06",
+  "startDate": "2026-08-01",
+  "endDate": "2026-08-06",
   "quantity": 1
 }
 ```
 
-Expected database state:
+Expected: `201` with `holdToken`.
 
-- One `PropertyHold` row exists.
-- Matching `UnitInventory` rows have `availableCount` decremented and `bookedCount` incremented.
-
-3. Send the same hold request again with the same `Idempotency-Key`.
-
-Expected result:
-
-- Same `holdToken` is returned.
-- No second `PropertyHold` row is created.
-- Inventory is not decremented again.
-
-4. Create a payment intent:
+**2. Create a payment intent:**
 
 ```http
 POST /payments/intent
 Authorization: Bearer <guest-jwt>
 Content-Type: application/json
-```
 
-```json
 {
-  "holdToken": "<hold-token>"
+  "holdToken": "<hold-token-from-step-1>"
 }
 ```
 
-5. Confirm the Stripe PaymentIntent from another terminal:
+Expected: `201` with `stripeIntentId` (a `pi_...` value). Use **this** PI ID in the next step,
+not the one printed by the Stripe CLI event log.
+
+**3. Confirm the payment via Stripe CLI:**
 
 ```bash
-stripe payment_intents confirm <payment-intent-id> --payment-method pm_card_visa
+stripe payment_intents confirm pi_XXXX \
+  --payment-method pm_card_visa \
+  --api-key sk_test_YOUR_KEY
 ```
 
-Expected database state after the `payment_intent.succeeded` webhook:
+Expected webhook: `payment_intent.succeeded` → `200` from API.
 
-- `PropertyHold` row is deleted.
-- One `AccommodationBooking` row exists.
-- One `BookingPriceSnapshot` row exists for the booking.
-- One `PaymentRecord` row exists.
-- Internal `PaymentIntent.status` is `PAID` and `bookingId` points to the real booking id.
+Expected DB state:
 
-## Failed Or Canceled Payment Path
+- `PropertyHold` deleted.
+- `AccommodationBooking` with `status: CONFIRMED`.
+- `BookingPriceSnapshot` attached.
+- `PaymentRecord` with `status: PAID`.
 
-Use Stripe CLI or API to trigger a failed or canceled PaymentIntent for an active hold.
+---
 
-Expected database state:
+## Manual Happy Path — Accommodation (With Approval)
 
-- `PropertyHold` row is deleted.
-- Matching `UnitInventory` rows have `bookedCount` decremented and `availableCount` incremented.
-- Internal `PaymentIntent.status` becomes `FAILED` or `CANCELLED` if it was still `PENDING`.
-- No `AccommodationBooking` row is created.
+Follow the same steps 1–3 above, but set `requiresApproval = true` on the property first
+(directly in the database for testing).
 
-## Expired Hold Path
+Expected webhook after step 3: `payment_intent.amount_capturable_updated` (not `succeeded`).
+Booking is created with `status: BOOKED` (not yet CONFIRMED).
 
-1. Create a hold and do not pay.
-2. Keep the worker running.
-3. Wait until the hold expires. The normal hold TTL is 15 minutes.
+**4. Approve the booking as the host:**
 
-Expected worker behavior:
+```http
+POST /tenants/<tenant-id>/bookings/<booking-id>/approve
+Authorization: Bearer <host-jwt>
+```
 
-- The hold sweeper runs every 30 seconds.
-- Expired holds are deleted.
-- Matching inventory rows are restored.
+Expected: `200` with booking at `status: CONFIRMED` and `paymentIntents[0].status: PAID`.
 
-For local manual testing, avoid committing temporary TTL reductions. If the TTL is changed briefly to speed up testing, restore it before committing.
+**5. (Alternative) Reject the booking as the host:**
 
-## Manual Release Path
+```http
+POST /tenants/<tenant-id>/bookings/<booking-id>/reject
+Authorization: Bearer <host-jwt>
+Content-Type: application/json
 
-The manual release endpoint should remain available even with the worker running. It is useful for guest cancellation, local recovery, and debugging.
+{
+  "reason": "Property unavailable"
+}
+```
+
+Expected: `200` with booking at `status: CANCELLED`. Stripe authorization voided. Inventory restored.
+
+---
+
+## Other Paths
+
+### Failed or Canceled Payment
+
+Trigger via Stripe CLI. Expected:
+
+- `PropertyHold` deleted.
+- Inventory restored.
+- `PaymentIntent.status`: `FAILED` or `CANCELLED`.
+- No `AccommodationBooking` created.
+
+### Expired Hold (Worker Path)
+
+- Create a hold and do not pay.
+- Keep the worker running.
+- Wait 15 minutes (or temporarily lower TTL for local testing — do not commit TTL changes).
+- Worker sweeps every 30 seconds, deletes expired holds, restores inventory.
+
+### Manual Hold Release
 
 ```http
 DELETE /bookings/holds/<hold-token>
 Authorization: Bearer <guest-jwt>
 ```
 
-This endpoint does not need an `Idempotency-Key`. The `holdToken` identifies the release target. A repeated release after success can return `404 Hold not found` because the hold has already been deleted.
+A second release after success returns `404 Hold not found`. That is correct — idempotent by design.
 
-## After Payment: Guest Booking Management
-
-After a successful payment creates an `AccommodationBooking`, guests can manage their own bookings through the guest booking workflow. See `docs/workflows/guest-bookings.md` for list, detail, and cancellation behavior.
+---
 
 ## Known Gaps
 
-- Backend tests now cover hold creation, manual release, payment webhook conversion, and guest booking management. Continue expanding coverage as cancellation policy, refunds, and notifications mature.
-- Notification jobs exist, but booking confirmation emails are not wired end-to-end yet.
-- Frontend checkout screens are intentionally out of scope for this backend polish branch.
+- Booking confirmation emails are not wired end-to-end (notification jobs exist but not triggered).
+- Refund automation is not implemented (stored as `refundAmount`, manual processing).
+- Frontend checkout screens are out of scope for the current backend branches.
+- Tour booking endpoints are not yet implemented (planned in `feat/tour-module-*` branches).
