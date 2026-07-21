@@ -28,7 +28,7 @@ export function Footer() {
                   href="/properties"
                   className="text-sm text-muted-foreground hover:text-primary transition-colors"
                 >
-                  Find Accommodations
+                  Browse Properties
                 </Link>
               </li>
               <li>
