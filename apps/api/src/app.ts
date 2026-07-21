@@ -19,6 +19,7 @@ import { bookingRouter } from './modules/booking/index.js';
 import { paymentsRouter } from './modules/payments/index.js';
 import { stripeWebhookController } from './modules/payments/payment.controller.js';
 import { healthRouter } from './routes/health.js';
+import { publicRouter } from './modules/public/index.js';
 import { errorHandler } from './shared/middleware/error.js';
 
 const allowedOrigins = [env.CORS_ORIGIN, ...(env.CORS_ORIGINS?.split(',') ?? [])]
@@ -78,6 +79,7 @@ export const createApp = () => {
     res.status(200).json({ status: 'ok' });
   });
 
+  app.use('/public', publicRouter);
   app.use('/health', healthRouter);
   app.use('/iam', iamRouter);
   app.use('/tenants', tenancyRouter);

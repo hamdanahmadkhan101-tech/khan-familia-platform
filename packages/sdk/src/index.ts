@@ -1,11 +1,17 @@
 import { healthStatusSchema } from '@khan-familia/validation';
-import type { HealthStatus } from '@khan-familia/types';
+import type {
+  HealthStatus,
+  PublicPropertyDetails,
+  PublicPropertySummary,
+} from '@khan-familia/types';
 
 export type FetchLike = typeof fetch;
 
 export type ApiClient = {
   baseUrl: string;
   getHealth: () => Promise<HealthStatus>;
+  getPublicProperties: () => Promise<PublicPropertySummary[]>;
+  getPublicPropertyDetails: (slug: string) => Promise<PublicPropertyDetails>;
 };
 
 export type CreateApiClientOptions = {
@@ -39,6 +45,14 @@ export const createApiClient = ({
       const response = await apiFetch('/health');
       const payload = await response.json();
       return healthStatusSchema.parse(payload);
+    },
+    async getPublicProperties() {
+      const response = await apiFetch('/public/properties');
+      return response.json() as Promise<PublicPropertySummary[]>;
+    },
+    async getPublicPropertyDetails(slug: string) {
+      const response = await apiFetch(`/public/properties/${slug}`);
+      return response.json() as Promise<PublicPropertyDetails>;
     },
   };
 };

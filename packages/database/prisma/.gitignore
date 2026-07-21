@@ -1,0 +1,5 @@
+# Compiled output from tsc — seed.ts is executed directly by tsx, not compiled
+*.js
+*.js.map
+*.d.ts
+*.d.ts.map
