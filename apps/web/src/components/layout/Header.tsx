@@ -24,7 +24,7 @@ export function Header() {
             href="/properties"
             className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
           >
-            Accommodations
+            Properties
           </Link>
           <div className="flex items-center gap-3">
             <Link
