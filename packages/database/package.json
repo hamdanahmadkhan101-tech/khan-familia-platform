@@ -42,6 +42,7 @@
   "devDependencies": {
     "@khan-familia/config": "workspace:*",
     "@types/node": "22.19.19",
+    "date-fns": "^3.6.0",
     "prisma": "5.22.0",
     "tsx": "^4.0.0",
     "typescript": "5.9.3"
