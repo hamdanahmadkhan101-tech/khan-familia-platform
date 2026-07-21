@@ -79,3 +79,7 @@ export type UpdatePropertyBody = z.infer<typeof updatePropertyBodySchema>;
 export type CreateUnitTypeBody = z.infer<typeof createUnitTypeBodySchema>;
 export type UpdateUnitTypeBody = z.infer<typeof updateUnitTypeBodySchema>;
 export type RejectPropertyBody = z.infer<typeof rejectPropertyBodySchema>;
+
+export const propertySlugParamsSchema = z.object({
+  slug: z.string().trim().min(2).max(80),
+});
