@@ -341,6 +341,9 @@ importers:
       '@types/node':
         specifier: 22.19.19
         version: 22.19.19
+      date-fns:
+        specifier: ^3.6.0
+        version: 3.6.0
       prisma:
         specifier: 5.22.0
         version: 5.22.0
