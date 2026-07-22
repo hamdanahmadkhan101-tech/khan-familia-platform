@@ -19,15 +19,15 @@ export const updateTenantBodySchema = z.object({
 });
 
 export const tenantIdParamsSchema = z.object({
-  tenantId: z.string().cuid(),
+  tenantId: z.string().min(1),
 });
 
 export const tenantMemberParamsSchema = tenantIdParamsSchema.extend({
-  userId: z.string().cuid(),
+  userId: z.string().min(1),
 });
 
 export const tenantInviteParamsSchema = tenantIdParamsSchema.extend({
-  inviteId: z.string().cuid(),
+  inviteId: z.string().min(1),
 });
 
 export const createInviteBodySchema = z.object({

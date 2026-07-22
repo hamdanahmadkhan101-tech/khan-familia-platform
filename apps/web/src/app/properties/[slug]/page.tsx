@@ -3,8 +3,9 @@ import Link from 'next/link';
 import { api } from '@/lib/api';
 import { PropertyGallery } from '@/components/property/PropertyGallery';
 import { RoomTypeCard } from '@/components/property/RoomTypeCard';
+import { BookingSidebar } from '@/components/property/BookingSidebar';
 import { DynamicIcon } from '@/components/property/DynamicIcon';
-import { Star, MapPin, Info } from 'lucide-react';
+import { Star, MapPin } from 'lucide-react';
 import { humanizeEnum } from '@/lib/utils';
 import type { Metadata } from 'next';
 
@@ -107,7 +108,9 @@ export default async function PropertyDetailPage(props: { params: Promise<{ slug
               <h2 className="mb-6 text-2xl font-bold text-foreground">Available Rooms</h2>
               <div className="flex flex-col gap-6">
                 {property.unitTypes.length > 0 ? (
-                  property.unitTypes.map((room) => <RoomTypeCard key={room.id} room={room} />)
+                  property.unitTypes.map((room) => (
+                    <RoomTypeCard key={room.id} propertyId={property.id} room={room} />
+                  ))
                 ) : (
                   <div className="rounded-xl border border-border bg-card p-8 text-center shadow-sm">
                     <p className="text-muted-foreground">
@@ -121,39 +124,7 @@ export default async function PropertyDetailPage(props: { params: Promise<{ slug
 
           {/* Sidebar Column */}
           <div className="lg:col-span-1">
-            <div className="sticky top-24 rounded-2xl border border-border bg-card p-6 shadow-sm">
-              <div className="mb-6 border-b border-border pb-6">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-bold text-foreground">
-                    PKR {property.minPricePerNight?.toLocaleString() ?? 'N/A'}
-                  </span>
-                  <span className="text-muted-foreground">/ night</span>
-                </div>
-              </div>
-
-              <div className="mb-6 rounded-xl bg-primary/10 p-4 border border-primary/20">
-                <div className="flex gap-3">
-                  <Info className="h-5 w-5 shrink-0 text-primary" />
-                  <div>
-                    <h4 className="font-medium text-foreground">Booking Phase Upcoming</h4>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      We are currently displaying properties for discovery. The full booking and
-                      checkout experience will be enabled in the next phase.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {property.houseRules && Object.keys(property.houseRules).length > 0 && (
-                <div>
-                  <h4 className="mb-3 font-semibold text-foreground">House Rules</h4>
-                  <ul className="flex flex-col gap-2 text-sm text-muted-foreground">
-                    {property.checkInTime && <li>Check-in: {property.checkInTime}</li>}
-                    {property.checkOutTime && <li>Check-out: {property.checkOutTime}</li>}
-                  </ul>
-                </div>
-              )}
-            </div>
+            <BookingSidebar minPrice={property.minPricePerNight} />
           </div>
         </div>
       </div>

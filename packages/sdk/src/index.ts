@@ -1,6 +1,8 @@
-import { healthStatusSchema } from '@khan-familia/validation';
 import type {
+  CreateGuestHoldBody,
   HealthStatus,
+  PaymentIntentResponse,
+  PropertyHoldResponse,
   PublicPropertyDetails,
   PublicPropertySummary,
   UserProfile,
@@ -21,6 +23,10 @@ export type ApiClient = {
   getPublicPropertyDetails: (slug: string) => Promise<PublicPropertyDetails>;
   /** Requires authentication. Returns the currently signed-in user's profile. */
   getMe: () => Promise<UserProfile>;
+  /** Requires authentication. Places a temporary hold on inventory. */
+  createGuestHold: (body: CreateGuestHoldBody) => Promise<PropertyHoldResponse>;
+  /** Requires authentication. Creates a Stripe payment intent for a hold. */
+  createPaymentIntent: (holdToken: string) => Promise<PaymentIntentResponse>;
 };
 
 export type CreateApiClientOptions = {
@@ -56,18 +62,26 @@ export const createApiClient = ({
   };
 
   /** Authenticated fetch — automatically attaches Bearer token */
-  const authFetch = async (path: string) => {
+  const authFetch = async (path: string, options?: Parameters<FetchLike>[1]) => {
     const token = getToken ? await getToken() : null;
 
-    const headers: Record<string, string> = { accept: 'application/json' };
+    const headers: Record<string, string> = {
+      accept: 'application/json',
+      ...(options?.headers as Record<string, string>),
+    };
+
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetcher(`${normalizedBaseUrl}${path}`, { headers });
+    const response = await fetcher(`${normalizedBaseUrl}${path}`, {
+      ...options,
+      headers,
+    });
 
     if (!response.ok) {
-      throw new Error(`Request failed with status ${response.status}`);
+      const errBody = await response.text().catch(() => '');
+      throw new Error(`Request failed with status ${response.status}: ${errBody}`);
     }
 
     return response;
@@ -79,7 +93,7 @@ export const createApiClient = ({
     async getHealth() {
       const response = await apiFetch('/health');
       const payload = await response.json();
-      return healthStatusSchema.parse(payload);
+      return payload as HealthStatus;
     },
 
     async getPublicProperties() {
@@ -95,6 +109,24 @@ export const createApiClient = ({
     async getMe() {
       const response = await authFetch('/iam/me');
       return response.json() as Promise<UserProfile>;
+    },
+
+    async createGuestHold(body: CreateGuestHoldBody) {
+      const response = await authFetch('/bookings/holds', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      return response.json() as Promise<PropertyHoldResponse>;
+    },
+
+    async createPaymentIntent(holdToken: string) {
+      const response = await authFetch('/payments/intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ holdToken }),
+      });
+      return response.json() as Promise<PaymentIntentResponse>;
     },
   };
 };
