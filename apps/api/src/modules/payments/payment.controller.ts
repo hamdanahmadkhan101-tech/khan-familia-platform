@@ -2,7 +2,11 @@ import type { NextFunction, Request, Response } from 'express';
 import { env } from '../../env.js';
 import { AppError } from '../../shared/errors/AppError.js';
 import type { AuthenticatedRequest } from '../../shared/types/request.js';
-import { createStripePaymentIntent, handleStripeWebhookEvent } from './payment.service.js';
+import {
+  confirmStripePaymentIntent,
+  createStripePaymentIntent,
+  handleStripeWebhookEvent,
+} from './payment.service.js';
 import type { CreatePaymentIntentBody } from '@khan-familia/validation';
 
 /** POST /payments/intent — Creates a Stripe PaymentIntent for a given hold */
@@ -22,6 +26,32 @@ export const createPaymentIntentController = async (
     const result = await createStripePaymentIntent(body.holdToken, authReq.userId);
 
     res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+/** POST /payments/confirm — Synchronously verifies Stripe payment and creates booking */
+export const confirmPaymentIntentController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const { paymentIntentId } = req.body as { paymentIntentId?: string };
+    const authReq = req as AuthenticatedRequest;
+
+    if (!authReq.userId) {
+      throw AppError.unauthorized('Authentication required');
+    }
+
+    if (!paymentIntentId || typeof paymentIntentId !== 'string') {
+      throw AppError.badRequest('Missing or invalid paymentIntentId');
+    }
+
+    const booking = await confirmStripePaymentIntent(paymentIntentId, authReq.userId);
+
+    res.status(200).json({ message: 'Booking confirmed successfully', booking });
   } catch (err) {
     next(err);
   }
