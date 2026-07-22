@@ -1,5 +1,7 @@
 import type {
   CreateGuestHoldBody,
+  GuestBooking,
+  GuestBookingListResponse,
   HealthStatus,
   PaymentIntentResponse,
   PropertyHoldResponse,
@@ -27,6 +29,16 @@ export type ApiClient = {
   createGuestHold: (body: CreateGuestHoldBody) => Promise<PropertyHoldResponse>;
   /** Requires authentication. Creates a Stripe payment intent for a hold. */
   createPaymentIntent: (holdToken: string) => Promise<PaymentIntentResponse>;
+  /** Requires authentication. Synchronously verifies a Stripe payment and returns the confirmed booking. */
+  confirmPaymentIntent: (
+    paymentIntentId: string,
+  ) => Promise<{ message: string; booking: GuestBooking }>;
+  /** Requires authentication. Lists the authenticated guest's bookings. */
+  listGuestBookings: (query?: {
+    scope?: 'upcoming' | 'past' | 'cancelled' | 'all';
+    limit?: number;
+    offset?: number;
+  }) => Promise<GuestBookingListResponse>;
 };
 
 export type CreateApiClientOptions = {
@@ -127,6 +139,25 @@ export const createApiClient = ({
         body: JSON.stringify({ holdToken }),
       });
       return response.json() as Promise<PaymentIntentResponse>;
+    },
+
+    async confirmPaymentIntent(paymentIntentId: string) {
+      const response = await authFetch('/payments/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentIntentId }),
+      });
+      return response.json() as Promise<{ message: string; booking: GuestBooking }>;
+    },
+
+    async listGuestBookings(query = {}) {
+      const params = new URLSearchParams();
+      if (query.scope) params.set('scope', query.scope);
+      if (query.limit !== undefined) params.set('limit', String(query.limit));
+      if (query.offset !== undefined) params.set('offset', String(query.offset));
+      const qs = params.toString();
+      const response = await authFetch(`/bookings/me${qs ? `?${qs}` : ''}`);
+      return response.json() as Promise<GuestBookingListResponse>;
     },
   };
 };

@@ -122,6 +122,156 @@ export const createStripePaymentIntent = async (holdToken: string, userId: strin
   };
 };
 
+export const processPaymentIntentConfirmation = async (stripeIntent: Stripe.PaymentIntent) => {
+  const { holdToken, userId } = stripeIntent.metadata;
+
+  if (!holdToken || !userId) {
+    return null;
+  }
+
+  // Idempotency check: if booking already exists for this holdToken, return it
+  const existing = await prisma.accommodationBooking.findFirst({
+    where: { idempotencyKey: holdToken },
+  });
+
+  if (existing) {
+    if (stripeIntent.status === 'succeeded') {
+      await prisma.paymentRecord.updateMany({
+        where: { paymentIntentId: stripeIntent.id },
+        data: {
+          status: 'PAID',
+          amountCaptured: stripeIntent.amount_received,
+        },
+      });
+      await prisma.paymentIntent.updateMany({
+        where: { id: stripeIntent.id },
+        data: { status: 'PAID' },
+      });
+    }
+    return existing;
+  }
+
+  const hold = await prisma.propertyHold.findUnique({
+    where: { holdToken },
+    include: { unitType: { select: { defaultRate: true, propertyId: true } } },
+  });
+
+  if (!hold) {
+    return null;
+  }
+
+  const nights = Math.max(1, calculateNights(hold.startDate, hold.endDate));
+  const baseRate = hold.unitType.defaultRate ?? 0;
+  const baseRateMinor = toMinorUnits(baseRate);
+  const totalMinor = multiplyMoney(baseRateMinor, nights * hold.quantity);
+
+  const isCapturable = stripeIntent.status === 'requires_capture';
+  const bookingStatus = isCapturable ? 'BOOKED' : 'CONFIRMED';
+  const paymentStatus = isCapturable ? 'PENDING' : 'PAID';
+
+  return prisma.$transaction(async (tx) => {
+    const booking = await tx.accommodationBooking.create({
+      data: {
+        userId,
+        propertyId: hold.unitType.propertyId,
+        unitTypeId: hold.unitTypeId,
+        tenantId: hold.tenantId,
+        checkIn: hold.startDate,
+        checkOut: hold.endDate,
+        nights,
+        guests: hold.quantity,
+        status: bookingStatus,
+        idempotencyKey: holdToken,
+        confirmedAt: new Date(),
+      },
+    });
+
+    const inventoryRows = await tx.unitInventory.findMany({
+      where: {
+        propertyId: hold.unitType.propertyId,
+        unitTypeId: hold.unitTypeId,
+        date: { gte: hold.startDate, lte: hold.endDate },
+      },
+      select: { id: true, date: true },
+    });
+
+    if (inventoryRows.length > 0) {
+      await tx.reservation.createMany({
+        data: inventoryRows.map((row) => ({
+          bookingId: booking.id,
+          unitInventoryId: row.id,
+          date: row.date,
+        })),
+      });
+    }
+
+    await tx.bookingPriceSnapshot.create({
+      data: {
+        accommodationBookingId: booking.id,
+        currency: 'PKR',
+        totalMinor,
+        breakdown: {
+          base: baseRateMinor * nights * hold.quantity,
+          taxes: 0,
+          fees: 0,
+          discount: 0,
+        },
+      },
+    });
+
+    const paymentRecordData = {
+      paymentIntentId: stripeIntent.id,
+      transactionId: stripeIntent.id,
+      amountCaptured: stripeIntent.amount_received || stripeIntent.amount_capturable || 0,
+      currency: 'PKR',
+      status: paymentStatus as 'PAID' | 'PENDING',
+      ...(stripeIntent.payment_method
+        ? { paymentMethod: { id: stripeIntent.payment_method as string } }
+        : {}),
+    };
+    await tx.paymentRecord.create({ data: paymentRecordData });
+
+    await tx.propertyHold.delete({ where: { id: hold.id } });
+
+    await tx.paymentIntent.update({
+      where: { id: stripeIntent.id },
+      data: { bookingId: booking.id, status: paymentStatus },
+    });
+
+    return booking;
+  });
+};
+
+export const confirmStripePaymentIntent = async (paymentIntentId: string, userId: string) => {
+  const stripeIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+  if (!['succeeded', 'requires_capture'].includes(stripeIntent.status)) {
+    throw AppError.badRequest(`Payment has not been completed (Status: ${stripeIntent.status})`);
+  }
+
+  if (stripeIntent.metadata['userId'] && stripeIntent.metadata['userId'] !== userId) {
+    throw AppError.forbidden('You do not have permission to confirm this payment');
+  }
+
+  const booking = await processPaymentIntentConfirmation(stripeIntent);
+  if (!booking) {
+    throw AppError.badRequest('Booking hold expired or payment details mismatch');
+  }
+
+  const { bookingSelect } = await import('../booking/booking.service.js');
+
+  const hydratedBooking = await prisma.accommodationBooking.findUnique({
+    where: { id: booking.id },
+    select: bookingSelect,
+  });
+
+  if (!hydratedBooking) {
+    throw AppError.internal('Could not retrieve confirmed booking details');
+  }
+
+  return hydratedBooking;
+};
+
 // ---------------------------------------------------------------------------
 // Handle Stripe webhook event — converts hold → confirmed AccommodationBooking
 // ---------------------------------------------------------------------------
@@ -143,133 +293,7 @@ export const handleStripeWebhookEvent = async (
 
   if (isSucceeded || isCapturable) {
     const stripeIntent = event.data.object as Stripe.PaymentIntent;
-    const { holdToken, userId } = stripeIntent.metadata;
-
-    if (!holdToken || !userId) {
-      // Not one of our holds; ignore
-      return { received: true };
-    }
-
-    // Idempotency: if a booking for this holdToken already exists, handle subsequent events
-    const existing = await prisma.accommodationBooking.findFirst({
-      where: { idempotencyKey: holdToken },
-    });
-
-    if (existing) {
-      if (isSucceeded) {
-        // If the booking was previously created by amount_capturable_updated, we now mark the payment as PAID
-        await prisma.paymentRecord.updateMany({
-          where: { paymentIntentId: stripeIntent.id },
-          data: {
-            status: 'PAID',
-            amountCaptured: stripeIntent.amount_received,
-          },
-        });
-        await prisma.paymentIntent.updateMany({
-          where: { id: stripeIntent.id },
-          data: { status: 'PAID' },
-        });
-      }
-      return { received: true };
-    }
-
-    // Fetch the hold to get all the data needed to create the booking
-    const hold = await prisma.propertyHold.findUnique({
-      where: { holdToken },
-      include: { unitType: { select: { defaultRate: true, propertyId: true } } },
-    });
-
-    if (!hold) {
-      // Hold expired and was cleaned up; nothing to do
-      return { received: true };
-    }
-
-    const nights = Math.max(1, calculateNights(hold.startDate, hold.endDate));
-    const baseRate = hold.unitType.defaultRate ?? 0;
-    const baseRateMinor = toMinorUnits(baseRate);
-    const totalMinor = multiplyMoney(baseRateMinor, nights * hold.quantity);
-
-    const bookingStatus = isCapturable ? 'BOOKED' : 'CONFIRMED';
-    const paymentStatus = isCapturable ? 'PENDING' : 'PAID';
-
-    // Run everything as a transaction: create booking, record payment, clean up hold
-    await prisma.$transaction(async (tx) => {
-      // Create the confirmed booking
-      const booking = await tx.accommodationBooking.create({
-        data: {
-          userId,
-          propertyId: hold.unitType.propertyId,
-          unitTypeId: hold.unitTypeId,
-          tenantId: hold.tenantId,
-          checkIn: hold.startDate,
-          checkOut: hold.endDate,
-          nights,
-          guests: hold.quantity,
-          status: bookingStatus,
-          idempotencyKey: holdToken,
-          confirmedAt: new Date(),
-        },
-      });
-
-      // Find unit inventory rows for reservations
-      const inventoryRows = await tx.unitInventory.findMany({
-        where: {
-          propertyId: hold.unitType.propertyId,
-          unitTypeId: hold.unitTypeId,
-          date: { gte: hold.startDate, lte: hold.endDate },
-        },
-        select: { id: true, date: true },
-      });
-
-      if (inventoryRows.length > 0) {
-        // We create one reservation per inventory row (per date).
-        // Note: quantity is handled via UnitInventory.bookedCount which is already incremented.
-        await tx.reservation.createMany({
-          data: inventoryRows.map((row) => ({
-            bookingId: booking.id,
-            unitInventoryId: row.id,
-            date: row.date,
-          })),
-        });
-      }
-
-      // Persist price snapshot
-      await tx.bookingPriceSnapshot.create({
-        data: {
-          accommodationBookingId: booking.id,
-          currency: 'PKR',
-          totalMinor,
-          breakdown: {
-            base: baseRateMinor * nights * hold.quantity,
-            taxes: 0,
-            fees: 0,
-            discount: 0,
-          },
-        },
-      });
-
-      // Record the payment against the booking
-      const paymentRecordData = {
-        paymentIntentId: stripeIntent.id,
-        transactionId: stripeIntent.id,
-        amountCaptured: stripeIntent.amount_received || stripeIntent.amount_capturable || 0,
-        currency: 'PKR',
-        status: paymentStatus as 'PAID' | 'PENDING',
-        ...(stripeIntent.payment_method
-          ? { paymentMethod: { id: stripeIntent.payment_method as string } }
-          : {}),
-      };
-      await tx.paymentRecord.create({ data: paymentRecordData });
-
-      // Delete the hold (inventory stays as bookedCount — booking is confirmed)
-      await tx.propertyHold.delete({ where: { id: hold.id } });
-
-      // Update the PaymentIntent record to reference the real booking ID
-      await tx.paymentIntent.update({
-        where: { id: stripeIntent.id },
-        data: { bookingId: booking.id, status: paymentStatus },
-      });
-    });
+    await processPaymentIntentConfirmation(stripeIntent);
   }
 
   if (event.type === 'payment_intent.payment_failed' || event.type === 'payment_intent.canceled') {

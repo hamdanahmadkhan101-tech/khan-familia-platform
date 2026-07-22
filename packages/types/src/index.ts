@@ -128,3 +128,83 @@ export type CreateGuestHoldBody = {
   endDate: string;
   quantity: number;
 };
+
+// ---------------------------------------------------------------------------
+// Guest Dashboard — Booking list / detail types
+// ---------------------------------------------------------------------------
+
+export type BookingStatus =
+  | 'PENDING'
+  | 'BOOKED'
+  | 'CONFIRMED'
+  | 'CHECKED_IN'
+  | 'CHECKED_OUT'
+  | 'CANCELLED'
+  | 'NO_SHOW';
+
+export type BookingPriceSnapshot = {
+  id: string;
+  currency: string;
+  totalMinor: number;
+  breakdown: Record<string, number>;
+  createdAt: string;
+};
+
+export type GuestBookingProperty = {
+  id: string;
+  name: string;
+  slug: string;
+  city: string;
+  country: string;
+  address: string | null;
+  images: PropertyImage[];
+  checkInTime: string | null;
+  checkOutTime: string | null;
+  timezone: string | null;
+};
+
+export type GuestBookingUnitType = {
+  id: string;
+  name: string;
+  capacity: number;
+  defaultRate: number | null;
+  images: PropertyImage[] | null;
+};
+
+/** Shape returned by GET /bookings/me and GET /bookings/:id */
+export type GuestBooking = {
+  id: string;
+  userId: string;
+  tenantId: string;
+  propertyId: string;
+  unitTypeId: string | null;
+  channel: string | null;
+  checkIn: string;
+  checkOut: string;
+  nights: number;
+  guests: number;
+  status: BookingStatus;
+  confirmedAt: string | null;
+  checkedInAt: string | null;
+  checkedOutAt: string | null;
+  cancellationReason: string | null;
+  cancellationDate: string | null;
+  refundAmount: number | null;
+  contactName: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  property: GuestBookingProperty;
+  unitType: GuestBookingUnitType | null;
+  BookingPriceSnapshot: BookingPriceSnapshot | null;
+};
+
+export type GuestBookingListResponse = {
+  bookings: GuestBooking[];
+};
+
+export type GuestBookingDetailResponse = {
+  booking: GuestBooking;
+};

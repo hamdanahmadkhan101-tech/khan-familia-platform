@@ -2,7 +2,10 @@ import { Router, type RequestHandler } from 'express';
 import { authenticateRequired } from '../../shared/middleware/authenticate.js';
 import { resolveInternalUser } from '../../shared/middleware/resolve-user.js';
 import { validateBody } from '../../shared/middleware/validate.js';
-import { createPaymentIntentController } from './payment.controller.js';
+import {
+  confirmPaymentIntentController,
+  createPaymentIntentController,
+} from './payment.controller.js';
 import { createPaymentIntentBodySchema } from '@khan-familia/validation';
 
 export const paymentsRouter = Router();
@@ -22,3 +25,9 @@ paymentsRouter.post(
   validateBody(createPaymentIntentBodySchema),
   createPaymentIntentController,
 );
+
+/**
+ * POST /payments/confirm
+ * Authenticated guest manually triggers payment verification & booking creation upon Stripe redirect.
+ */
+paymentsRouter.post('/confirm', requireAuth, attachUser, confirmPaymentIntentController);

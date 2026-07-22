@@ -19,7 +19,7 @@ import {
   captureStripePaymentIntent,
 } from '../payments/payment.service.js';
 
-const bookingSelect = {
+export const bookingSelect = {
   id: true,
   userId: true,
   tenantId: true,
