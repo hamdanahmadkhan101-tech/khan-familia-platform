@@ -1,15 +1,62 @@
 'use client';
 
+import { useState } from 'react';
 import Image from 'next/image';
-import { Users, LayoutTemplate, Coffee, Bed, ArrowRight } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@clerk/nextjs';
+import { useQueryState } from 'nuqs';
+import { Users, LayoutTemplate, Coffee, Bed, ArrowRight, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { useApi } from '@/hooks/useApi';
 import type { PublicUnitType } from '@khan-familia/types';
 
 interface RoomTypeCardProps {
+  propertyId: string;
   room: PublicUnitType;
 }
 
-export function RoomTypeCard({ room }: RoomTypeCardProps) {
+export function RoomTypeCard({ propertyId, room }: RoomTypeCardProps) {
+  const router = useRouter();
+  const { userId } = useAuth();
+  const api = useApi();
+  const [checkIn] = useQueryState('checkIn');
+  const [checkOut] = useQueryState('checkOut');
+  const [isLoading, setIsLoading] = useState(false);
+
   const primaryImage = room.images?.[0];
+  const canBook = checkIn && checkOut;
+
+  const handleReserve = async () => {
+    if (!userId) {
+      toast.error('Please sign in to make a reservation');
+      router.push('/sign-in');
+      return;
+    }
+
+    if (!canBook) {
+      toast.error('Please select check-in and check-out dates first');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await api.createGuestHold({
+        propertyId,
+        unitTypeId: room.id,
+        startDate: checkIn,
+        endDate: checkOut,
+        quantity: 1, // Only supporting 1 room per booking in MVP
+      });
+      router.push(`/checkout/${response.holdToken}`);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Failed to secure your room. It may be fully booked.',
+      );
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-colors hover:border-primary/50 sm:flex-row">
@@ -66,12 +113,19 @@ export function RoomTypeCard({ room }: RoomTypeCardProps) {
           </div>
 
           <button
-            disabled
-            className="group flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-all disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-            title="Booking will be available in the next phase"
+            onClick={handleReserve}
+            disabled={!canBook || isLoading}
+            className="group flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+            title={canBook ? 'Reserve this room' : 'Please select travel dates first'}
           >
-            Book Now
-            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <>
+                Reserve
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </>
+            )}
           </button>
         </div>
       </div>

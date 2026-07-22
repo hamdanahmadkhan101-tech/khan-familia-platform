@@ -3,7 +3,7 @@ import Stripe from 'stripe';
 import { stripe } from '../../infrastructure/stripe/client.js';
 import { prisma } from '../../infrastructure/database/client.js';
 import { AppError } from '../../shared/errors/AppError.js';
-import { calculateNights, multiplyMoney } from '@khan-familia/utils';
+import { calculateNights, multiplyMoney, toMinorUnits } from '@khan-familia/utils';
 import { releaseHold } from '../inventory/inventory.service.js';
 
 /**
@@ -53,7 +53,8 @@ export const createStripePaymentIntent = async (holdToken: string, userId: strin
   // 2. Calculate price using centralized utilities
   const nights = Math.max(1, calculateNights(hold.startDate, hold.endDate));
   const baseRate = hold.unitType.defaultRate ?? 0;
-  const totalMinor = multiplyMoney(baseRate, nights * hold.quantity); // stored in minor units (paisa/cents)
+  const baseRateMinor = toMinorUnits(baseRate);
+  const totalMinor = multiplyMoney(baseRateMinor, nights * hold.quantity); // stored in minor units (paisa/cents)
 
   if (totalMinor <= 0) {
     throw AppError.badRequest(
@@ -185,7 +186,8 @@ export const handleStripeWebhookEvent = async (
 
     const nights = Math.max(1, calculateNights(hold.startDate, hold.endDate));
     const baseRate = hold.unitType.defaultRate ?? 0;
-    const totalMinor = multiplyMoney(baseRate, nights * hold.quantity);
+    const baseRateMinor = toMinorUnits(baseRate);
+    const totalMinor = multiplyMoney(baseRateMinor, nights * hold.quantity);
 
     const bookingStatus = isCapturable ? 'BOOKED' : 'CONFIRMED';
     const paymentStatus = isCapturable ? 'PENDING' : 'PAID';
@@ -238,7 +240,7 @@ export const handleStripeWebhookEvent = async (
           currency: 'PKR',
           totalMinor,
           breakdown: {
-            base: baseRate * nights * hold.quantity,
+            base: baseRateMinor * nights * hold.quantity,
             taxes: 0,
             fees: 0,
             discount: 0,

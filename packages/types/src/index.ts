@@ -103,3 +103,28 @@ export type UserProfile = {
   createdAt: string;
   updatedAt: string;
 };
+
+// ---------------------------------------------------------------------------
+// Booking & Payments Types
+// ---------------------------------------------------------------------------
+
+export type PropertyHoldResponse = {
+  holdToken: string;
+  expiresAt: string;
+};
+
+export type PaymentIntentResponse = {
+  clientSecret: string;
+  paymentIntentId: string;
+  amount: number;
+  currency: string;
+  expiresAt: string;
+};
+
+export type CreateGuestHoldBody = {
+  propertyId: string;
+  unitTypeId: string;
+  startDate: string;
+  endDate: string;
+  quantity: number;
+};

@@ -48,11 +48,11 @@ export const updatePropertyBodySchema = createPropertyBodySchema
   });
 
 export const propertyIdParamsSchema = z.object({
-  propertyId: z.string().cuid(),
+  propertyId: z.string().min(1),
 });
 
 export const unitTypeParamsSchema = propertyIdParamsSchema.extend({
-  unitTypeId: z.string().cuid(),
+  unitTypeId: z.string().min(1),
 });
 
 export const createUnitTypeBodySchema = z.object({

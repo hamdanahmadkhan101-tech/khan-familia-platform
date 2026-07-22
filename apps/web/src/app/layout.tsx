@@ -14,6 +14,8 @@ const spaceGrotesk = Space_Grotesk({
   variable: '--font-sans',
 });
 
+import { NuqsAdapter } from 'nuqs/adapters/next/app';
+
 export const metadata: Metadata = siteMetadata;
 
 export default function RootLayout({ children }: { children: ReactNode }) {
@@ -27,9 +29,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     >
       <html lang="en" className={spaceGrotesk.variable}>
         <body className="flex min-h-screen flex-col antialiased">
-          <Header />
-          <main className="flex-1 flex flex-col pt-16">{children}</main>
-          <Footer />
+          <NuqsAdapter>
+            <Header />
+            <main className="flex-1 flex flex-col pt-16">{children}</main>
+            <Footer />
+          </NuqsAdapter>
         </body>
       </html>
     </ClerkProvider>

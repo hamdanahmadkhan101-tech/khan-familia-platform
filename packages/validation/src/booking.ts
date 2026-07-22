@@ -14,8 +14,8 @@ const todayDateString = () => new Date().toISOString().slice(0, 10);
 
 export const createHoldBodySchema = z
   .object({
-    propertyId: z.string().cuid(),
-    unitTypeId: z.string().cuid(),
+    propertyId: z.string().min(1),
+    unitTypeId: z.string().min(1),
     startDate: z.string().date(),
     endDate: z.string().date(),
     quantity: z.number().int().min(1).default(1),
@@ -48,7 +48,7 @@ export const guestBookingListQuerySchema = z.object({
 });
 
 export const bookingIdParamsSchema = z.object({
-  bookingId: z.string().cuid(),
+  bookingId: z.string().min(1),
 });
 
 export const cancelGuestBookingBodySchema = z.object({
