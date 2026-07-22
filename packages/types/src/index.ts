@@ -81,3 +81,25 @@ export type PublicPropertyDetails = PublicPropertySummary & {
   amenities: PublicAmenity[];
   unitTypes: PublicUnitType[];
 };
+
+// ---------------------------------------------------------------------------
+// IAM / Auth Types
+// ---------------------------------------------------------------------------
+
+/** Shape returned by GET /iam/me (authenticated user profile) */
+export type UserProfile = {
+  id: string;
+  clerkId: string;
+  username: string;
+  email: string;
+  avatarUrl: string | null;
+  phone: string | null;
+  role: string;
+  status: string;
+  defaultTenantId: string | null;
+  preferredCurrency: string | null;
+  preferredLanguage: string | null;
+  preferredTimezone: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
