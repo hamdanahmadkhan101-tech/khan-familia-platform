@@ -2,16 +2,14 @@
 
 ## Property Holds
 
-This repo currently has **two hold-related mechanisms**:
+This repo utilizes **PropertyHold** as the canonical mechanism for reserving inventory during the guest checkout flow.
 
-- `PropertyHold` rows: unitType + date range + quantity + `expiresAt` (+ optional `idempotencyKey`)
-- `AccommodationBooking` rows with `status=PENDING` + `holdExpiresAt`
+- `PropertyHold` rows hold the unitType, date range (`lt: endDate` internally), quantity, and an `expiresAt` timestamp.
+- When a hold is acquired, `UnitInventory` available counts are decremented immediately.
+- A background worker (`hold-expiry` job) automatically monitors and clears expired `PropertyHold` rows, releasing the inventory back to the pool if the guest abandons checkout.
+- Upon successful Stripe payment, the webhook handler converts the `PropertyHold` into a confirmed `AccommodationBooking` and deletes the `PropertyHold` row, persisting the inventory consumption.
 
-Until the booking module is fully implemented, the **worker expiry job** assumes inventory is reserved during the `PENDING` period and must be released if the booking expires/cancels.
-
-**MVP decision (implemented path):** `AccommodationBooking` with `status=PENDING` and `holdExpiresAt` is the canonical hold. Inventory is reserved for the stay window while `PENDING` and released on expiry/cancel via the worker job.
-
-`PropertyHold` remains in the schema for a possible pre-checkout flow later; do not use it in parallel with `PENDING` bookings until a conversion path is implemented.
+We do **not** use `AccommodationBooking` with `status=PENDING` as the active checkout hold path. Bookings are only created once payment is guaranteed.
 
 ## Tour Capacity Holds
 
@@ -22,25 +20,25 @@ Until the booking module is fully implemented, the **worker expiry job** assumes
 
 ```mermaid
 stateDiagram-v2
-  [*] --> HoldCreated
-  HoldCreated --> HoldExpired
-  HoldCreated --> HoldConfirmed
-  HoldConfirmed --> BookingConfirmed
+  [*] --> PropertyHoldAcquired
+  PropertyHoldAcquired --> HoldExpired
+  PropertyHoldAcquired --> PaymentCaptured
+  PaymentCaptured --> BookingConfirmed (Hold Deleted)
   HoldExpired --> [*]
 ```
 
 ## Release Rules
 
-- On cancellation, release holds immediately.
-- On expiry, release by background job or scheduled task.
+- On guest cancellation of a hold, release holds immediately.
+- On expiry, release by background BullMQ job.
 
 ## Inventory Decrement Rules
 
-Current direction (to align with existing expiry job behavior):
+Current implemented behavior:
 
-- During `PENDING`, inventory is treated as reserved for that booking window (availability reduced).
-- On expiry/cancellation of a `PENDING` booking, release the reserved inventory.
-- On `CONFIRMED`, inventory remains consumed; release happens only on cancellation flows (policy-driven; not fully implemented yet).
+- During the `PropertyHold` period, inventory is treated as reserved (availability reduced).
+- On expiry/cancellation of a `PropertyHold`, the worker releases the reserved inventory.
+- On `CONFIRMED` booking conversion, inventory remains consumed. Release only happens via manual staff action or guest cancellation flows.
 
 ## Manual Adjustments
 

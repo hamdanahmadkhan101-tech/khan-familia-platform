@@ -48,6 +48,7 @@ export const getAvailabilityForProperty = async (
 
 export const blockInventory = async (
   tenantId: string,
+  userId: string,
   propertyId: string,
   unitTypeId: string,
   startDate: Date,
@@ -98,12 +99,29 @@ export const blockInventory = async (
       throw AppError.conflict('Concurrency conflict during block operation. Please try again.');
     }
 
+    await tx.auditLog.create({
+      data: {
+        userId,
+        tenantId,
+        action: 'inventory.block',
+        resource: 'UnitInventory',
+        changes: {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+          blockCount,
+          reason,
+          unitTypeId,
+        },
+      },
+    });
+
     return count;
   });
 };
 
 export const unblockInventory = async (
   tenantId: string,
+  userId: string,
   propertyId: string,
   unitTypeId: string,
   startDate: Date,
@@ -152,32 +170,65 @@ export const unblockInventory = async (
       throw AppError.conflict('Concurrency conflict during unblock operation. Please try again.');
     }
 
+    await tx.auditLog.create({
+      data: {
+        userId,
+        tenantId,
+        action: 'inventory.unblock',
+        resource: 'UnitInventory',
+        changes: {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+          unblockCount,
+          unitTypeId,
+        },
+      },
+    });
+
     return count;
   });
 };
 
 export const setPriceOverride = async (
   tenantId: string,
+  userId: string,
   propertyId: string,
   unitTypeId: string,
   startDate: Date,
   endDate: Date,
   priceOverride: number | null,
 ) => {
-  const { count } = await prisma.unitInventory.updateMany({
-    where: {
-      tenantId,
-      propertyId,
-      unitTypeId,
-      date: { gte: startDate, lt: endDate },
-    },
-    data: {
-      priceOverride,
-      version: { increment: 1 },
-    },
-  });
+  return await prisma.$transaction(async (tx) => {
+    const { count } = await tx.unitInventory.updateMany({
+      where: {
+        tenantId,
+        propertyId,
+        unitTypeId,
+        date: { gte: startDate, lt: endDate },
+      },
+      data: {
+        priceOverride,
+        version: { increment: 1 },
+      },
+    });
 
-  return count;
+    await tx.auditLog.create({
+      data: {
+        userId,
+        tenantId,
+        action: 'inventory.price_override',
+        resource: 'UnitInventory',
+        changes: {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+          priceOverride,
+          unitTypeId,
+        },
+      },
+    });
+
+    return count;
+  });
 };
 
 export const acquireHold = async (

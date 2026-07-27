@@ -2,24 +2,23 @@
 
 ## What has been completed
 
-1. **Controller & Barrel Refactor:** We moved all inline route handlers into dedicated `*.controller.ts` files and enforced a strict "Public Interface" pattern. External consumers (like `app.ts`) now only import from a module's `index.ts`.
-2. **Express 5 Fixes:** We updated `validate.ts` middleware to use `Object.defineProperty` to bypass the new Express 5 getter-only request properties (`req.query`, `req.body`, `req.params`).
-3. **Inventory Availability Read:** We successfully scaffolded the `inventory` module. We created Zod validation schemas and an endpoint (`GET /inventory/:propertyId/availability`) to query the `UnitInventory` Prisma table for available dates.
+1. **Architecture & Foundation:**
+   - Monorepo setup with Turbo, Next.js 15, Express 5 API, and BullMQ worker.
+   - Clean module/controller/service architecture.
+2. **Inventory Management & Locking:**
+   - Full implementation of `UnitInventory` reading and mutations (block, unblock, set pricing overrides).
+   - Implementation of `PropertyHold` as the canonical checkout hold path. A Redis-backed worker automatically processes `hold-expiry` jobs to cleanly release unconfirmed holds.
+   - Audit logging implemented for all staff inventory overrides.
+3. **Payments & Checkout:**
+   - Dynamic payment calculation that respects staff-configured `priceOverrides` on specific dates.
+   - Stripe integration (PaymentIntents) for secure checkouts, with webhooks to auto-convert paid holds into confirmed bookings.
+4. **Testing & QA:**
+   - Comprehensive test coverage for the API and Background Worker using mocked ES6 instances of Redis and BullMQ to prevent CI failures.
 
 ## Where we left off
 
-We just finished `feature/inventory-availability-read`. The user is merging this into `develop`.
+We just finished standardizing the backend architecture (`fix/architecture-and-audit`), establishing `PropertyHold` as the canonical flow and adding audit logs for staff modifications. The API and Worker are in a stable, production-ready shape for MVP checkout and payments.
 
 ## What is next
 
-The next branch to check out is:
-**`feature/inventory-management`**
-
-**Next Tasks for the AI Agent:**
-In the new branch, we need to implement endpoints that allow property staff to mutate the `UnitInventory` model. This includes:
-
-1. Blocking dates (e.g., for maintenance).
-2. Unblocking dates.
-3. Setting manual price overrides on specific dates (e.g., higher prices for holidays).
-
-_Dear next AI Agent: Please read this file, verify the current branch is `feature/inventory-management`, and draft an Implementation Plan for these new endpoints._
+The API is ready for the frontend application to consume the new booking, checkout, and payments flows.

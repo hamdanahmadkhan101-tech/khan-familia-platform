@@ -53,6 +53,7 @@ export const blockInventoryController = async (
 
     const count = await blockInventory(
       tenantReq.tenantId,
+      tenantReq.userId,
       propertyId,
       body.unitTypeId,
       new Date(body.startDate),
@@ -79,6 +80,7 @@ export const unblockInventoryController = async (
 
     const count = await unblockInventory(
       tenantReq.tenantId,
+      tenantReq.userId,
       propertyId,
       body.unitTypeId,
       new Date(body.startDate),
@@ -104,6 +106,7 @@ export const setPricingController = async (
 
     const count = await setPriceOverride(
       tenantReq.tenantId,
+      tenantReq.userId,
       propertyId,
       body.unitTypeId,
       new Date(body.startDate),
