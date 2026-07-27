@@ -192,7 +192,7 @@ export const acquireHold = async (
   specialNeeds?: string[],
   idempotencyKey?: string,
 ) => {
-  return await prisma.$transaction(async (tx) => {
+  const hold = await prisma.$transaction(async (tx) => {
     if (idempotencyKey) {
       const existingHold = await tx.propertyHold.findUnique({
         where: { idempotencyKey },
@@ -282,15 +282,16 @@ export const acquireHold = async (
         ...(idempotencyKey ? { idempotencyKey } : {}),
       },
     });
-
-    await enqueueHoldExpiryJob({
-      holdId: hold.id,
-      holdToken: hold.holdToken,
-      holdExpiresAt: hold.expiresAt.toISOString(),
-    });
-
     return hold;
   });
+
+  await enqueueHoldExpiryJob({
+    holdId: hold.id,
+    holdToken: hold.holdToken,
+    holdExpiresAt: hold.expiresAt.toISOString(),
+  });
+
+  return hold;
 };
 
 export const releaseHold = async (holdToken: string, userId?: string) => {
