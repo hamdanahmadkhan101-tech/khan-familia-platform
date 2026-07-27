@@ -39,6 +39,38 @@ Express 5 + TypeScript scaffold with structured logging.
 - `PATCH /properties/:propertyId/unit-types/:unitTypeId` — update unit type
 - `DELETE /properties/:propertyId/unit-types/:unitTypeId` — delete (blocked if inventory/bookings exist)
 
+### Public & Discovery
+
+- `GET /public/properties` — list APPROVED properties
+- `GET /public/properties/:slug` — property details for public listing
+
+### Inventory (tenant context: `X-Tenant-ID`)
+
+- `GET /inventory/:propertyId/availability` — query available inventory dates
+- `POST /inventory/:propertyId/block` — manual staff block (OWNER/ADMIN/STAFF)
+- `POST /inventory/:propertyId/unblock` — manual staff unblock
+- `POST /inventory/:propertyId/pricing` — manual staff pricing override
+
+### Bookings (Guest)
+
+- `POST /bookings/hold` — acquire a temporary hold (`PropertyHold`)
+- `DELETE /bookings/hold` — release a temporary hold
+- `GET /bookings` — list guest's bookings
+- `GET /bookings/:bookingId` — guest booking details
+- `POST /bookings/:bookingId/cancel` — cancel a guest booking
+
+### Bookings (Host - tenant context: `X-Tenant-ID`)
+
+- `GET /tenants/:tenantId/bookings` — list all bookings for tenant
+- `GET /tenants/:tenantId/bookings/:bookingId` — tenant booking details
+- `POST /tenants/:tenantId/bookings/:bookingId/approve` — approve a `BOOKED` booking
+- `POST /tenants/:tenantId/bookings/:bookingId/reject` — reject a `BOOKED` booking
+
+### Payments
+
+- `POST /payments/hold` — create a Stripe PaymentIntent for a `PropertyHold`
+- `POST /webhooks/stripe` — Stripe webhook receiver (auto-converts hold to confirmed booking)
+
 ### Platform moderation (`User.role` = `SUPER_ADMIN`)
 
 - `GET /admin/properties/pending` — list properties awaiting approval
