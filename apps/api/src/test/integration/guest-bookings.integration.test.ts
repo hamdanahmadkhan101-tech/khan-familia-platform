@@ -27,7 +27,7 @@ const createConfirmedBookingFixture = async () => {
     where: {
       propertyId: fixture.property.id,
       unitTypeId: fixture.unitType.id,
-      date: { gte: testDate('2026-08-01'), lte: testDate('2026-08-03') },
+      date: { gte: testDate('2026-08-01'), lt: testDate('2026-08-03') },
     },
     data: {
       availableCount: { decrement: 1 },
@@ -43,7 +43,7 @@ const createConfirmedBookingFixture = async () => {
       tenantId: fixture.tenant.id,
       checkIn: testDate('2026-08-01'),
       checkOut: testDate('2026-08-03'),
-      nights: 3,
+      nights: 2,
       guests: 1,
       status: 'BOOKED',
       confirmedAt: new Date(),
@@ -170,9 +170,8 @@ describeDb('guest booking management', () => {
       where: { propertyId: property.id, unitTypeId: unitType.id },
       orderBy: { date: 'asc' },
     });
-    expect(inventoryRows.slice(0, 3)).toEqual(
+    expect(inventoryRows.slice(0, 2)).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ availableCount: 3, bookedCount: 0 }),
         expect.objectContaining({ availableCount: 3, bookedCount: 0 }),
         expect.objectContaining({ availableCount: 3, bookedCount: 0 }),
       ]),
