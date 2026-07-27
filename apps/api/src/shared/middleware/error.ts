@@ -13,6 +13,16 @@ export const errorHandler = (
 
   logger.error({ err: error, code: isAppError(error) ? error.code : 'UNKNOWN' }, 'Request error');
 
+  if (error.name === 'PrismaClientKnownRequestError' && 'code' in error && error.code === 'P2002') {
+    return res.status(409).json({
+      error: {
+        message: 'Resource already exists or request is currently processing.',
+        code: 'CONFLICT',
+        statusCode: 409,
+      },
+    });
+  }
+
   if (isAppError(error)) {
     return res.status(error.statusCode).json(error.toJSON());
   }

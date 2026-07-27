@@ -255,7 +255,7 @@ const releaseBookedInventory = async (
     where: {
       propertyId: booking.propertyId,
       unitTypeId: booking.unitTypeId,
-      date: { gte: booking.checkIn, lte: booking.checkOut },
+      date: { gte: booking.checkIn, lt: booking.checkOut },
     },
     select: { id: true },
   });
