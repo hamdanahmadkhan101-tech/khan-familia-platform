@@ -4,18 +4,16 @@ import { prisma } from '../infrastructure/database/client.js';
 import { logger } from '../logger.js';
 import type { InventoryHorizonJobPayload } from '@khan-familia/types';
 
+import { addDays, differenceInDays, startOfDay } from '@khan-familia/utils';
+
 /**
- * Timezone-safe helper to generate a range of UTC midnight dates starting from today.
+ * Helper to generate a range of midnight dates starting from a given date.
  */
 const getDatesRange = (startDate: Date, days: number): Date[] => {
   const dates: Date[] = [];
-  const start = new Date(
-    Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()),
-  );
+  const start = startOfDay(startDate);
   for (let i = 0; i < days; i++) {
-    const next = new Date(start);
-    next.setUTCDate(start.getUTCDate() + i);
-    dates.push(next);
+    dates.push(addDays(start, i));
   }
   return dates;
 };
@@ -69,22 +67,44 @@ export const generateInventoryHorizonForProperty = async (
   }
 
   const horizonDays = property.tenant.inventoryHorizonDays ?? 365;
-  const dates = getDatesRange(new Date(), horizonDays);
+  const today = startOfDay(new Date());
+  const endHorizonDate = addDays(today, horizonDays);
 
   const inventoryRecords = [];
   for (const unitType of property.unitTypes) {
-    for (const date of dates) {
-      inventoryRecords.push({
-        propertyId: property.id,
-        unitTypeId: unitType.id,
-        tenantId: property.tenantId,
-        date,
-        totalCount: unitType.unitCount,
-        availableCount: unitType.unitCount,
-        bookedCount: 0,
-        blockedCount: 0,
-      });
+    const latestInventory = await tx.unitInventory.findFirst({
+      where: { propertyId: property.id, unitTypeId: unitType.id },
+      orderBy: { date: 'desc' },
+      select: { date: true },
+    });
+
+    let startDate = today;
+    if (latestInventory) {
+      startDate = addDays(startOfDay(latestInventory.date), 1);
     }
+
+    const daysToGenerate = differenceInDays(endHorizonDate, startDate);
+
+    if (daysToGenerate > 0) {
+      const dates = getDatesRange(startDate, daysToGenerate);
+      for (const date of dates) {
+        inventoryRecords.push({
+          propertyId: property.id,
+          unitTypeId: unitType.id,
+          tenantId: property.tenantId,
+          date,
+          totalCount: unitType.unitCount,
+          availableCount: unitType.unitCount,
+          bookedCount: 0,
+          blockedCount: 0,
+        });
+      }
+    }
+  }
+
+  if (inventoryRecords.length === 0) {
+    logger.debug({ propertyId }, 'Inventory horizon already up to date. No new records needed.');
+    return;
   }
 
   logger.debug(
