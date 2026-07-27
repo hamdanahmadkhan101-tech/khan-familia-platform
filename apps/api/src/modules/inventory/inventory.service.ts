@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import type { Prisma } from '@khan-familia/database';
-import { addMinutes } from '@khan-familia/utils';
+import { addMinutes, differenceInDays } from '@khan-familia/utils';
 import { AppError } from '../../shared/errors/AppError.js';
 import { prisma } from '../../infrastructure/database/client.js';
 import { enqueueHoldExpiryJob } from '../../infrastructure/queue/producer.js';
@@ -19,7 +19,7 @@ export const getAvailabilityForProperty = async (
     propertyId,
     date: {
       gte: startDate,
-      lte: endDate,
+      lt: endDate,
     },
   };
 
@@ -56,14 +56,20 @@ export const blockInventory = async (
   reason?: string,
 ) => {
   return await prisma.$transaction(async (tx) => {
+    const expectedDaysCount = differenceInDays(endDate, startDate);
+
     const rows = await tx.unitInventory.findMany({
       where: {
         tenantId,
         propertyId,
         unitTypeId,
-        date: { gte: startDate, lte: endDate },
+        date: { gte: startDate, lt: endDate },
       },
     });
+
+    if (rows.length !== expectedDaysCount) {
+      throw AppError.conflict('Insufficient inventory records exist for the specified date range.');
+    }
 
     const overbooked = rows.filter((r) => r.availableCount < blockCount);
     if (overbooked.length > 0) {
@@ -77,7 +83,7 @@ export const blockInventory = async (
         tenantId,
         propertyId,
         unitTypeId,
-        date: { gte: startDate, lte: endDate },
+        date: { gte: startDate, lt: endDate },
         availableCount: { gte: blockCount },
       },
       data: {
@@ -105,14 +111,20 @@ export const unblockInventory = async (
   unblockCount: number,
 ) => {
   return await prisma.$transaction(async (tx) => {
+    const expectedDaysCount = differenceInDays(endDate, startDate);
+
     const rows = await tx.unitInventory.findMany({
       where: {
         tenantId,
         propertyId,
         unitTypeId,
-        date: { gte: startDate, lte: endDate },
+        date: { gte: startDate, lt: endDate },
       },
     });
+
+    if (rows.length !== expectedDaysCount) {
+      throw AppError.conflict('Insufficient inventory records exist for the specified date range.');
+    }
 
     const underblocked = rows.filter((r) => r.blockedCount < unblockCount);
     if (underblocked.length > 0) {
@@ -126,7 +138,7 @@ export const unblockInventory = async (
         tenantId,
         propertyId,
         unitTypeId,
-        date: { gte: startDate, lte: endDate },
+        date: { gte: startDate, lt: endDate },
         blockedCount: { gte: unblockCount },
       },
       data: {
@@ -157,7 +169,7 @@ export const setPriceOverride = async (
       tenantId,
       propertyId,
       unitTypeId,
-      date: { gte: startDate, lte: endDate },
+      date: { gte: startDate, lt: endDate },
     },
     data: {
       priceOverride,
@@ -210,14 +222,20 @@ export const acquireHold = async (
       }
     }
 
+    const expectedDaysCount = differenceInDays(endDate, startDate);
+
     const rows = await tx.unitInventory.findMany({
       where: {
         tenantId,
         propertyId,
         unitTypeId,
-        date: { gte: startDate, lte: endDate },
+        date: { gte: startDate, lt: endDate },
       },
     });
+
+    if (rows.length !== expectedDaysCount) {
+      throw AppError.conflict('Insufficient inventory records exist for the specified date range.');
+    }
 
     const overbooked = rows.filter((r) => r.availableCount < quantity);
     if (overbooked.length > 0) {
@@ -231,7 +249,7 @@ export const acquireHold = async (
         tenantId,
         propertyId,
         unitTypeId,
-        date: { gte: startDate, lte: endDate },
+        date: { gte: startDate, lt: endDate },
         availableCount: { gte: quantity },
       },
       data: {
@@ -293,7 +311,7 @@ export const releaseHold = async (holdToken: string, userId?: string) => {
       where: {
         tenantId: hold.tenantId,
         unitTypeId: hold.unitTypeId,
-        date: { gte: hold.startDate, lte: hold.endDate },
+        date: { gte: hold.startDate, lt: hold.endDate },
       },
       select: { id: true },
     });

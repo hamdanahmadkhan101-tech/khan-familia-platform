@@ -1,7 +1,34 @@
 import { config } from 'dotenv';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { vi } from 'vitest';
 
+vi.mock('bullmq', () => {
+  class MockQueue {
+    add = vi.fn().mockResolvedValue({ id: 'mock-job-id' });
+    close = vi.fn().mockResolvedValue(undefined);
+  }
+  class MockWorker {
+    on = vi.fn();
+    close = vi.fn().mockResolvedValue(undefined);
+  }
+  return { Queue: MockQueue, Worker: MockWorker };
+});
+
+vi.mock('ioredis', () => {
+  const MockRedis = vi.fn().mockImplementation(() => ({
+    on: vi.fn(),
+    quit: vi.fn(),
+    disconnect: vi.fn(),
+    get: vi.fn().mockResolvedValue(null),
+    set: vi.fn().mockResolvedValue('OK'),
+    del: vi.fn().mockResolvedValue(1),
+  }));
+  return {
+    Redis: MockRedis,
+    default: MockRedis,
+  };
+});
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 const apiRoot = path.resolve(dirname, '../..');
 

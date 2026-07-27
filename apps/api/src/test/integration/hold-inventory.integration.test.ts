@@ -34,16 +34,15 @@ describeDb('inventory and hold integration flow', () => {
       });
 
     expect(blockResponse.status).toBe(200);
-    expect(blockResponse.body).toMatchObject({ updatedDays: 3 });
+    expect(blockResponse.body).toMatchObject({ updatedDays: 2 });
 
     const blockedRows = await testPrisma.unitInventory.findMany({
       where: { propertyId: property.id, unitTypeId: unitType.id },
       orderBy: { date: 'asc' },
     });
 
-    expect(blockedRows.slice(0, 3)).toEqual(
+    expect(blockedRows.slice(0, 2)).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ availableCount: 2, blockedCount: 1 }),
         expect.objectContaining({ availableCount: 2, blockedCount: 1 }),
         expect.objectContaining({ availableCount: 2, blockedCount: 1 }),
       ]),
@@ -61,16 +60,15 @@ describeDb('inventory and hold integration flow', () => {
       });
 
     expect(unblockResponse.status).toBe(200);
-    expect(unblockResponse.body).toMatchObject({ updatedDays: 3 });
+    expect(unblockResponse.body).toMatchObject({ updatedDays: 2 });
 
     const restoredRows = await testPrisma.unitInventory.findMany({
       where: { propertyId: property.id, unitTypeId: unitType.id },
       orderBy: { date: 'asc' },
     });
 
-    expect(restoredRows.slice(0, 3)).toEqual(
+    expect(restoredRows.slice(0, 2)).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ availableCount: 3, blockedCount: 0 }),
         expect.objectContaining({ availableCount: 3, blockedCount: 0 }),
         expect.objectContaining({ availableCount: 3, blockedCount: 0 }),
       ]),
@@ -115,9 +113,8 @@ describeDb('inventory and hold integration flow', () => {
       orderBy: { date: 'asc' },
     });
 
-    expect(reservedRows.slice(0, 3)).toEqual(
+    expect(reservedRows.slice(0, 2)).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ availableCount: 2, bookedCount: 1 }),
         expect.objectContaining({ availableCount: 2, bookedCount: 1 }),
         expect.objectContaining({ availableCount: 2, bookedCount: 1 }),
       ]),
@@ -139,9 +136,8 @@ describeDb('inventory and hold integration flow', () => {
       orderBy: { date: 'asc' },
     });
 
-    expect(releasedRows.slice(0, 3)).toEqual(
+    expect(releasedRows.slice(0, 2)).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ availableCount: 3, bookedCount: 0 }),
         expect.objectContaining({ availableCount: 3, bookedCount: 0 }),
         expect.objectContaining({ availableCount: 3, bookedCount: 0 }),
       ]),

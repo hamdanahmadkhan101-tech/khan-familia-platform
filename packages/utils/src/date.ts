@@ -1,16 +1,26 @@
 import {
+  addDays as dfAddDays,
   addMinutes as dfAddMinutes,
   differenceInCalendarDays,
+  differenceInDays as dfDifferenceInDays,
   differenceInMilliseconds,
   format,
   isAfter,
   isBefore,
   parseISO,
+  startOfDay as dfStartOfDay,
 } from 'date-fns';
 export const formatIsoDate = (date: Date, pattern = 'yyyy-MM-dd'): string => format(date, pattern);
 
 export const calculateNights = (checkIn: Date, checkOut: Date): number =>
   differenceInCalendarDays(checkOut, checkIn);
+
+export const addDays = (date: Date, amount: number): Date => dfAddDays(date, amount);
+
+export const differenceInDays = (dateLeft: Date, dateRight: Date): number =>
+  dfDifferenceInDays(dateLeft, dateRight);
+
+export const startOfDay = (date: Date): Date => dfStartOfDay(date);
 
 export const isOverlappingDateRange = (
   startA: Date,

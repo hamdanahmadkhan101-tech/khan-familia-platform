@@ -1,5 +1,5 @@
 import type { PrismaClient } from '@khan-familia/database';
-import { generateNanoId } from '@khan-familia/utils';
+import { generateNanoId, addDays } from '@khan-familia/utils';
 
 import { prisma } from '../../infrastructure/database/client.js';
 import { AppError } from '../../shared/errors/AppError.js';
@@ -64,8 +64,7 @@ export const createTenantInvite = async (
     throw AppError.conflict('User is already a member of this tenant');
   }
 
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + INVITE_TTL_DAYS);
+  const expiresAt = addDays(new Date(), INVITE_TTL_DAYS);
 
   try {
     return await db.tenantInvite.create({

@@ -1,5 +1,7 @@
 import type { PlatformRole, TenantRole } from '@khan-familia/database';
 
+import { addDays } from '@khan-familia/utils';
+
 import { testPrisma } from '../database.js';
 
 let sequence = 0;
@@ -96,17 +98,19 @@ export const createInventoryRange = async (input: {
   const end = testDate(input.endDate);
   const rows = [];
 
-  for (const date = new Date(start); date <= end; date.setUTCDate(date.getUTCDate() + 1)) {
+  let currentDate = start;
+  while (currentDate <= end) {
     rows.push({
       tenantId: input.tenantId,
       propertyId: input.propertyId,
       unitTypeId: input.unitTypeId,
-      date: new Date(date),
+      date: currentDate,
       totalCount: input.totalCount ?? 3,
       availableCount: input.totalCount ?? 3,
       bookedCount: 0,
       blockedCount: 0,
     });
+    currentDate = addDays(currentDate, 1);
   }
 
   await testPrisma.unitInventory.createMany({ data: rows });

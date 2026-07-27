@@ -33,7 +33,7 @@ export const handleHoldExpiryJob = async (payload: HoldExpiryJobPayload) => {
         where: {
           tenantId: deleted.tenantId,
           unitTypeId: deleted.unitTypeId,
-          date: { gte: deleted.startDate, lte: deleted.endDate },
+          date: { gte: deleted.startDate, lt: deleted.endDate },
         },
         select: { id: true },
       });
