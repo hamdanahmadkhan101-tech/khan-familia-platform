@@ -12,6 +12,14 @@ const accommodationBookingStatusValues = [
 
 const todayDateString = () => new Date().toISOString().slice(0, 10);
 
+export const guestDetailSchema = z.object({
+  isPrimary: z.boolean().default(false),
+  name: z.string().min(2),
+  age: z.number().int().positive().optional(),
+  idType: z.enum(['CNIC', 'Passport', 'Other']).optional(),
+  idNumber: z.string().optional(),
+});
+
 export const createHoldBodySchema = z
   .object({
     propertyId: z.string().min(1),
@@ -19,6 +27,8 @@ export const createHoldBodySchema = z
     startDate: z.string().date(),
     endDate: z.string().date(),
     quantity: z.number().int().min(1).default(1),
+    guestDetails: z.array(guestDetailSchema).optional(),
+    specialNeeds: z.array(z.string()).optional(),
   })
   .refine((data) => data.startDate >= todayDateString(), {
     message: 'startDate must be today or a future date',

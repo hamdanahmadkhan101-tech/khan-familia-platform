@@ -28,7 +28,11 @@ export type ApiClient = {
   /** Requires authentication. Places a temporary hold on inventory. */
   createGuestHold: (body: CreateGuestHoldBody) => Promise<PropertyHoldResponse>;
   /** Requires authentication. Creates a Stripe payment intent for a hold. */
-  createPaymentIntent: (holdToken: string) => Promise<PaymentIntentResponse>;
+  createPaymentIntent: (
+    holdToken: string,
+    guestDetails?: Record<string, unknown>[],
+    specialNeeds?: string[],
+  ) => Promise<PaymentIntentResponse>;
   /** Requires authentication. Synchronously verifies a Stripe payment and returns the confirmed booking. */
   confirmPaymentIntent: (
     paymentIntentId: string,
@@ -132,11 +136,15 @@ export const createApiClient = ({
       return response.json() as Promise<PropertyHoldResponse>;
     },
 
-    async createPaymentIntent(holdToken: string) {
+    async createPaymentIntent(
+      holdToken: string,
+      guestDetails?: Record<string, unknown>[],
+      specialNeeds?: string[],
+    ) {
       const response = await authFetch('/payments/intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ holdToken }),
+        body: JSON.stringify({ holdToken, guestDetails, specialNeeds }),
       });
       return response.json() as Promise<PaymentIntentResponse>;
     },

@@ -23,7 +23,12 @@ export const createPaymentIntentController = async (
       throw AppError.unauthorized('Authentication required');
     }
 
-    const result = await createStripePaymentIntent(body.holdToken, authReq.userId);
+    const result = await createStripePaymentIntent(
+      body.holdToken,
+      authReq.userId,
+      body.guestDetails,
+      body.specialNeeds,
+    );
 
     res.status(201).json(result);
   } catch (err) {

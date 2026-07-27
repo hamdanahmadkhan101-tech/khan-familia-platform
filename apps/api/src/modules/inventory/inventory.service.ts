@@ -176,6 +176,8 @@ export const acquireHold = async (
   startDate: Date,
   endDate: Date,
   quantity: number,
+  guestDetails?: Record<string, unknown>[],
+  specialNeeds?: string[],
   idempotencyKey?: string,
 ) => {
   return await prisma.$transaction(async (tx) => {
@@ -257,6 +259,8 @@ export const acquireHold = async (
         endDate,
         quantity,
         expiresAt,
+        ...(guestDetails ? { guestDetails: guestDetails as unknown as object } : {}),
+        ...(specialNeeds ? { specialNeeds } : {}),
         ...(idempotencyKey ? { idempotencyKey } : {}),
       },
     });

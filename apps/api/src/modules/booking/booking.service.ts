@@ -208,6 +208,8 @@ export const createGuestHold = async (
     startDate,
     endDate,
     input.quantity,
+    input.guestDetails,
+    input.specialNeeds,
     idempotencyKey,
   );
 };
