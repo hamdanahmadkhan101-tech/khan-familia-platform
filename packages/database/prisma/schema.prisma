@@ -1200,6 +1200,8 @@ model PropertyHold {
   quantity       Int      @default(1)
   expiresAt      DateTime
   idempotencyKey String?  @unique
+  guestDetails   Json?
+  specialNeeds   Json?
   createdAt      DateTime @default(now())
 
   @@index([userId])
