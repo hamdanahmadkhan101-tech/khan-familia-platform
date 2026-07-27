@@ -407,6 +407,9 @@ importers:
       '@khan-familia/constants':
         specifier: workspace:*
         version: link:../constants
+      '@khan-familia/database':
+        specifier: workspace:*
+        version: link:../database
       '@khan-familia/types':
         specifier: workspace:*
         version: link:../types
