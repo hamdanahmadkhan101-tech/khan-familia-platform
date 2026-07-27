@@ -72,9 +72,32 @@ export const createStripePaymentIntent = async (
 
   // 2. Calculate price using centralized utilities
   const nights = Math.max(1, calculateNights(hold.startDate, hold.endDate));
-  const baseRate = hold.unitType.defaultRate ?? 0;
-  const baseRateMinor = toMinorUnits(baseRate);
-  const totalMinor = multiplyMoney(baseRateMinor, nights * hold.quantity); // stored in minor units (paisa/cents)
+  const defaultBaseRate = hold.unitType.defaultRate ?? 0;
+
+  // Calculate exact total based on UnitInventory priceOverrides
+  const inventoryRows = await prisma.unitInventory.findMany({
+    where: {
+      propertyId: hold.propertyId,
+      unitTypeId: hold.unitTypeId,
+      date: {
+        gte: hold.startDate,
+        lt: hold.endDate,
+      },
+    },
+    select: { priceOverride: true },
+  });
+
+  let totalCharge = 0;
+  if (inventoryRows.length === nights) {
+    totalCharge = inventoryRows.reduce(
+      (sum, row) => sum + (row.priceOverride ?? defaultBaseRate),
+      0,
+    );
+  } else {
+    totalCharge = defaultBaseRate * nights;
+  }
+
+  const totalMinor = multiplyMoney(toMinorUnits(totalCharge), hold.quantity); // stored in minor units (paisa/cents)
 
   if (totalMinor <= 0) {
     throw AppError.badRequest(

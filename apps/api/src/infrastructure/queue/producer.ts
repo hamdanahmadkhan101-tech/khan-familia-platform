@@ -35,6 +35,7 @@ const getQueue = (name: QueueName): Queue => {
 export const enqueueHoldExpiryJob = async (payload: HoldExpiryJobPayload) => {
   const queue = getQueue(QUEUE_NAMES.HOLD_EXPIRY);
   return queue.add(`hold-expiry-${payload.holdId}`, payload, {
+    jobId: `hold-expiry-${payload.holdId}`,
     delay: calculateDelayMs(new Date(payload.holdExpiresAt)),
   });
 };
