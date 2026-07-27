@@ -3,7 +3,7 @@ import Stripe from 'stripe';
 import { stripe } from '../../infrastructure/stripe/client.js';
 import { prisma } from '../../infrastructure/database/client.js';
 import { AppError } from '../../shared/errors/AppError.js';
-import { calculateNights, multiplyMoney, toMinorUnits } from '@khan-familia/utils';
+import { calculateNights, multiplyMoney, toMinorUnits, encrypt } from '@khan-familia/utils';
 import { releaseHold } from '../inventory/inventory.service.js';
 
 /**
@@ -17,7 +17,12 @@ import { releaseHold } from '../inventory/inventory.service.js';
 // ---------------------------------------------------------------------------
 // Create Stripe PaymentIntent + internal PaymentIntent record
 // ---------------------------------------------------------------------------
-export const createStripePaymentIntent = async (holdToken: string, userId: string) => {
+export const createStripePaymentIntent = async (
+  holdToken: string,
+  userId: string,
+  guestDetails?: Record<string, unknown>[],
+  specialNeeds?: string[],
+) => {
   // 1. Look up the hold
   const hold = await prisma.propertyHold.findUnique({
     where: { holdToken },
@@ -48,6 +53,21 @@ export const createStripePaymentIntent = async (holdToken: string, userId: strin
 
   if (hold.expiresAt < new Date()) {
     throw AppError.badRequest('This hold has expired. Please start a new checkout.');
+  }
+
+  // Optional: Update the hold with guest details and special needs before creating the intent
+  if (guestDetails || specialNeeds) {
+    await prisma.propertyHold.update({
+      where: { id: hold.id },
+      data: {
+        ...(guestDetails ? { guestDetails: guestDetails as unknown as object } : {}),
+        ...(specialNeeds ? { specialNeeds } : {}),
+      },
+    });
+
+    // Mutate the local hold object so processPaymentIntentConfirmation sees them correctly
+    if (guestDetails) hold.guestDetails = guestDetails as unknown as object;
+    if (specialNeeds) hold.specialNeeds = specialNeeds;
   }
 
   // 2. Calculate price using centralized utilities
@@ -230,6 +250,38 @@ export const processPaymentIntentConfirmation = async (stripeIntent: Stripe.Paym
         : {}),
     };
     await tx.paymentRecord.create({ data: paymentRecordData });
+
+    if (hold.guestDetails && Array.isArray(hold.guestDetails)) {
+      const encryptionKey = process.env['ENCRYPTION_KEY'];
+      if (!encryptionKey) {
+        throw new Error('ENCRYPTION_KEY is not configured');
+      }
+
+      await tx.bookingGuest.createMany({
+        data: await Promise.all(
+          (hold.guestDetails as Record<string, unknown>[]).map(async (guest) => {
+            const g = guest as Record<string, string | number | boolean>;
+            return {
+              bookingId: booking.id,
+              isPrimary: Boolean(g['isPrimary']),
+              name: String(g['name']),
+              age: Number(g['age']),
+              idType: String(g['idType']),
+              idNumber: g['idNumber'] ? await encrypt(String(g['idNumber']), encryptionKey) : null,
+            };
+          }),
+        ),
+      });
+    }
+
+    if (hold.specialNeeds && Array.isArray(hold.specialNeeds)) {
+      await tx.bookingSpecialRequest.createMany({
+        data: (hold.specialNeeds as unknown as string[]).map((need) => ({
+          bookingId: booking.id,
+          text: String(need),
+        })),
+      });
+    }
 
     await tx.propertyHold.delete({ where: { id: hold.id } });
 

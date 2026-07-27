@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { auth } from '@clerk/nextjs/server';
-import { UserButton } from '@clerk/nextjs';
+import { HeaderUserButton } from './HeaderUserButton';
 
 /**
  * Server Component — uses auth() to check sign-in state on the server.
@@ -20,6 +20,7 @@ export async function Header() {
               src="/logo.jpeg"
               alt="Khan Familia Travels Logo"
               fill
+              sizes="40px"
               className="object-cover mix-blend-multiply"
               priority
             />
@@ -39,13 +40,7 @@ export async function Header() {
 
           {isSignedIn ? (
             /* Authenticated — show Clerk's UserButton (avatar + dropdown) */
-            <UserButton
-              appearance={{
-                elements: {
-                  avatarBox: 'h-9 w-9 rounded-full border border-border shadow-sm',
-                },
-              }}
-            />
+            <HeaderUserButton />
           ) : (
             /* Guest — show Sign In / Sign Up buttons */
             <div className="flex items-center gap-3">

@@ -639,6 +639,7 @@ model BookingGuest {
   id        String               @id @default(cuid())
   bookingId String
   booking   AccommodationBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  isPrimary Boolean              @default(false)
   name      String
   age       Int?
   idType    String?

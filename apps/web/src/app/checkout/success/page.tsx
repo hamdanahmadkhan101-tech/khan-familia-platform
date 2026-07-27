@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { GuestBooking } from '@khan-familia/types';
@@ -8,7 +8,7 @@ import { useApi } from '@/hooks/useApi';
 import { toast } from 'sonner';
 import { CheckCircle2, Loader2, CalendarDays, MapPin, Users, ArrowRight, Home } from 'lucide-react';
 
-export default function CheckoutSuccessPage() {
+function CheckoutSuccessContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const client = useApi();
@@ -201,5 +201,20 @@ export default function CheckoutSuccessPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function CheckoutSuccessPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center p-6 text-center">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <h2 className="mt-4 text-xl font-semibold text-foreground">Loading confirmation...</h2>
+        </div>
+      }
+    >
+      <CheckoutSuccessContent />
+    </Suspense>
   );
 }
