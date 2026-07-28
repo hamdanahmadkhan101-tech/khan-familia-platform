@@ -14,6 +14,7 @@ export const DEFAULT_LOG_LEVEL = 'info';
 
 export const QUEUE_NAMES = {
   HOLD_EXPIRY: 'hold-expiry',
+  HOLD_CLEANUP: 'hold-cleanup',
   NOTIFICATIONS: 'notifications',
   INVENTORY_HORIZON: 'inventory-horizon',
 } as const;
