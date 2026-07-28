@@ -2,6 +2,7 @@ import type { Worker as BullWorker } from 'bullmq';
 import { Worker } from 'bullmq';
 
 import { getBullMqConnectionOptions } from '../cache/redis.js';
+import { logger } from '../../logger.js';
 
 /**
  * Simple job processor registry for the worker.
@@ -33,7 +34,7 @@ export const startWorker = async (): Promise<BullWorker[]> => {
     });
 
     worker.on('failed', (job, err) => {
-      console.error(`Job failed [${queueName}]:`, job?.id, err.message);
+      logger.error({ queueName, jobId: job?.id, err }, 'Job failed');
     });
 
     workers.push(worker);
