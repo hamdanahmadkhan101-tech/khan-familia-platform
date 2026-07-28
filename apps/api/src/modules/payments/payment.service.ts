@@ -2,6 +2,7 @@ import { BookingType } from '@khan-familia/database';
 import Stripe from 'stripe';
 import { stripe } from '../../infrastructure/stripe/client.js';
 import { prisma } from '../../infrastructure/database/client.js';
+import { env } from '../../env.js';
 import { AppError } from '../../shared/errors/AppError.js';
 import { calculateNights, multiplyMoney, toMinorUnits, encrypt } from '@khan-familia/utils';
 import { releaseHold } from '../inventory/inventory.service.js';
@@ -275,10 +276,7 @@ export const processPaymentIntentConfirmation = async (stripeIntent: Stripe.Paym
     await tx.paymentRecord.create({ data: paymentRecordData });
 
     if (hold.guestDetails && Array.isArray(hold.guestDetails)) {
-      const encryptionKey = process.env['ENCRYPTION_KEY'];
-      if (!encryptionKey) {
-        throw new Error('ENCRYPTION_KEY is not configured');
-      }
+      const encryptionKey = env.ENCRYPTION_KEY;
 
       await tx.bookingGuest.createMany({
         data: await Promise.all(
