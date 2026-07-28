@@ -65,4 +65,5 @@ setDefaultEnv('CLOUDINARY_CLOUD_NAME', 'test-cloud');
 setDefaultEnv('CLOUDINARY_API_KEY', 'test-key');
 setDefaultEnv('CLOUDINARY_API_SECRET', 'test-secret');
 setDefaultEnv('RESEND_API_KEY', 're_test_placeholder');
+setDefaultEnv('ENCRYPTION_KEY', '0000000000000000000000000000000000000000000000000000000000000000');
 setDefaultEnv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/khan_familia_test');

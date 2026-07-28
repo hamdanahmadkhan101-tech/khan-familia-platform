@@ -71,7 +71,10 @@ const envSchema = z.object({
 
   // Stripe Payments
   STRIPE_SECRET_KEY: z.string(),
-  STRIPE_WEBHOOK_SECRET: z.string(),
+  STRIPE_WEBHOOK_SECRET: z.string().min(1, 'STRIPE_WEBHOOK_SECRET must be set'),
+
+  // Encryption
+  ENCRYPTION_KEY: z.string().length(64, 'ENCRYPTION_KEY must be a 64-character hex string'),
 
   // Cloudinary Storage
   CLOUDINARY_CLOUD_NAME: z.string(),
