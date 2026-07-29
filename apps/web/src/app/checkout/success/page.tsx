@@ -8,10 +8,13 @@ import { useApi } from '@/hooks/useApi';
 import { toast } from 'sonner';
 import { CheckCircle2, Loader2, CalendarDays, MapPin, Users, ArrowRight, Home } from 'lucide-react';
 
+import { useHoldSession } from '@/hooks/useHoldSession';
+
 function CheckoutSuccessContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const client = useApi();
+  const { clearHold } = useHoldSession();
 
   const paymentIntentId = searchParams.get('payment_intent');
   const redirectStatus = searchParams.get('redirect_status');
@@ -42,6 +45,7 @@ function CheckoutSuccessContent() {
       .then(({ booking: confirmedBooking }) => {
         if (!isSubscribed) return;
         setBooking(confirmedBooking);
+        clearHold();
         toast.success('Payment successful! Your booking is confirmed 🎉');
       })
       .catch((err: unknown) => {

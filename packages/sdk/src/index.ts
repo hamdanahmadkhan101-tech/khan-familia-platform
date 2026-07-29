@@ -26,7 +26,10 @@ export type ApiClient = {
   /** Requires authentication. Returns the currently signed-in user's profile. */
   getMe: () => Promise<UserProfile>;
   /** Requires authentication. Places a temporary hold on inventory. */
-  createGuestHold: (body: CreateGuestHoldBody) => Promise<PropertyHoldResponse>;
+  createGuestHold: (
+    body: CreateGuestHoldBody,
+    idempotencyKey?: string | null,
+  ) => Promise<PropertyHoldResponse>;
   /** Requires authentication. Creates a Stripe payment intent for a hold. */
   createPaymentIntent: (
     holdToken: string,
@@ -127,7 +130,7 @@ export const createApiClient = ({
       return response.json() as Promise<UserProfile>;
     },
 
-    async createGuestHold(body: CreateGuestHoldBody, idempotencyKey?: string) {
+    async createGuestHold(body: CreateGuestHoldBody, idempotencyKey?: string | null) {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (idempotencyKey) {
         headers['Idempotency-Key'] = idempotencyKey;
