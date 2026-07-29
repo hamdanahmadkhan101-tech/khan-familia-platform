@@ -12,13 +12,36 @@ const accommodationBookingStatusValues = [
 
 const todayDateString = () => new Date().toISOString().slice(0, 10);
 
-export const guestDetailSchema = z.object({
-  isPrimary: z.boolean().default(false),
-  name: z.string().min(2),
-  age: z.number().int().positive().optional(),
-  idType: z.enum(['CNIC', 'Passport', 'Other']).optional(),
-  idNumber: z.string().optional(),
+export const guestDetailSchema = z
+  .object({
+    isPrimary: z.boolean().default(false),
+    name: z.string().min(2, 'Name must be at least 2 chars').max(50, 'Name is too long'),
+    age: z.coerce.number().int().min(0, 'Cannot be negative').max(130, 'Invalid age').default(0),
+    idType: z.enum(['CNIC', 'Passport', 'Other']).default('CNIC'),
+    idNumber: z.string().default(''),
+  })
+  .superRefine((data, ctx) => {
+    if (data.isPrimary && data.age < 18) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Primary guest must be 18+',
+        path: ['age'],
+      });
+    }
+    if (data.age >= 18 && (!data.idNumber || data.idNumber.length < 5)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'ID required for adults',
+        path: ['idNumber'],
+      });
+    }
+  });
+
+export const guestsFormSchema = z.object({
+  guests: z.array(guestDetailSchema),
 });
+export type GuestsFormValues = z.infer<typeof guestsFormSchema>;
+export type GuestsFormInput = z.input<typeof guestsFormSchema>;
 
 export const createHoldBodySchema = z
   .object({
