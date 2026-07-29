@@ -4,6 +4,7 @@ import { CheckoutWizard } from '@/components/checkout/CheckoutWizard';
 import { verifyHoldStatusAction } from './actions';
 import Link from 'next/link';
 import { Clock, Home, CalendarDays } from 'lucide-react';
+import { ClearHoldSession } from '@/components/checkout/ClearHoldSession';
 
 export default async function CheckoutPage(props: { params: Promise<{ holdToken: string }> }) {
   const params = await props.params;
@@ -23,6 +24,7 @@ export default async function CheckoutPage(props: { params: Promise<{ holdToken:
   if (!isValid) {
     return (
       <main className="relative min-h-screen overflow-hidden bg-background flex items-center justify-center p-4">
+        <ClearHoldSession />
         <div className="mx-auto max-w-md text-center">
           <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-destructive/10 text-destructive">
             <Clock className="h-10 w-10" />

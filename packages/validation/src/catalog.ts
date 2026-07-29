@@ -1,5 +1,30 @@
-import { PropertyCategory, PropertyType } from '@khan-familia/database';
 import { z } from 'zod';
+
+const propertyTypeValues = [
+  'HOTEL',
+  'APARTMENT',
+  'VILLA',
+  'RESORT',
+  'HOSTEL',
+  'GUESTHOUSE',
+  'MOTEL',
+  'CONDO',
+  'BUNGALOW',
+  'CABIN',
+  'FARMSTAY',
+  'HOUSEBOAT',
+  'TENT',
+  'TREEHOUSE',
+  'B_AND_B',
+  'PRIVATE_ROOM',
+] as const;
+
+const propertyCategoryValues = [
+  'HOTELS_HOSPITALITY',
+  'VACATION_RENTALS',
+  'ALTERNATIVE_STAYS',
+  'SHARED_ACCOMMODATION',
+] as const;
 
 const imageItemSchema = z.object({
   url: z.string().url(),
@@ -28,8 +53,8 @@ export const createPropertyBodySchema = z.object({
     .max(80)
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
     .optional(),
-  propertyType: z.nativeEnum(PropertyType).optional(),
-  propertyCategory: z.nativeEnum(PropertyCategory).optional(),
+  propertyType: z.enum(propertyTypeValues).optional(),
+  propertyCategory: z.enum(propertyCategoryValues).optional(),
   images: z.array(imageItemSchema).default([]),
   starRating: z.number().int().min(1).max(5).optional(),
   isWholePropertyBookable: z.boolean().optional(),

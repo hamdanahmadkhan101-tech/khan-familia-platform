@@ -9,6 +9,7 @@ import { Users, LayoutTemplate, Coffee, Bed, ArrowRight, Loader2 } from 'lucide-
 import { toast } from 'sonner';
 import { useApi } from '@/hooks/useApi';
 import type { PublicUnitType } from '@khan-familia/types';
+import { useHoldSession } from '@/hooks/useHoldSession';
 
 interface RoomTypeCardProps {
   propertyId: string;
@@ -23,6 +24,7 @@ export function RoomTypeCard({ propertyId, room }: RoomTypeCardProps) {
   const [checkOut] = useQueryState('checkOut');
   const [isLoading, setIsLoading] = useState(false);
   const idempotencyKeyRef = useRef<string | null>(null);
+  const { saveHold } = useHoldSession();
 
   const primaryImage = room.images?.[0];
   const canBook = checkIn && checkOut;
@@ -56,6 +58,8 @@ export function RoomTypeCard({ propertyId, room }: RoomTypeCardProps) {
         },
         idempotencyKeyRef.current,
       );
+
+      saveHold(response.holdToken, response.expiresAt, room.name);
       router.push(`/checkout/${response.holdToken}`);
     } catch (error) {
       toast.error(

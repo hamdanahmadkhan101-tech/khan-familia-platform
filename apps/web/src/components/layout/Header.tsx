@@ -33,7 +33,7 @@ export function Header() {
   return (
     <header
       className={cn(
-        'fixed top-0 w-full z-50 border-b border-outline-variant flex justify-between items-center px-4 md:px-8 max-w-full mx-auto transition-all duration-300',
+        'relative w-full border-b border-outline-variant flex justify-between items-center px-4 md:px-8 max-w-full mx-auto transition-all duration-300',
         scrolled ? 'shadow-md py-3 bg-white/95 backdrop-blur-md' : 'py-4 bg-surface',
       )}
     >
