@@ -15,6 +15,8 @@ import {
   ChevronLeft,
   Plus,
   Trash2,
+  ShieldCheck,
+  Lock,
 } from 'lucide-react';
 
 interface CheckoutWizardProps {
@@ -22,19 +24,17 @@ interface CheckoutWizardProps {
 }
 
 const SPECIAL_NEEDS_OPTIONS = [
-  'Early Check-in',
-  'Late Check-out',
-  'Extra Bed',
-  'Wheelchair Access',
-  'Quiet Room',
-  'High Floor',
+  { label: 'Early Check-in', icon: '🌅' },
+  { label: 'Late Check-out', icon: '🌙' },
+  { label: 'Extra Bed', icon: '🛏️' },
+  { label: 'Wheelchair Access', icon: '♿' },
+  { label: 'Quiet Room', icon: '🤫' },
+  { label: 'High Floor', icon: '🏔️' },
 ];
 
 export function CheckoutWizard({ holdToken }: CheckoutWizardProps) {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
-
-  // Step 1: Contact is handled by clerk but we'll just acknowledge it
 
   // Step 2: Guests
   type Guest = { isPrimary: boolean; name: string; age: string; idType: string; idNumber: string };
@@ -103,227 +103,332 @@ export function CheckoutWizard({ holdToken }: CheckoutWizardProps) {
     }
   };
 
+  const steps = [
+    { icon: User, label: 'Contact', num: 1 },
+    { icon: Users, label: 'Guests', num: 2 },
+    { icon: Info, label: 'Requests', num: 3 },
+    { icon: CreditCard, label: 'Payment', num: 4 },
+  ];
+
   return (
-    <div className="mx-auto max-w-4xl">
-      {/* Progress Bar */}
-      <div className="mb-8 hidden md:flex items-center justify-between relative">
-        <div className="absolute left-0 top-1/2 h-1 w-full -translate-y-1/2 bg-muted rounded-full overflow-hidden">
+    <div className="mx-auto max-w-4xl relative">
+      {/* Premium Animated Progress Bar */}
+      <div className="mb-12 hidden md:flex items-center justify-between relative px-4">
+        {/* Background Track */}
+        <div className="absolute left-10 right-10 top-1/2 h-1.5 -translate-y-1/2 bg-muted/50 rounded-full overflow-hidden backdrop-blur-sm">
+          {/* Animated Fill */}
           <div
-            className="h-full bg-primary transition-all duration-500 ease-in-out"
+            className="h-full bg-gradient-to-r from-primary/50 to-primary transition-all duration-700 ease-in-out shadow-[0_0_10px_rgba(var(--primary),0.5)]"
             style={{ width: `${((step - 1) / 3) * 100}%` }}
           />
         </div>
-        {[
-          { icon: User, label: 'Contact', num: 1 },
-          { icon: Users, label: 'Guests', num: 2 },
-          { icon: Info, label: 'Requests', num: 3 },
-          { icon: CreditCard, label: 'Payment', num: 4 },
-        ].map((s) => (
-          <div key={s.num} className="relative z-10 flex flex-col items-center gap-2">
-            <div
-              className={`flex h-12 w-12 items-center justify-center rounded-full border-4 transition-colors ${step >= s.num ? 'border-primary bg-primary text-primary-foreground' : 'border-background bg-muted text-muted-foreground'}`}
-            >
-              {step > s.num ? <CheckCircle2 className="h-6 w-6" /> : <s.icon className="h-5 w-5" />}
+
+        {steps.map((s) => {
+          const isCompleted = step > s.num;
+          const isActive = step === s.num;
+
+          return (
+            <div key={s.num} className="relative z-10 flex flex-col items-center gap-3">
+              <div
+                className={`flex h-14 w-14 items-center justify-center rounded-2xl border-[3px] transition-all duration-500 ${
+                  isCompleted
+                    ? 'border-green-500 bg-green-500/10 text-green-500 shadow-[0_0_20px_rgba(34,197,94,0.3)]'
+                    : isActive
+                      ? 'border-primary bg-background text-primary shadow-[0_0_20px_rgba(var(--primary),0.2)] scale-110'
+                      : 'border-muted bg-background text-muted-foreground'
+                }`}
+              >
+                {isCompleted ? (
+                  <CheckCircle2 className="h-7 w-7 animate-in zoom-in" />
+                ) : (
+                  <s.icon className={`h-6 w-6 ${isActive ? 'animate-pulse' : ''}`} />
+                )}
+              </div>
+              <span
+                className={`text-sm font-semibold tracking-wide transition-colors duration-500 ${
+                  isActive || isCompleted ? 'text-foreground' : 'text-muted-foreground'
+                }`}
+              >
+                {s.label}
+              </span>
             </div>
-            <span
-              className={`text-sm font-medium ${step >= s.num ? 'text-foreground' : 'text-muted-foreground'}`}
-            >
-              {s.label}
-            </span>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm md:p-8">
-        {step === 1 && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h2 className="text-2xl font-bold">Primary Contact Info</h2>
-            <p className="text-muted-foreground">
-              Your booking will be associated with your account.
-            </p>
+      {/* Main Wizard Container with Glassmorphism */}
+      <div className="relative overflow-hidden rounded-[2.5rem] border border-white/20 bg-white/60 dark:bg-black/40 p-6 sm:p-10 shadow-2xl shadow-primary/5 backdrop-blur-2xl">
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/40 to-transparent dark:from-white/5 dark:to-transparent" />
 
-            <div className="rounded-xl border border-primary/20 bg-primary/5 p-6 flex items-start gap-4">
-              <CheckCircle2 className="h-6 w-6 text-primary shrink-0 mt-0.5" />
-              <div>
-                <h3 className="font-semibold text-foreground">Verified by Clerk</h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  We will use your registered email for all booking communications and receipts.
+        <div className="relative">
+          {/* STEP 1: CONTACT */}
+          {step === 1 && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
+              <div className="text-center">
+                <h2 className="font-display text-3xl font-bold tracking-tight">
+                  Primary Contact Info
+                </h2>
+                <p className="mt-2 text-muted-foreground">
+                  Your booking will be securely associated with your account.
                 </p>
               </div>
-            </div>
 
-            <div className="pt-4 flex justify-end">
-              <button
-                onClick={() => setStep(2)}
-                className="flex items-center gap-2 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground hover:bg-primary/90 transition-all"
-              >
-                Next: Guest Details <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {step === 2 && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div>
-              <h2 className="text-2xl font-bold">Who is staying?</h2>
-              <p className="text-muted-foreground">
-                Please provide details for the guests staying at the property. The primary guest
-                must be present at check-in.
-              </p>
-            </div>
-
-            <div className="space-y-6">
-              {guests.map((guest, idx) => (
-                <div
-                  key={idx}
-                  className="relative rounded-xl border border-border p-5 pt-6 relative group bg-background"
-                >
-                  {idx > 0 && (
-                    <button
-                      onClick={() => handleRemoveGuest(idx)}
-                      className="absolute right-4 top-4 text-muted-foreground hover:text-destructive transition-colors"
-                    >
-                      <Trash2 className="h-5 w-5" />
-                    </button>
-                  )}
-
-                  <div className="absolute -top-3 left-4 bg-background px-2 text-sm font-semibold text-primary">
-                    {idx === 0 ? 'Primary Guest' : `Guest ${idx + 1}`}
+              {/* Glassmorphic ID Card */}
+              <div className="mx-auto max-w-md overflow-hidden rounded-3xl border border-white/40 dark:border-white/10 bg-white/50 dark:bg-black/50 p-8 shadow-xl backdrop-blur-md">
+                <div className="flex flex-col items-center text-center space-y-4">
+                  <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
+                    <ShieldCheck className="h-10 w-10 text-primary" />
+                    <div className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full border-4 border-background bg-green-500">
+                      <CheckCircle2 className="h-5 w-5 text-white" />
+                    </div>
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Full Name</label>
-                      <input
-                        type="text"
-                        value={guest.name}
-                        onChange={(e) => updateGuest(idx, 'name', e.target.value)}
-                        placeholder="John Doe"
-                        className="w-full rounded-lg border border-input bg-transparent px-4 py-2.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Age</label>
-                      <input
-                        type="number"
-                        value={guest.age}
-                        onChange={(e) => updateGuest(idx, 'age', e.target.value)}
-                        placeholder="30"
-                        className="w-full rounded-lg border border-input bg-transparent px-4 py-2.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">ID Type</label>
-                      <select
-                        value={guest.idType}
-                        onChange={(e) => updateGuest(idx, 'idType', e.target.value)}
-                        className="w-full rounded-lg border border-input bg-transparent px-4 py-2.5 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      >
-                        <option value="CNIC">CNIC</option>
-                        <option value="Passport">Passport</option>
-                        <option value="Other">Other</option>
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">ID Number (Securely Encrypted)</label>
-                      <input
-                        type="text"
-                        value={guest.idNumber}
-                        onChange={(e) => updateGuest(idx, 'idNumber', e.target.value)}
-                        placeholder="xxxxx-xxxxxxx-x"
-                        className="w-full rounded-lg border border-input bg-transparent px-4 py-2.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      />
-                    </div>
+                  <div>
+                    <h3 className="font-display text-xl font-bold text-foreground">
+                      Verified by Clerk
+                    </h3>
+                    <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+                      We will use your securely registered email for all booking communications,
+                      updates, and receipts.
+                    </p>
                   </div>
                 </div>
-              ))}
-            </div>
+              </div>
 
-            <button
-              onClick={handleAddGuest}
-              className="flex items-center gap-2 text-sm font-semibold text-primary hover:text-primary/80 transition-colors"
-            >
-              <Plus className="h-4 w-4" /> Add another guest
-            </button>
-
-            <div className="pt-4 flex justify-between border-t border-border mt-8">
-              <button
-                onClick={() => setStep(1)}
-                className="flex items-center gap-2 rounded-xl border border-input bg-background px-6 py-3 font-semibold hover:bg-muted transition-all"
-              >
-                <ChevronLeft className="h-4 w-4" /> Back
-              </button>
-              <button
-                onClick={() => setStep(3)}
-                className="flex items-center gap-2 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground hover:bg-primary/90 transition-all"
-              >
-                Next: Special Requests <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {step === 3 && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div>
-              <h2 className="text-2xl font-bold">Special Requests</h2>
-              <p className="text-muted-foreground">
-                Let us know if you need anything extra. (Subject to availability)
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              {SPECIAL_NEEDS_OPTIONS.map((need) => (
+              <div className="flex justify-center pt-4">
                 <button
-                  key={need}
-                  onClick={() => toggleNeed(need)}
-                  className={`rounded-full border px-4 py-2 text-sm font-medium transition-all ${
-                    selectedNeeds.includes(need)
-                      ? 'border-primary bg-primary text-primary-foreground shadow-md shadow-primary/20'
-                      : 'border-border bg-background hover:border-primary/50 hover:bg-primary/5'
-                  }`}
+                  onClick={() => setStep(2)}
+                  className="flex items-center gap-2 rounded-2xl bg-primary px-8 py-4 font-semibold text-primary-foreground transition-all hover:scale-105 hover:bg-primary/90 hover:shadow-xl hover:shadow-primary/20"
                 >
-                  {need}
+                  Continue to Guest Details <ChevronRight className="h-5 w-5" />
                 </button>
-              ))}
+              </div>
             </div>
+          )}
 
-            <div className="space-y-2 pt-4">
-              <label className="text-sm font-medium">Other Requests (Optional)</label>
-              <textarea
-                value={customNeed}
-                onChange={(e) => setCustomNeed(e.target.value)}
-                placeholder="E.g., I have a pet dog, Need a crib for baby..."
-                className="w-full min-h-[100px] rounded-lg border border-input bg-transparent px-4 py-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
-              />
-            </div>
+          {/* STEP 2: GUESTS */}
+          {step === 2 && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
+              <div className="text-center">
+                <h2 className="font-display text-3xl font-bold tracking-tight">Who is staying?</h2>
+                <p className="mt-2 text-muted-foreground">
+                  Please provide details for the guests. The primary guest must be present at
+                  check-in.
+                </p>
+              </div>
 
-            <div className="pt-4 flex justify-between border-t border-border mt-8">
+              <div className="space-y-6">
+                {guests.map((guest, idx) => (
+                  <div
+                    key={idx}
+                    className="relative overflow-hidden rounded-[2rem] border border-white/40 dark:border-white/10 bg-white/50 dark:bg-black/50 p-6 sm:p-8 shadow-lg backdrop-blur-md transition-all hover:shadow-xl"
+                  >
+                    {idx > 0 && (
+                      <button
+                        onClick={() => handleRemoveGuest(idx)}
+                        className="absolute right-6 top-6 flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10 text-destructive transition-colors hover:bg-destructive hover:text-destructive-foreground"
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </button>
+                    )}
+
+                    <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-semibold text-primary">
+                      <User className="h-4 w-4" />
+                      {idx === 0 ? 'Primary Guest' : `Guest ${idx + 1}`}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Floating Label Input for Name */}
+                      <div className="relative">
+                        <input
+                          type="text"
+                          id={`name-${idx}`}
+                          value={guest.name}
+                          onChange={(e) => updateGuest(idx, 'name', e.target.value)}
+                          className="peer w-full rounded-2xl border border-border/50 bg-background/50 px-5 pb-3 pt-7 text-sm text-foreground outline-none transition-all focus:border-primary focus:bg-background focus:ring-4 focus:ring-primary/10"
+                          placeholder=" "
+                        />
+                        <label
+                          htmlFor={`name-${idx}`}
+                          className="absolute left-5 top-5 z-10 origin-[0] -translate-y-3 scale-75 transform text-muted-foreground transition-all peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-3 peer-focus:scale-75 peer-focus:text-primary font-medium"
+                        >
+                          Full Name (as on ID)
+                        </label>
+                      </div>
+
+                      <div className="relative">
+                        <input
+                          type="number"
+                          id={`age-${idx}`}
+                          value={guest.age}
+                          onChange={(e) => updateGuest(idx, 'age', e.target.value)}
+                          className="peer w-full rounded-2xl border border-border/50 bg-background/50 px-5 pb-3 pt-7 text-sm text-foreground outline-none transition-all focus:border-primary focus:bg-background focus:ring-4 focus:ring-primary/10"
+                          placeholder=" "
+                        />
+                        <label
+                          htmlFor={`age-${idx}`}
+                          className="absolute left-5 top-5 z-10 origin-[0] -translate-y-3 scale-75 transform text-muted-foreground transition-all peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-3 peer-focus:scale-75 peer-focus:text-primary font-medium"
+                        >
+                          Age
+                        </label>
+                      </div>
+
+                      <div className="relative">
+                        <select
+                          id={`idType-${idx}`}
+                          value={guest.idType}
+                          onChange={(e) => updateGuest(idx, 'idType', e.target.value)}
+                          className="w-full rounded-2xl border border-border/50 bg-background/50 px-5 pb-3 pt-7 text-sm text-foreground outline-none transition-all focus:border-primary focus:bg-background focus:ring-4 focus:ring-primary/10 appearance-none cursor-pointer"
+                        >
+                          <option value="CNIC">CNIC</option>
+                          <option value="Passport">Passport</option>
+                          <option value="Other">Other</option>
+                        </select>
+                        <label
+                          htmlFor={`idType-${idx}`}
+                          className="absolute left-5 top-2.5 z-10 scale-75 text-muted-foreground font-medium"
+                        >
+                          ID Type
+                        </label>
+                      </div>
+
+                      <div className="relative">
+                        <input
+                          type="text"
+                          id={`idNum-${idx}`}
+                          value={guest.idNumber}
+                          onChange={(e) => updateGuest(idx, 'idNumber', e.target.value)}
+                          className="peer w-full rounded-2xl border border-border/50 bg-background/50 px-5 pb-3 pt-7 text-sm text-foreground outline-none transition-all focus:border-primary focus:bg-background focus:ring-4 focus:ring-primary/10"
+                          placeholder=" "
+                        />
+                        <label
+                          htmlFor={`idNum-${idx}`}
+                          className="absolute left-5 top-5 z-10 origin-[0] -translate-y-3 scale-75 transform text-muted-foreground transition-all peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-3 peer-focus:scale-75 peer-focus:text-primary font-medium"
+                        >
+                          ID Number (Secure)
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Beautiful Add Guest Dropzone */}
               <button
-                disabled={isLoading}
-                onClick={() => setStep(2)}
-                className="flex items-center gap-2 rounded-xl border border-input bg-background px-6 py-3 font-semibold hover:bg-muted transition-all disabled:opacity-50"
+                onClick={handleAddGuest}
+                className="group flex w-full flex-col items-center justify-center gap-3 rounded-[2rem] border-2 border-dashed border-primary/30 bg-primary/5 py-10 transition-all hover:border-primary/60 hover:bg-primary/10 active:scale-[0.98]"
               >
-                <ChevronLeft className="h-4 w-4" /> Back
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/20 text-primary transition-transform group-hover:scale-110">
+                  <Plus className="h-6 w-6" />
+                </div>
+                <span className="font-semibold text-primary">Add Another Guest</span>
               </button>
-              <button
-                disabled={isLoading}
-                onClick={proceedToPayment}
-                className="flex items-center gap-2 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-50"
-              >
-                {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Proceed to Payment'}{' '}
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
 
-        {step === 4 && paymentData && (
-          <div className="animate-in fade-in zoom-in-95 duration-500">
-            <CheckoutWrapper clientSecret={paymentData.clientSecret} amount={paymentData.amount} />
-          </div>
-        )}
+              <div className="flex items-center justify-between pt-8">
+                <button
+                  onClick={() => setStep(1)}
+                  className="flex items-center gap-2 rounded-2xl px-6 py-3.5 font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <ChevronLeft className="h-5 w-5" /> Back
+                </button>
+                <button
+                  onClick={() => setStep(3)}
+                  className="flex items-center gap-2 rounded-2xl bg-primary px-8 py-3.5 font-semibold text-primary-foreground transition-all hover:scale-105 hover:bg-primary/90 hover:shadow-xl hover:shadow-primary/20"
+                >
+                  Special Requests <ChevronRight className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 3: SPECIAL REQUESTS */}
+          {step === 3 && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
+              <div className="text-center">
+                <h2 className="font-display text-3xl font-bold tracking-tight">Special Requests</h2>
+                <p className="mt-2 text-muted-foreground">
+                  Let us know how we can make your stay perfect. (Subject to availability)
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {SPECIAL_NEEDS_OPTIONS.map((need) => {
+                  const isSelected = selectedNeeds.includes(need.label);
+                  return (
+                    <button
+                      key={need.label}
+                      onClick={() => toggleNeed(need.label)}
+                      className={`flex flex-col items-center justify-center gap-3 rounded-3xl border-2 p-6 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] ${
+                        isSelected
+                          ? 'border-primary bg-primary/10 text-primary shadow-lg shadow-primary/10'
+                          : 'border-border/50 bg-background/50 text-muted-foreground hover:border-primary/30 hover:bg-background'
+                      }`}
+                    >
+                      <span className="text-3xl">{need.icon}</span>
+                      <span className="font-semibold">{need.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="relative mt-8">
+                <textarea
+                  value={customNeed}
+                  onChange={(e) => setCustomNeed(e.target.value)}
+                  className="peer w-full min-h-[140px] rounded-[2rem] border border-border/50 bg-background/50 p-6 pt-8 text-base text-foreground outline-none transition-all focus:border-primary focus:bg-background focus:ring-4 focus:ring-primary/10 resize-none"
+                  placeholder=" "
+                />
+                <label className="absolute left-6 top-6 z-10 origin-[0] -translate-y-3 scale-75 transform text-muted-foreground transition-all peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-3 peer-focus:scale-75 peer-focus:text-primary font-medium">
+                  Anything else we should know? (Optional)
+                </label>
+              </div>
+
+              <div className="flex items-center justify-between pt-8">
+                <button
+                  disabled={isLoading}
+                  onClick={() => setStep(2)}
+                  className="flex items-center gap-2 rounded-2xl px-6 py-3.5 font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+                >
+                  <ChevronLeft className="h-5 w-5" /> Back
+                </button>
+                <button
+                  disabled={isLoading}
+                  onClick={proceedToPayment}
+                  className="flex items-center gap-2 rounded-2xl bg-primary px-8 py-3.5 font-semibold text-primary-foreground transition-all hover:scale-105 hover:bg-primary/90 hover:shadow-xl hover:shadow-primary/20 disabled:opacity-50 disabled:hover:scale-100"
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <>
+                      Proceed to Payment <ChevronRight className="h-5 w-5" />
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 4: PAYMENT */}
+          {step === 4 && paymentData && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
+              <div className="text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+                  <Lock className="h-8 w-8 text-primary" />
+                </div>
+                <h2 className="font-display text-3xl font-bold tracking-tight">Secure Payment</h2>
+                <p className="mt-2 text-muted-foreground">
+                  Your payment information is encrypted and securely processed by Stripe.
+                </p>
+              </div>
+
+              <div className="w-full">
+                <CheckoutWrapper
+                  clientSecret={paymentData.clientSecret}
+                  amount={paymentData.amount}
+                />
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
