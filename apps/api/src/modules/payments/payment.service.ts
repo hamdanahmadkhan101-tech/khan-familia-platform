@@ -166,6 +166,203 @@ export const createStripePaymentIntent = async (
   };
 };
 
+// ---------------------------------------------------------------------------
+// processPaymentIntentConfirmation — sub-functions
+//
+// Each function handles exactly one concern within the booking creation
+// transaction. All accept `tx` (the transaction client) so they participate
+// in the same atomic unit.
+// ---------------------------------------------------------------------------
+
+type HoldWithUnitType = {
+  id: string;
+  tenantId: string;
+  propertyId: string;
+  unitTypeId: string;
+  startDate: Date;
+  endDate: Date;
+  quantity: number;
+  guestDetails: unknown;
+  specialNeeds: unknown;
+  unitType: { defaultRate: number | null; propertyId: string };
+};
+
+type BookingStatusTuple = {
+  bookingStatus: 'BOOKED' | 'CONFIRMED';
+  paymentStatus: 'PENDING' | 'PAID';
+};
+
+/** Derive booking/payment status from the Stripe intent status. */
+const deriveStatuses = (stripeStatus: Stripe.PaymentIntent['status']): BookingStatusTuple => {
+  const isCapturable = stripeStatus === 'requires_capture';
+  return {
+    bookingStatus: isCapturable ? 'BOOKED' : 'CONFIRMED',
+    paymentStatus: isCapturable ? 'PENDING' : 'PAID',
+  };
+};
+
+/** Step 1 inside transaction: create the AccommodationBooking record. */
+const createBookingRecord = async (
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  hold: HoldWithUnitType,
+  userId: string,
+  nights: number,
+  bookingStatus: 'BOOKED' | 'CONFIRMED',
+  holdToken: string,
+) => {
+  const finalGuestCount =
+    hold.guestDetails && Array.isArray(hold.guestDetails)
+      ? hold.guestDetails.length
+      : hold.quantity;
+
+  return tx.accommodationBooking.create({
+    data: {
+      userId,
+      propertyId: hold.unitType.propertyId,
+      unitTypeId: hold.unitTypeId,
+      tenantId: hold.tenantId,
+      checkIn: hold.startDate,
+      checkOut: hold.endDate,
+      nights,
+      guests: finalGuestCount,
+      status: bookingStatus,
+      idempotencyKey: holdToken,
+      confirmedAt: new Date(),
+    },
+  });
+};
+
+/** Step 2 inside transaction: link inventory rows to the new booking via Reservation records. */
+const createReservations = async (
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  hold: HoldWithUnitType,
+  bookingId: string,
+) => {
+  const inventoryRows = await tx.unitInventory.findMany({
+    where: {
+      propertyId: hold.unitType.propertyId,
+      unitTypeId: hold.unitTypeId,
+      date: { gte: hold.startDate, lte: hold.endDate },
+    },
+    select: { id: true, date: true },
+  });
+
+  if (inventoryRows.length > 0) {
+    await tx.reservation.createMany({
+      data: inventoryRows.map((row) => ({
+        bookingId,
+        unitInventoryId: row.id,
+        date: row.date,
+      })),
+    });
+  }
+};
+
+/** Step 3 inside transaction: snapshot the price actually charged by Stripe. */
+const createPriceSnapshot = async (
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  bookingId: string,
+  /** The authoritative total in minor units — taken from Stripe's settled amount. */
+  chargedMinor: number,
+) => {
+  await tx.bookingPriceSnapshot.create({
+    data: {
+      accommodationBookingId: bookingId,
+      currency: 'PKR',
+      totalMinor: chargedMinor,
+      breakdown: {
+        base: chargedMinor,
+        taxes: 0,
+        fees: 0,
+        discount: 0,
+      },
+    },
+  });
+};
+
+/** Step 4 inside transaction: create the PaymentRecord linked to the Stripe intent. */
+const createPaymentRecord = async (
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  stripeIntent: Stripe.PaymentIntent,
+  paymentStatus: 'PAID' | 'PENDING',
+) => {
+  await tx.paymentRecord.create({
+    data: {
+      paymentIntentId: stripeIntent.id,
+      transactionId: stripeIntent.id,
+      amountCaptured: stripeIntent.amount_received || stripeIntent.amount_capturable || 0,
+      currency: 'PKR',
+      status: paymentStatus,
+      ...(stripeIntent.payment_method
+        ? { paymentMethod: { id: stripeIntent.payment_method as string } }
+        : {}),
+    },
+  });
+};
+
+/** Step 5 inside transaction: encrypt and persist guest PII. */
+const createBookingGuests = async (
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  bookingId: string,
+  guestDetails: unknown,
+) => {
+  if (!guestDetails || !Array.isArray(guestDetails)) return;
+
+  const encryptionKey = env.ENCRYPTION_KEY;
+
+  await tx.bookingGuest.createMany({
+    data: await Promise.all(
+      (guestDetails as Record<string, unknown>[]).map(async (guest) => {
+        const g = guest as Record<string, string | number | boolean>;
+        return {
+          bookingId,
+          isPrimary: Boolean(g['isPrimary']),
+          name: String(g['name']),
+          age: Number(g['age']),
+          idType: String(g['idType']),
+          idNumber: g['idNumber'] ? await encrypt(String(g['idNumber']), encryptionKey) : null,
+        };
+      }),
+    ),
+  });
+};
+
+/** Step 6 inside transaction: persist free-text special requests. */
+const createSpecialRequests = async (
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  bookingId: string,
+  specialNeeds: unknown,
+) => {
+  if (!specialNeeds || !Array.isArray(specialNeeds)) return;
+
+  await tx.bookingSpecialRequest.createMany({
+    data: (specialNeeds as string[]).map((need) => ({
+      bookingId,
+      text: String(need),
+    })),
+  });
+};
+
+/** Step 7 inside transaction: clean up the hold and finalise PaymentIntent status. */
+const finaliseHoldAndIntent = async (
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  holdId: string,
+  stripeIntentId: string,
+  bookingId: string,
+  paymentStatus: 'PAID' | 'PENDING',
+) => {
+  await tx.propertyHold.delete({ where: { id: holdId } });
+
+  await tx.paymentIntent.update({
+    where: { id: stripeIntentId },
+    data: { bookingId, status: paymentStatus },
+  });
+};
+
+// ---------------------------------------------------------------------------
+// processPaymentIntentConfirmation — orchestrator (called by webhook + confirm)
+// ---------------------------------------------------------------------------
+
 export const processPaymentIntentConfirmation = async (stripeIntent: Stripe.PaymentIntent) => {
   const { holdToken, userId } = stripeIntent.metadata;
 
@@ -179,6 +376,7 @@ export const processPaymentIntentConfirmation = async (stripeIntent: Stripe.Paym
   });
 
   if (existing) {
+    // Ensure payment records reflect the latest Stripe status on repeated calls
     if (stripeIntent.status === 'succeeded') {
       await prisma.paymentRecord.updateMany({
         where: { paymentIntentId: stripeIntent.id },
@@ -205,121 +403,30 @@ export const processPaymentIntentConfirmation = async (stripeIntent: Stripe.Paym
   }
 
   const nights = Math.max(1, calculateNights(hold.startDate, hold.endDate));
-  const baseRate = hold.unitType.defaultRate ?? 0;
-  const baseRateMinor = toMinorUnits(baseRate);
-  const totalMinor = multiplyMoney(baseRateMinor, nights * hold.quantity);
+  const { bookingStatus, paymentStatus } = deriveStatuses(stripeIntent.status);
 
-  const isCapturable = stripeIntent.status === 'requires_capture';
-  const bookingStatus = isCapturable ? 'BOOKED' : 'CONFIRMED';
-  const paymentStatus = isCapturable ? 'PENDING' : 'PAID';
+  // Use the amount Stripe actually settled as the authoritative total for the
+  // price snapshot. This avoids a mismatch if priceOverrides were in effect
+  // when the PaymentIntent was created but defaultRate was used for the snapshot.
+  const chargedMinor = stripeIntent.amount_received || stripeIntent.amount_capturable || 0;
 
   return prisma.$transaction(async (tx) => {
-    const finalGuestCount =
-      hold.guestDetails && Array.isArray(hold.guestDetails)
-        ? hold.guestDetails.length
-        : hold.quantity;
-
-    const booking = await tx.accommodationBooking.create({
-      data: {
-        userId,
-        propertyId: hold.unitType.propertyId,
-        unitTypeId: hold.unitTypeId,
-        tenantId: hold.tenantId,
-        checkIn: hold.startDate,
-        checkOut: hold.endDate,
-        nights,
-        guests: finalGuestCount,
-        status: bookingStatus,
-        idempotencyKey: holdToken,
-        confirmedAt: new Date(),
-      },
-    });
-
-    const inventoryRows = await tx.unitInventory.findMany({
-      where: {
-        propertyId: hold.unitType.propertyId,
-        unitTypeId: hold.unitTypeId,
-        date: { gte: hold.startDate, lte: hold.endDate },
-      },
-      select: { id: true, date: true },
-    });
-
-    if (inventoryRows.length > 0) {
-      await tx.reservation.createMany({
-        data: inventoryRows.map((row) => ({
-          bookingId: booking.id,
-          unitInventoryId: row.id,
-          date: row.date,
-        })),
-      });
-    }
-
-    await tx.bookingPriceSnapshot.create({
-      data: {
-        accommodationBookingId: booking.id,
-        currency: 'PKR',
-        totalMinor,
-        breakdown: {
-          base: baseRateMinor * nights * hold.quantity,
-          taxes: 0,
-          fees: 0,
-          discount: 0,
-        },
-      },
-    });
-
-    const paymentRecordData = {
-      paymentIntentId: stripeIntent.id,
-      transactionId: stripeIntent.id,
-      amountCaptured: stripeIntent.amount_received || stripeIntent.amount_capturable || 0,
-      currency: 'PKR',
-      status: paymentStatus as 'PAID' | 'PENDING',
-      ...(stripeIntent.payment_method
-        ? { paymentMethod: { id: stripeIntent.payment_method as string } }
-        : {}),
-    };
-    await tx.paymentRecord.create({ data: paymentRecordData });
-
-    if (hold.guestDetails && Array.isArray(hold.guestDetails)) {
-      const encryptionKey = env.ENCRYPTION_KEY;
-
-      await tx.bookingGuest.createMany({
-        data: await Promise.all(
-          (hold.guestDetails as Record<string, unknown>[]).map(async (guest) => {
-            const g = guest as Record<string, string | number | boolean>;
-            return {
-              bookingId: booking.id,
-              isPrimary: Boolean(g['isPrimary']),
-              name: String(g['name']),
-              age: Number(g['age']),
-              idType: String(g['idType']),
-              idNumber: g['idNumber'] ? await encrypt(String(g['idNumber']), encryptionKey) : null,
-            };
-          }),
-        ),
-      });
-    }
-
-    if (hold.specialNeeds && Array.isArray(hold.specialNeeds)) {
-      await tx.bookingSpecialRequest.createMany({
-        data: (hold.specialNeeds as unknown as string[]).map((need) => ({
-          bookingId: booking.id,
-          text: String(need),
-        })),
-      });
-    }
-
-    await tx.propertyHold.delete({ where: { id: hold.id } });
-
-    await tx.paymentIntent.update({
-      where: { id: stripeIntent.id },
-      data: { bookingId: booking.id, status: paymentStatus },
-    });
+    const booking = await createBookingRecord(tx, hold, userId, nights, bookingStatus, holdToken);
+    await createReservations(tx, hold, booking.id);
+    await createPriceSnapshot(tx, booking.id, chargedMinor);
+    await createPaymentRecord(tx, stripeIntent, paymentStatus);
+    await createBookingGuests(tx, booking.id, hold.guestDetails);
+    await createSpecialRequests(tx, booking.id, hold.specialNeeds);
+    await finaliseHoldAndIntent(tx, hold.id, stripeIntent.id, booking.id, paymentStatus);
 
     return booking;
   });
 };
 
+// ---------------------------------------------------------------------------
+// confirmStripePaymentIntent — default confirmation mechanism
+// Called by the frontend after Stripe redirect (not relying solely on webhook)
+// ---------------------------------------------------------------------------
 export const confirmStripePaymentIntent = async (paymentIntentId: string, userId: string) => {
   const stripeIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
 
@@ -398,6 +505,10 @@ export const handleStripeWebhookEvent = async (
 
   return { received: true };
 };
+
+// ---------------------------------------------------------------------------
+// Stripe payment intent lifecycle operations
+// ---------------------------------------------------------------------------
 
 export const captureStripePaymentIntent = async (paymentIntentId: string) => {
   try {
