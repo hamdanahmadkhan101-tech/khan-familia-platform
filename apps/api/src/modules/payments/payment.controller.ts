@@ -7,7 +7,7 @@ import {
   createStripePaymentIntent,
   handleStripeWebhookEvent,
 } from './payment.service.js';
-import type { CreatePaymentIntentBody } from '@khan-familia/validation';
+import { createPaymentIntentBodySchema } from '@khan-familia/validation';
 
 /** POST /payments/intent — Creates a Stripe PaymentIntent for a given hold */
 export const createPaymentIntentController = async (
@@ -16,7 +16,12 @@ export const createPaymentIntentController = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const body = req.body as CreatePaymentIntentBody;
+    const parsed = createPaymentIntentBodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw AppError.badRequest(`Invalid request body: ${parsed.error.message}`);
+    }
+    const body = parsed.data;
+
     const authReq = req as AuthenticatedRequest;
 
     if (!authReq.userId) {
