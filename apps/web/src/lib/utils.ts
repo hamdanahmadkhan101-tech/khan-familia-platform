@@ -1,3 +1,10 @@
+import { type ClassValue, clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
 /**
  * Converts PascalCase or SCREAMING_SNAKE_CASE enum strings from the DB
  * into human-readable, title-cased display labels.
