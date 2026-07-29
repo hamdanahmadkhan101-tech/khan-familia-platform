@@ -1,3 +1,4 @@
+import { releaseHoldInventory } from '@khan-familia/database';
 import { logger } from '../logger.js';
 import { prisma } from '../infrastructure/database/client.js';
 import type { HoldExpiryJobPayload } from '@khan-familia/types';
@@ -25,38 +26,18 @@ export const handleHoldExpiryJob = async (payload: HoldExpiryJobPayload) => {
         return false;
       }
 
-      const deleted = await tx.propertyHold.delete({
+      await releaseHoldInventory(tx, {
+        tenantId: hold.tenantId,
+        propertyId: hold.propertyId,
+        unitTypeId: hold.unitTypeId,
+        startDate: hold.startDate,
+        endDate: hold.endDate,
+        quantity: hold.quantity,
+      });
+
+      await tx.propertyHold.delete({
         where: { id: payload.holdId },
       });
-
-      const inventoryRows = await tx.unitInventory.findMany({
-        where: {
-          tenantId: deleted.tenantId,
-          unitTypeId: deleted.unitTypeId,
-          date: { gte: deleted.startDate, lt: deleted.endDate },
-        },
-        select: { id: true },
-      });
-
-      if (inventoryRows.length === 0) {
-        throw new Error(`No inventory rows found for expired hold ${deleted.id}`);
-      }
-
-      const releasedInventory = await tx.unitInventory.updateMany({
-        where: {
-          id: { in: inventoryRows.map((row) => row.id) },
-          bookedCount: { gte: deleted.quantity },
-        },
-        data: {
-          bookedCount: { decrement: deleted.quantity },
-          availableCount: { increment: deleted.quantity },
-          version: { increment: 1 },
-        },
-      });
-
-      if (releasedInventory.count !== inventoryRows.length) {
-        throw new Error(`Could not release every inventory row for expired hold ${deleted.id}`);
-      }
 
       return true;
     });
