@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
@@ -22,6 +22,7 @@ export function RoomTypeCard({ propertyId, room }: RoomTypeCardProps) {
   const [checkIn] = useQueryState('checkIn');
   const [checkOut] = useQueryState('checkOut');
   const [isLoading, setIsLoading] = useState(false);
+  const idempotencyKeyRef = useRef<string | null>(null);
 
   const primaryImage = room.images?.[0];
   const canBook = checkIn && checkOut;
@@ -38,15 +39,23 @@ export function RoomTypeCard({ propertyId, room }: RoomTypeCardProps) {
       return;
     }
 
+    // Generate idempotency key once per card session to prevent double-booking
+    if (!idempotencyKeyRef.current) {
+      idempotencyKeyRef.current = crypto.randomUUID();
+    }
+
     setIsLoading(true);
     try {
-      const response = await api.createGuestHold({
-        propertyId,
-        unitTypeId: room.id,
-        startDate: checkIn,
-        endDate: checkOut,
-        quantity: 1, // Only supporting 1 room per booking in MVP
-      });
+      const response = await api.createGuestHold(
+        {
+          propertyId,
+          unitTypeId: room.id,
+          startDate: checkIn,
+          endDate: checkOut,
+          quantity: 1, // Only supporting 1 room per booking in MVP
+        },
+        idempotencyKeyRef.current,
+      );
       router.push(`/checkout/${response.holdToken}`);
     } catch (error) {
       toast.error(
@@ -54,6 +63,8 @@ export function RoomTypeCard({ propertyId, room }: RoomTypeCardProps) {
           ? error.message
           : 'Failed to secure your room. It may be fully booked.',
       );
+      // Reset idempotency key on failure so they can try again with a fresh request if needed
+      idempotencyKeyRef.current = null;
       setIsLoading(false);
     }
   };
