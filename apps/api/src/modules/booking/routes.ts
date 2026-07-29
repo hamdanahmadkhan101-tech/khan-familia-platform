@@ -7,6 +7,7 @@ import {
   cancelGuestBookingController,
   createHoldController,
   getGuestBookingController,
+  getHoldController,
   listGuestBookingsController,
   releaseHoldController,
 } from './booking.controller.js';
@@ -59,6 +60,14 @@ bookingRouter.post(
   ...guestChain,
   validateBody(createHoldBodySchema),
   createHoldController,
+);
+
+/** Get status of an active hold */
+bookingRouter.get(
+  '/holds/:holdToken',
+  ...guestChain,
+  validateParams(releaseHoldParamsSchema),
+  getHoldController,
 );
 
 /** Manually release a hold (e.g. if user cancels checkout) */

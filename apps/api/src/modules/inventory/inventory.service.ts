@@ -345,6 +345,26 @@ export const acquireHold = async (
   return hold;
 };
 
+export const getHold = async (holdToken: string, userId: string) => {
+  const hold = await prisma.propertyHold.findUnique({
+    where: { holdToken },
+  });
+
+  if (!hold) {
+    throw AppError.notFound('Hold not found');
+  }
+
+  if (hold.userId !== userId) {
+    throw AppError.forbidden('Hold belongs to another user');
+  }
+
+  if (hold.expiresAt <= new Date()) {
+    throw AppError.conflict('Hold has expired');
+  }
+
+  return hold;
+};
+
 export const releaseHold = async (holdToken: string, userId?: string) => {
   return await prisma.$transaction(async (tx) => {
     const hold = await tx.propertyHold.findUnique({

@@ -4,6 +4,7 @@ import {
   cancelGuestBooking,
   createGuestHold,
   getGuestBookingById,
+  getGuestHold,
   listGuestBookings,
   releaseGuestHold,
 } from './booking.service.js';
@@ -135,6 +136,27 @@ export const releaseHoldController = async (
     await releaseGuestHold(params.holdToken, authReq.userId);
 
     res.status(200).json({ message: 'Hold released successfully' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getHoldController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    if (!authReq.userId) {
+      throw AppError.unauthorized('Authentication required');
+    }
+
+    const params = req.params as ReleaseHoldParams;
+
+    const hold = await getGuestHold(params.holdToken, authReq.userId);
+
+    res.status(200).json({ hold });
   } catch (err) {
     next(err);
   }

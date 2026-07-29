@@ -31,3 +31,21 @@ export async function createPaymentIntentAction(
 
   return res.json();
 }
+export async function verifyHoldStatusAction(holdToken: string) {
+  const { getToken } = await auth();
+  const token = await getToken();
+
+  if (!token) return { isValid: false };
+
+  const res = await fetch(`${api.baseUrl}/bookings/holds/${holdToken}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    // Cache for a very short time or no-store
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    return { isValid: false };
+  }
+
+  return { isValid: true };
+}
