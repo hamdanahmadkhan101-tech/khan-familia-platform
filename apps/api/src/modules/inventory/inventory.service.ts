@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import type { Prisma } from '@khan-familia/database';
+import { releaseHoldInventory } from '@khan-familia/database';
 import { addMinutes, differenceInDays } from '@khan-familia/utils';
 import { AppError } from '../../shared/errors/AppError.js';
 import { prisma } from '../../infrastructure/database/client.js';
@@ -379,34 +380,14 @@ export const releaseHold = async (holdToken: string, userId?: string) => {
       throw AppError.forbidden('You do not have permission to release this hold');
     }
 
-    const inventoryRows = await tx.unitInventory.findMany({
-      where: {
-        tenantId: hold.tenantId,
-        unitTypeId: hold.unitTypeId,
-        date: { gte: hold.startDate, lt: hold.endDate },
-      },
-      select: { id: true },
+    await releaseHoldInventory(tx, {
+      tenantId: hold.tenantId,
+      propertyId: hold.propertyId,
+      unitTypeId: hold.unitTypeId,
+      startDate: hold.startDate,
+      endDate: hold.endDate,
+      quantity: hold.quantity,
     });
-
-    if (inventoryRows.length === 0) {
-      throw AppError.conflict('No inventory rows found for hold release');
-    }
-
-    const releasedInventory = await tx.unitInventory.updateMany({
-      where: {
-        id: { in: inventoryRows.map((row) => row.id) },
-        bookedCount: { gte: hold.quantity },
-      },
-      data: {
-        bookedCount: { decrement: hold.quantity },
-        availableCount: { increment: hold.quantity },
-        version: { increment: 1 },
-      },
-    });
-
-    if (releasedInventory.count !== inventoryRows.length) {
-      throw AppError.conflict('Could not release every inventory row for this hold');
-    }
 
     await tx.propertyHold.delete({
       where: { id: hold.id },
