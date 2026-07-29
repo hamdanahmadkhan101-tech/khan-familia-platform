@@ -31,30 +31,32 @@ export function CheckoutWrapper({ clientSecret, amount }: CheckoutWrapperProps) 
     <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'stripe' } }}>
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm md:p-8">
-            <div className="mb-6 flex items-center gap-2 border-b border-border pb-4 text-primary">
-              <ShieldCheck className="h-6 w-6" />
-              <h2 className="text-xl font-bold">Secure Payment</h2>
+          <div className="overflow-hidden rounded-[2rem] border border-white/40 dark:border-white/10 bg-white/50 dark:bg-black/50 p-6 sm:p-8 shadow-lg backdrop-blur-md">
+            <div className="mb-8 flex items-center gap-3 border-b border-border/50 pb-6 text-primary">
+              <ShieldCheck className="h-7 w-7" />
+              <h2 className="font-display text-2xl font-bold">Secure Payment</h2>
             </div>
             <CheckoutForm />
           </div>
         </div>
 
         <div className="lg:col-span-1">
-          <div className="sticky top-24 rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <h3 className="text-lg font-bold text-foreground">Order Summary</h3>
-            <div className="mt-6 space-y-4">
+          <div className="sticky top-24 overflow-hidden rounded-[2rem] border border-white/40 dark:border-white/10 bg-white/50 dark:bg-black/50 p-6 shadow-lg backdrop-blur-md">
+            <h3 className="font-display text-xl font-bold text-foreground">Order Summary</h3>
+            <div className="mt-8 space-y-5">
               <div className="flex justify-between text-muted-foreground">
-                <span>Subtotal</span>
-                <span>PKR {(amount / 100).toLocaleString()}</span>
+                <span className="font-medium">Subtotal</span>
+                <span className="font-semibold text-foreground">
+                  PKR {(amount / 100).toLocaleString()}
+                </span>
               </div>
               <div className="flex justify-between text-muted-foreground">
-                <span>Taxes & Fees</span>
-                <span>Included</span>
+                <span className="font-medium">Taxes & Fees</span>
+                <span className="font-semibold text-foreground">Included</span>
               </div>
-              <div className="border-t border-border pt-4 flex justify-between font-bold text-foreground text-lg">
+              <div className="border-t border-border/50 pt-5 flex justify-between font-display text-xl font-bold text-foreground">
                 <span>Total</span>
-                <span>PKR {(amount / 100).toLocaleString()}</span>
+                <span className="text-primary">PKR {(amount / 100).toLocaleString()}</span>
               </div>
             </div>
           </div>
