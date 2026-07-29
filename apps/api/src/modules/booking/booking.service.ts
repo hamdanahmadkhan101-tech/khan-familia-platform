@@ -2,7 +2,7 @@ import type { Prisma } from '@khan-familia/database';
 
 import { prisma } from '../../infrastructure/database/client.js';
 import { AppError } from '../../shared/errors/AppError.js';
-import { acquireHold, releaseHold } from '../inventory/inventory.service.js';
+import { acquireHold, releaseHold, getHold } from '../inventory/inventory.service.js';
 import {
   assertGuestCanCancelBookingStatus,
   assertGuestCanCreateHoldForTenant,
@@ -216,6 +216,10 @@ export const createGuestHold = async (
 
 export const releaseGuestHold = async (holdToken: string, userId: string) => {
   await releaseHold(holdToken, userId);
+};
+
+export const getGuestHold = async (holdToken: string, userId: string) => {
+  return await getHold(holdToken, userId);
 };
 
 export const listGuestBookings = async (userId: string, query: GuestBookingListQuery) => {

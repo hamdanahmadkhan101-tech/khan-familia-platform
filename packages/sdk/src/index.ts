@@ -127,10 +127,15 @@ export const createApiClient = ({
       return response.json() as Promise<UserProfile>;
     },
 
-    async createGuestHold(body: CreateGuestHoldBody) {
+    async createGuestHold(body: CreateGuestHoldBody, idempotencyKey?: string) {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (idempotencyKey) {
+        headers['Idempotency-Key'] = idempotencyKey;
+      }
+
       const response = await authFetch('/bookings/holds', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(body),
       });
       return response.json() as Promise<PropertyHoldResponse>;

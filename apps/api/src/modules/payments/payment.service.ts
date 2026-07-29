@@ -214,6 +214,11 @@ export const processPaymentIntentConfirmation = async (stripeIntent: Stripe.Paym
   const paymentStatus = isCapturable ? 'PENDING' : 'PAID';
 
   return prisma.$transaction(async (tx) => {
+    const finalGuestCount =
+      hold.guestDetails && Array.isArray(hold.guestDetails)
+        ? hold.guestDetails.length
+        : hold.quantity;
+
     const booking = await tx.accommodationBooking.create({
       data: {
         userId,
@@ -223,7 +228,7 @@ export const processPaymentIntentConfirmation = async (stripeIntent: Stripe.Paym
         checkIn: hold.startDate,
         checkOut: hold.endDate,
         nights,
-        guests: hold.quantity,
+        guests: finalGuestCount,
         status: bookingStatus,
         idempotencyKey: holdToken,
         confirmedAt: new Date(),

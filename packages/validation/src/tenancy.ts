@@ -1,9 +1,18 @@
-import { BusinessVertical, TenantRole } from '@khan-familia/database';
 import { z } from 'zod';
+
+export const businessVerticalEnum = z.enum([
+  'ACCOMMODATIONS_STAYS',
+  'EXPERIENCES_TOURS',
+  'VEHICLE_RENTALS',
+  'VENUES_EVENTS',
+  'FOOD_DINING',
+]);
+
+export const tenantRoleEnum = z.enum(['OWNER', 'ADMIN', 'STAFF']);
 
 export const createTenantBodySchema = z.object({
   name: z.string().trim().min(2).max(120),
-  businessVertical: z.nativeEnum(BusinessVertical).optional(),
+  businessVertical: businessVerticalEnum.optional(),
   slug: z
     .string()
     .trim()
@@ -15,7 +24,7 @@ export const createTenantBodySchema = z.object({
 
 export const updateTenantBodySchema = z.object({
   name: z.string().trim().min(2).max(120).optional(),
-  businessVertical: z.nativeEnum(BusinessVertical).optional(),
+  businessVertical: businessVerticalEnum.optional(),
 });
 
 export const tenantIdParamsSchema = z.object({
@@ -32,7 +41,7 @@ export const tenantInviteParamsSchema = tenantIdParamsSchema.extend({
 
 export const createInviteBodySchema = z.object({
   email: z.string().trim().email().max(255),
-  role: z.nativeEnum(TenantRole).default(TenantRole.STAFF),
+  role: tenantRoleEnum.default('STAFF'),
 });
 
 export const acceptInviteBodySchema = z.object({

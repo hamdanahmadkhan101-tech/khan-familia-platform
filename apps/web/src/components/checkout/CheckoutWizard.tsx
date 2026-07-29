@@ -1,9 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useUser } from '@clerk/nextjs';
 import { CheckoutWrapper } from './CheckoutWrapper';
 import { createPaymentIntentAction } from '@/app/checkout/[holdToken]/actions';
 import { toast } from 'sonner';
+import { IMaskInput } from 'react-imask';
+import { useForm, useFieldArray, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { guestsFormSchema, type GuestsFormInput } from '@khan-familia/validation';
 import {
   Loader2,
   User,
@@ -33,37 +38,36 @@ const SPECIAL_NEEDS_OPTIONS = [
 ];
 
 export function CheckoutWizard({ holdToken }: CheckoutWizardProps) {
+  const { user, isLoaded } = useUser();
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Step 2: Guests
-  type Guest = { isPrimary: boolean; name: string; age: string; idType: string; idNumber: string };
-  const [guests, setGuests] = useState<Guest[]>([
-    { isPrimary: true, name: '', age: '', idType: 'CNIC', idNumber: '' },
-  ]);
+  const { control, trigger, setValue, watch } = useForm<GuestsFormInput>({
+    resolver: zodResolver(guestsFormSchema),
+    defaultValues: {
+      guests: [{ isPrimary: true, name: '', age: 0, idType: 'CNIC', idNumber: '' }],
+    },
+    mode: 'onTouched',
+  });
 
-  // Step 3: Special Needs
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: 'guests',
+  });
+
+  const guests = watch('guests');
+
+  useEffect(() => {
+    if (isLoaded && user && guests.length > 0 && !guests[0]?.name) {
+      setValue('guests.0.name', user.fullName || user.firstName || '', { shouldValidate: true });
+    }
+  }, [isLoaded, user, guests, setValue]);
+
   const [selectedNeeds, setSelectedNeeds] = useState<string[]>([]);
   const [customNeed, setCustomNeed] = useState('');
-
-  // Step 4: Payment
   const [paymentData, setPaymentData] = useState<{ clientSecret: string; amount: number } | null>(
     null,
   );
-
-  const handleAddGuest = () => {
-    setGuests([...guests, { isPrimary: false, name: '', age: '', idType: 'CNIC', idNumber: '' }]);
-  };
-
-  const handleRemoveGuest = (index: number) => {
-    setGuests(guests.filter((_, i) => i !== index));
-  };
-
-  const updateGuest = (index: number, field: keyof Guest, value: string | boolean) => {
-    const newGuests = [...guests];
-    newGuests[index] = { ...newGuests[index], [field]: value } as Guest;
-    setGuests(newGuests);
-  };
 
   const toggleNeed = (need: string) => {
     if (selectedNeeds.includes(need)) {
@@ -73,24 +77,32 @@ export function CheckoutWizard({ holdToken }: CheckoutWizardProps) {
     }
   };
 
+  const handleStep2Next = async () => {
+    const isValid = await trigger('guests');
+    if (isValid) {
+      setStep(3);
+    } else {
+      toast.error('Please fix the errors in the guest details.');
+    }
+  };
+
   const proceedToPayment = async () => {
     try {
       setIsLoading(true);
 
-      // Validate primary guest at least has a name
-      if (!guests[0] || !guests[0].name || guests[0].name.length < 2) {
-        toast.error('Please provide a valid name for the primary guest.');
-        setStep(2);
-        return;
-      }
-
       const formattedGuests = guests.map((g) => ({
         ...g,
-        age: g.age ? parseInt(g.age as string) : undefined,
+        idNumber: g.idNumber ? g.idNumber.replace(/-/g, '') : undefined,
       }));
 
       const finalNeeds = [...selectedNeeds];
-      if (customNeed.trim()) finalNeeds.push(customNeed.trim());
+      const sanitizedCustom = customNeed.trim().replace(/\s+/g, ' ');
+      if (sanitizedCustom.length > 500) {
+        toast.error('Custom request is too long (max 500 characters).');
+        setStep(3);
+        return;
+      }
+      if (sanitizedCustom) finalNeeds.push(sanitizedCustom);
 
       const res = await createPaymentIntentAction(holdToken, formattedGuests, finalNeeds);
       setPaymentData({ clientSecret: res.clientSecret, amount: res.amount });
@@ -112,11 +124,8 @@ export function CheckoutWizard({ holdToken }: CheckoutWizardProps) {
 
   return (
     <div className="mx-auto max-w-4xl relative">
-      {/* Premium Animated Progress Bar */}
       <div className="mb-12 hidden md:flex items-center justify-between relative px-4">
-        {/* Background Track */}
         <div className="absolute left-10 right-10 top-1/2 h-1.5 -translate-y-1/2 bg-muted/50 rounded-full overflow-hidden backdrop-blur-sm">
-          {/* Animated Fill */}
           <div
             className="h-full bg-gradient-to-r from-primary/50 to-primary transition-all duration-700 ease-in-out shadow-[0_0_10px_rgba(var(--primary),0.5)]"
             style={{ width: `${((step - 1) / 3) * 100}%` }}
@@ -156,12 +165,10 @@ export function CheckoutWizard({ holdToken }: CheckoutWizardProps) {
         })}
       </div>
 
-      {/* Main Wizard Container with Glassmorphism */}
       <div className="relative overflow-hidden rounded-[2.5rem] border border-white/20 bg-white/60 dark:bg-black/40 p-6 sm:p-10 shadow-2xl shadow-primary/5 backdrop-blur-2xl">
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/40 to-transparent dark:from-white/5 dark:to-transparent" />
 
         <div className="relative">
-          {/* STEP 1: CONTACT */}
           {step === 1 && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
               <div className="text-center">
@@ -173,7 +180,6 @@ export function CheckoutWizard({ holdToken }: CheckoutWizardProps) {
                 </p>
               </div>
 
-              {/* Glassmorphic ID Card */}
               <div className="mx-auto max-w-md overflow-hidden rounded-3xl border border-white/40 dark:border-white/10 bg-white/50 dark:bg-black/50 p-8 shadow-xl backdrop-blur-md">
                 <div className="flex flex-col items-center text-center space-y-4">
                   <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
@@ -205,7 +211,6 @@ export function CheckoutWizard({ holdToken }: CheckoutWizardProps) {
             </div>
           )}
 
-          {/* STEP 2: GUESTS */}
           {step === 2 && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
               <div className="text-center">
@@ -217,14 +222,14 @@ export function CheckoutWizard({ holdToken }: CheckoutWizardProps) {
               </div>
 
               <div className="space-y-6">
-                {guests.map((guest, idx) => (
+                {fields.map((field, idx) => (
                   <div
-                    key={idx}
+                    key={field.id}
                     className="relative overflow-hidden rounded-[2rem] border border-white/40 dark:border-white/10 bg-white/50 dark:bg-black/50 p-6 sm:p-8 shadow-lg backdrop-blur-md transition-all hover:shadow-xl"
                   >
                     {idx > 0 && (
                       <button
-                        onClick={() => handleRemoveGuest(idx)}
+                        onClick={() => remove(idx)}
                         className="absolute right-6 top-6 flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10 text-destructive transition-colors hover:bg-destructive hover:text-destructive-foreground"
                       >
                         <Trash2 className="h-5 w-5" />
@@ -237,84 +242,145 @@ export function CheckoutWizard({ holdToken }: CheckoutWizardProps) {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Floating Label Input for Name */}
                       <div className="relative">
-                        <input
-                          type="text"
-                          id={`name-${idx}`}
-                          value={guest.name}
-                          onChange={(e) => updateGuest(idx, 'name', e.target.value)}
-                          className="peer w-full rounded-2xl border border-border/50 bg-background/50 px-5 pb-3 pt-7 text-sm text-foreground outline-none transition-all focus:border-primary focus:bg-background focus:ring-4 focus:ring-primary/10"
-                          placeholder=" "
+                        <Controller
+                          name={`guests.${idx}.name`}
+                          control={control}
+                          render={({ field: inputProps, fieldState: { error } }) => (
+                            <>
+                              <input
+                                {...inputProps}
+                                id={`name-${idx}`}
+                                className={`peer w-full rounded-2xl border ${error ? 'border-red-500 bg-red-50 focus:ring-red-500/10 dark:bg-red-950/20' : 'border-border/50 bg-background/50 focus:border-primary focus:ring-primary/10'} px-5 pb-3 pt-7 text-sm text-foreground outline-none transition-all focus:bg-background focus:ring-4`}
+                                placeholder=" "
+                              />
+                              <label
+                                htmlFor={`name-${idx}`}
+                                className={`absolute left-5 top-5 z-10 origin-[0] -translate-y-3 scale-75 transform transition-all peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-3 peer-focus:scale-75 font-medium ${error ? 'text-red-500' : 'text-muted-foreground peer-focus:text-primary'}`}
+                              >
+                                Full Name (as on ID)
+                              </label>
+                              {error && (
+                                <p className="mt-1 text-xs text-red-500 pl-2">{error.message}</p>
+                              )}
+                            </>
+                          )}
                         />
-                        <label
-                          htmlFor={`name-${idx}`}
-                          className="absolute left-5 top-5 z-10 origin-[0] -translate-y-3 scale-75 transform text-muted-foreground transition-all peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-3 peer-focus:scale-75 peer-focus:text-primary font-medium"
-                        >
-                          Full Name (as on ID)
-                        </label>
                       </div>
 
                       <div className="relative">
-                        <input
-                          type="number"
-                          id={`age-${idx}`}
-                          value={guest.age}
-                          onChange={(e) => updateGuest(idx, 'age', e.target.value)}
-                          className="peer w-full rounded-2xl border border-border/50 bg-background/50 px-5 pb-3 pt-7 text-sm text-foreground outline-none transition-all focus:border-primary focus:bg-background focus:ring-4 focus:ring-primary/10"
-                          placeholder=" "
+                        <Controller
+                          name={`guests.${idx}.age`}
+                          control={control}
+                          render={({
+                            field: { value, onChange, ...inputProps },
+                            fieldState: { error },
+                          }) => (
+                            <>
+                              <input
+                                {...inputProps}
+                                type="number"
+                                id={`age-${idx}`}
+                                value={value === 0 && !inputProps.onBlur ? '' : value}
+                                onChange={(e) =>
+                                  onChange(e.target.value === '' ? '' : Number(e.target.value))
+                                }
+                                className={`peer w-full rounded-2xl border ${error ? 'border-red-500 bg-red-50 focus:ring-red-500/10 dark:bg-red-950/20' : 'border-border/50 bg-background/50 focus:border-primary focus:ring-primary/10'} px-5 pb-3 pt-7 text-sm text-foreground outline-none transition-all focus:bg-background focus:ring-4`}
+                                placeholder=" "
+                              />
+                              <label
+                                htmlFor={`age-${idx}`}
+                                className={`absolute left-5 top-5 z-10 origin-[0] -translate-y-3 scale-75 transform transition-all peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-3 peer-focus:scale-75 font-medium ${error ? 'text-red-500' : 'text-muted-foreground peer-focus:text-primary'}`}
+                              >
+                                Age
+                              </label>
+                              {error && (
+                                <p className="mt-1 text-xs text-red-500 pl-2">{error.message}</p>
+                              )}
+                            </>
+                          )}
                         />
-                        <label
-                          htmlFor={`age-${idx}`}
-                          className="absolute left-5 top-5 z-10 origin-[0] -translate-y-3 scale-75 transform text-muted-foreground transition-all peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-3 peer-focus:scale-75 peer-focus:text-primary font-medium"
-                        >
-                          Age
-                        </label>
                       </div>
 
                       <div className="relative">
-                        <select
-                          id={`idType-${idx}`}
-                          value={guest.idType}
-                          onChange={(e) => updateGuest(idx, 'idType', e.target.value)}
-                          className="w-full rounded-2xl border border-border/50 bg-background/50 px-5 pb-3 pt-7 text-sm text-foreground outline-none transition-all focus:border-primary focus:bg-background focus:ring-4 focus:ring-primary/10 appearance-none cursor-pointer"
-                        >
-                          <option value="CNIC">CNIC</option>
-                          <option value="Passport">Passport</option>
-                          <option value="Other">Other</option>
-                        </select>
-                        <label
-                          htmlFor={`idType-${idx}`}
-                          className="absolute left-5 top-2.5 z-10 scale-75 text-muted-foreground font-medium"
-                        >
-                          ID Type
-                        </label>
+                        <Controller
+                          name={`guests.${idx}.idType`}
+                          control={control}
+                          render={({ field: inputProps }) => (
+                            <>
+                              <select
+                                {...inputProps}
+                                id={`idType-${idx}`}
+                                className="w-full rounded-2xl border border-border/50 bg-background/50 px-5 pb-3 pt-7 text-sm text-foreground outline-none transition-all focus:border-primary focus:bg-background focus:ring-4 focus:ring-primary/10 appearance-none cursor-pointer"
+                              >
+                                <option value="CNIC">CNIC</option>
+                                <option value="Passport">Passport</option>
+                                <option value="Other">Other</option>
+                              </select>
+                              <label
+                                htmlFor={`idType-${idx}`}
+                                className="absolute left-5 top-2.5 z-10 scale-75 text-muted-foreground font-medium"
+                              >
+                                ID Type
+                              </label>
+                            </>
+                          )}
+                        />
                       </div>
 
                       <div className="relative">
-                        <input
-                          type="text"
-                          id={`idNum-${idx}`}
-                          value={guest.idNumber}
-                          onChange={(e) => updateGuest(idx, 'idNumber', e.target.value)}
-                          className="peer w-full rounded-2xl border border-border/50 bg-background/50 px-5 pb-3 pt-7 text-sm text-foreground outline-none transition-all focus:border-primary focus:bg-background focus:ring-4 focus:ring-primary/10"
-                          placeholder=" "
+                        <Controller
+                          name={`guests.${idx}.idNumber`}
+                          control={control}
+                          render={({
+                            field: { onChange, value, ...inputProps },
+                            fieldState: { error },
+                          }) => (
+                            <>
+                              {guests[idx]?.idType === 'CNIC' ? (
+                                <IMaskInput
+                                  {...inputProps}
+                                  mask="00000-0000000-0"
+                                  id={`idNum-${idx}`}
+                                  value={value || ''}
+                                  unmask={false}
+                                  onAccept={(val) => onChange(val)}
+                                  className={`peer w-full rounded-2xl border ${error ? 'border-red-500 bg-red-50 focus:ring-red-500/10 dark:bg-red-950/20' : 'border-border/50 bg-background/50 focus:border-primary focus:ring-primary/10'} px-5 pb-3 pt-7 text-sm text-foreground outline-none transition-all focus:bg-background focus:ring-4`}
+                                  placeholder=" "
+                                />
+                              ) : (
+                                <input
+                                  {...inputProps}
+                                  type="text"
+                                  id={`idNum-${idx}`}
+                                  value={value || ''}
+                                  onChange={onChange}
+                                  className={`peer w-full rounded-2xl border ${error ? 'border-red-500 bg-red-50 focus:ring-red-500/10 dark:bg-red-950/20' : 'border-border/50 bg-background/50 focus:border-primary focus:ring-primary/10'} px-5 pb-3 pt-7 text-sm text-foreground outline-none transition-all focus:bg-background focus:ring-4`}
+                                  placeholder=" "
+                                />
+                              )}
+                              <label
+                                htmlFor={`idNum-${idx}`}
+                                className={`absolute left-5 top-5 z-10 origin-[0] -translate-y-3 scale-75 transform transition-all peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-3 peer-focus:scale-75 font-medium ${error ? 'text-red-500' : 'text-muted-foreground peer-focus:text-primary'}`}
+                              >
+                                ID Number (Secure)
+                              </label>
+                              {error && (
+                                <p className="mt-1 text-xs text-red-500 pl-2">{error.message}</p>
+                              )}
+                            </>
+                          )}
                         />
-                        <label
-                          htmlFor={`idNum-${idx}`}
-                          className="absolute left-5 top-5 z-10 origin-[0] -translate-y-3 scale-75 transform text-muted-foreground transition-all peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-3 peer-focus:scale-75 peer-focus:text-primary font-medium"
-                        >
-                          ID Number (Secure)
-                        </label>
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
 
-              {/* Beautiful Add Guest Dropzone */}
               <button
-                onClick={handleAddGuest}
+                onClick={() =>
+                  append({ isPrimary: false, name: '', age: 0, idType: 'CNIC', idNumber: '' })
+                }
                 className="group flex w-full flex-col items-center justify-center gap-3 rounded-[2rem] border-2 border-dashed border-primary/30 bg-primary/5 py-10 transition-all hover:border-primary/60 hover:bg-primary/10 active:scale-[0.98]"
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/20 text-primary transition-transform group-hover:scale-110">
@@ -331,7 +397,7 @@ export function CheckoutWizard({ holdToken }: CheckoutWizardProps) {
                   <ChevronLeft className="h-5 w-5" /> Back
                 </button>
                 <button
-                  onClick={() => setStep(3)}
+                  onClick={handleStep2Next}
                   className="flex items-center gap-2 rounded-2xl bg-primary px-8 py-3.5 font-semibold text-primary-foreground transition-all hover:scale-105 hover:bg-primary/90 hover:shadow-xl hover:shadow-primary/20"
                 >
                   Special Requests <ChevronRight className="h-5 w-5" />
@@ -340,7 +406,6 @@ export function CheckoutWizard({ holdToken }: CheckoutWizardProps) {
             </div>
           )}
 
-          {/* STEP 3: SPECIAL REQUESTS */}
           {step === 3 && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
               <div className="text-center">
@@ -407,7 +472,6 @@ export function CheckoutWizard({ holdToken }: CheckoutWizardProps) {
             </div>
           )}
 
-          {/* STEP 4: PAYMENT */}
           {step === 4 && paymentData && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
               <div className="text-center">
