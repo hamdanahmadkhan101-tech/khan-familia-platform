@@ -18,6 +18,8 @@ import { NuqsAdapter } from 'nuqs/adapters/next/app';
 
 export const metadata: Metadata = siteMetadata;
 
+import { Toaster } from 'sonner';
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <ClerkProvider
@@ -33,6 +35,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <Header />
             <main className="flex-1 flex flex-col pt-16">{children}</main>
             <Footer />
+            <Toaster position="bottom-right" richColors />
           </NuqsAdapter>
         </body>
       </html>

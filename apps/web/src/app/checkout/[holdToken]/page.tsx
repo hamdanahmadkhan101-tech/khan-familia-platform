@@ -1,6 +1,9 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@clerk/nextjs/server';
 import { CheckoutWizard } from '@/components/checkout/CheckoutWizard';
+import { verifyHoldStatusAction } from './actions';
+import Link from 'next/link';
+import { Clock, Home, CalendarDays } from 'lucide-react';
 
 export default async function CheckoutPage(props: { params: Promise<{ holdToken: string }> }) {
   const params = await props.params;
@@ -13,6 +16,41 @@ export default async function CheckoutPage(props: { params: Promise<{ holdToken:
   const token = await getToken();
   if (!token) {
     redirect('/sign-in');
+  }
+
+  const { isValid } = await verifyHoldStatusAction(params.holdToken);
+
+  if (!isValid) {
+    return (
+      <main className="relative min-h-screen overflow-hidden bg-background flex items-center justify-center p-4">
+        <div className="mx-auto max-w-md text-center">
+          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+            <Clock className="h-10 w-10" />
+          </div>
+          <h1 className="font-display text-3xl font-bold tracking-tight text-foreground">
+            Session Expired
+          </h1>
+          <p className="mt-4 text-muted-foreground">
+            Your checkout session has expired, or the booking has already been confirmed. Holds are
+            only valid for 15 minutes to ensure fair availability.
+          </p>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row justify-center">
+            <Link
+              href="/dashboard/bookings"
+              className="flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground hover:bg-primary/90 transition-all"
+            >
+              <CalendarDays className="h-4 w-4" /> My Bookings
+            </Link>
+            <Link
+              href="/"
+              className="flex items-center justify-center gap-2 rounded-xl border border-border px-6 py-3 font-semibold text-foreground hover:bg-muted transition-all"
+            >
+              <Home className="h-4 w-4" /> Back to Home
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
   }
 
   return (
