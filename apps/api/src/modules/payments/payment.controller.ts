@@ -7,7 +7,10 @@ import {
   createStripePaymentIntent,
   handleStripeWebhookEvent,
 } from './payment.service.js';
-import { createPaymentIntentBodySchema } from '@khan-familia/validation';
+import {
+  createPaymentIntentBodySchema,
+  confirmPaymentIntentBodySchema,
+} from '@khan-familia/validation';
 
 /** POST /payments/intent — Creates a Stripe PaymentIntent for a given hold */
 export const createPaymentIntentController = async (
@@ -48,18 +51,18 @@ export const confirmPaymentIntentController = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const { paymentIntentId } = req.body as { paymentIntentId?: string };
-    const authReq = req as AuthenticatedRequest;
+    const parsed = confirmPaymentIntentBodySchema.safeParse(req.body);
 
+    if (!parsed.success) {
+      throw AppError.badRequest(`Invalid request body: ${parsed.error.message}`);
+    }
+
+    const authReq = req as AuthenticatedRequest;
     if (!authReq.userId) {
       throw AppError.unauthorized('Authentication required');
     }
 
-    if (!paymentIntentId || typeof paymentIntentId !== 'string') {
-      throw AppError.badRequest('Missing or invalid paymentIntentId');
-    }
-
-    const booking = await confirmStripePaymentIntent(paymentIntentId, authReq.userId);
+    const booking = await confirmStripePaymentIntent(parsed.data.paymentIntentId, authReq.userId);
 
     res.status(200).json({ message: 'Booking confirmed successfully', booking });
   } catch (err) {
