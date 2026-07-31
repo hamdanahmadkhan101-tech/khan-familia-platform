@@ -108,7 +108,7 @@ export const createStripePaymentIntent = async (
 
   const reusableIntent = await prisma.paymentIntent.findFirst({
     where: {
-      bookingId: holdToken,
+      metadata: { equals: { holdToken } },
       status: 'PENDING',
       expiresAt: { gt: new Date() },
     },
@@ -149,11 +149,11 @@ export const createStripePaymentIntent = async (
       id: stripeIntent.id, // use Stripe's pi_ ID as our PK for easy lookup
       tenantId: hold.tenantId,
       bookingType: BookingType.ACCOMMODATION,
-      bookingId: holdToken, // will be updated to real bookingId on success
       amount: totalMinor,
       currency: 'PKR',
       provider: 'STRIPE',
       expiresAt: hold.expiresAt,
+      metadata: { holdToken },
     },
   });
 
@@ -355,7 +355,7 @@ const finaliseHoldAndIntent = async (
 
   await tx.paymentIntent.update({
     where: { id: stripeIntentId },
-    data: { bookingId, status: paymentStatus },
+    data: { accommodationBookingId: bookingId, status: paymentStatus },
   });
 };
 

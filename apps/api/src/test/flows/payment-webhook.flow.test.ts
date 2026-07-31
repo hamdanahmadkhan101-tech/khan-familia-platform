@@ -80,7 +80,7 @@ describeDb('payment integration flow', () => {
     expect(secondIntent.clientSecret).toBe('pi_test_created_secret');
 
     const internalIntents = await testPrisma.paymentIntent.findMany({
-      where: { bookingId: holdToken },
+      where: { metadata: { equals: { holdToken } } },
     });
     expect(internalIntents).toHaveLength(1);
   });
@@ -125,7 +125,7 @@ describeDb('payment integration flow', () => {
       where: { id: 'pi_test_created' },
     });
     expect(paymentIntent.status).toBe('PAID');
-    expect(paymentIntent.bookingId).toBe(booking?.id);
+    expect(paymentIntent.accommodationBookingId).toBe(booking?.id);
 
     const paymentRecord = await testPrisma.paymentRecord.findUnique({
       where: { transactionId: 'pi_test_created' },

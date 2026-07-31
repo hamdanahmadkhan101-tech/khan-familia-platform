@@ -25,7 +25,7 @@ import {
   PropertyCategory,
   BusinessVertical,
   PropertyApprovalStatus,
-  AmenityCategory,
+  FeatureType,
 } from '@prisma/client';
 import { addDays, startOfDay } from 'date-fns';
 
@@ -173,56 +173,56 @@ async function main() {
   // -------------------------------------------------------------------------
   console.log('🛎   Seeding amenities...');
 
-  const amenitiesData = [
-    { name: 'Free WiFi', icon: 'wifi', category: AmenityCategory.BOTH, isPopular: true },
-    { name: 'Free Parking', icon: 'car', category: AmenityCategory.PROPERTY, isPopular: true },
-    { name: 'Air Conditioning', icon: 'wind', category: AmenityCategory.UNIT, isPopular: true },
-    { name: 'Heating', icon: 'flame', category: AmenityCategory.UNIT, isPopular: false },
-    { name: 'Restaurant', icon: 'utensils', category: AmenityCategory.PROPERTY, isPopular: true },
-    { name: 'Room Service', icon: 'bell', category: AmenityCategory.PROPERTY, isPopular: false },
-    { name: 'Mountain View', icon: 'mountain', category: AmenityCategory.UNIT, isPopular: true },
-    { name: 'River View', icon: 'waves', category: AmenityCategory.UNIT, isPopular: true },
-    { name: 'Balcony', icon: 'door-open', category: AmenityCategory.UNIT, isPopular: false },
-    { name: 'Hot Water', icon: 'droplets', category: AmenityCategory.UNIT, isPopular: true },
-    { name: 'Flat-screen TV', icon: 'tv', category: AmenityCategory.UNIT, isPopular: false },
-    { name: 'Garden', icon: 'tree-pine', category: AmenityCategory.PROPERTY, isPopular: false },
-    { name: 'BBQ Facilities', icon: 'flame', category: AmenityCategory.PROPERTY, isPopular: false },
+  const featuresData = [
+    { name: 'Free WiFi', icon: 'wifi', type: FeatureType.PROPERTY, isPopular: true },
+    { name: 'Free Parking', icon: 'car', type: FeatureType.PROPERTY, isPopular: true },
+    { name: 'Air Conditioning', icon: 'wind', type: FeatureType.UNIT, isPopular: true },
+    { name: 'Heating', icon: 'flame', type: FeatureType.UNIT, isPopular: false },
+    { name: 'Restaurant', icon: 'utensils', type: FeatureType.PROPERTY, isPopular: true },
+    { name: 'Room Service', icon: 'bell', type: FeatureType.PROPERTY, isPopular: false },
+    { name: 'Mountain View', icon: 'mountain', type: FeatureType.UNIT, isPopular: true },
+    { name: 'River View', icon: 'waves', type: FeatureType.UNIT, isPopular: true },
+    { name: 'Balcony', icon: 'door-open', type: FeatureType.UNIT, isPopular: false },
+    { name: 'Hot Water', icon: 'droplets', type: FeatureType.UNIT, isPopular: true },
+    { name: 'Flat-screen TV', icon: 'tv', type: FeatureType.UNIT, isPopular: false },
+    { name: 'Garden', icon: 'tree-pine', type: FeatureType.PROPERTY, isPopular: false },
+    { name: 'BBQ Facilities', icon: 'flame', type: FeatureType.PROPERTY, isPopular: false },
     {
       name: 'Laundry Service',
       icon: 'shirt',
-      category: AmenityCategory.PROPERTY,
+      type: FeatureType.PROPERTY,
       isPopular: false,
     },
     {
       name: '24-Hour Front Desk',
       icon: 'clock',
-      category: AmenityCategory.PROPERTY,
+      type: FeatureType.PROPERTY,
       isPopular: true,
     },
   ];
 
-  const amenities: Record<string, string> = {};
-  for (const a of amenitiesData) {
-    const created = await db.amenity.upsert({
-      where: { name: a.name },
+  const features: Record<string, string> = {};
+  for (const f of featuresData) {
+    const created = await db.feature.upsert({
+      where: { name: f.name },
       update: {},
-      create: a,
+      create: f,
     });
-    amenities[a.name] = created.id;
+    features[f.name] = created.id;
   }
-  console.log(`   ✓ ${amenitiesData.length} amenities seeded\n`);
+  console.log(`   ✓ ${featuresData.length} features seeded\n`);
 
   // -------------------------------------------------------------------------
-  // Helper: attach amenities to a property
+  // Helper: attach features to a property
   // -------------------------------------------------------------------------
-  async function attachAmenities(propertyId: string, names: string[]) {
+  async function attachFeatures(propertyId: string, names: string[]) {
     for (const name of names) {
-      const amenityId = amenities[name];
-      if (!amenityId) continue;
-      await db.propertyAmenity.upsert({
-        where: { propertyId_amenityId: { propertyId, amenityId } },
+      const featureId = features[name];
+      if (!featureId) continue;
+      await db.propertyFeature.upsert({
+        where: { propertyId_featureId: { propertyId, featureId } },
         update: {},
-        create: { propertyId, amenityId },
+        create: { propertyId, featureId },
       });
     }
   }
@@ -263,11 +263,13 @@ async function main() {
       minPricePerNight: 8000,
       averageRating: 4.7,
       totalReviews: 24,
-      images: [
-        { url: '/Hotel1.jpg', publicId: 'Hotel1', isPrimary: true },
-        { url: '/Hotel2.jpg', publicId: 'Hotel2', isPrimary: false },
-        { url: '/Hotel3.jpg', publicId: 'Hotel3', isPrimary: false },
-      ],
+      images: {
+        create: [
+          { url: '/Hotel1.jpg', publicId: 'Hotel1', isPrimary: true, order: 0 },
+          { url: '/Hotel2.jpg', publicId: 'Hotel2', isPrimary: false, order: 1 },
+          { url: '/Hotel3.jpg', publicId: 'Hotel3', isPrimary: false, order: 2 },
+        ],
+      },
       houseRules: {
         smokingAllowed: false,
         petsAllowed: false,
@@ -290,7 +292,7 @@ async function main() {
     },
   });
 
-  await attachAmenities(prop1.id, [
+  await attachFeatures(prop1.id, [
     'Free WiFi',
     'Free Parking',
     'Air Conditioning',
@@ -375,11 +377,13 @@ async function main() {
       minPricePerNight: 12000,
       averageRating: 4.9,
       totalReviews: 41,
-      images: [
-        { url: '/Hotel4.jpg', publicId: 'Hotel4', isPrimary: true },
-        { url: '/Hotel5.jpg', publicId: 'Hotel5', isPrimary: false },
-        { url: '/Hotel6.jpg', publicId: 'Hotel6', isPrimary: false },
-      ],
+      images: {
+        create: [
+          { url: '/Hotel4.jpg', publicId: 'Hotel4', isPrimary: true, order: 0 },
+          { url: '/Hotel5.jpg', publicId: 'Hotel5', isPrimary: false, order: 1 },
+          { url: '/Hotel6.jpg', publicId: 'Hotel6', isPrimary: false, order: 2 },
+        ],
+      },
       houseRules: {
         smokingAllowed: false,
         petsAllowed: true,
@@ -402,7 +406,7 @@ async function main() {
     },
   });
 
-  await attachAmenities(prop2.id, [
+  await attachFeatures(prop2.id, [
     'Free WiFi',
     'Free Parking',
     'Heating',
@@ -488,11 +492,13 @@ async function main() {
       minPricePerNight: 4500,
       averageRating: 4.5,
       totalReviews: 18,
-      images: [
-        { url: '/Hotel7.jpg', publicId: 'Hotel7', isPrimary: true },
-        { url: '/Hotel8.jpg', publicId: 'Hotel8', isPrimary: false },
-        { url: '/Hotel9.jpg', publicId: 'Hotel9', isPrimary: false },
-      ],
+      images: {
+        create: [
+          { url: '/Hotel7.jpg', publicId: 'Hotel7', isPrimary: true, order: 0 },
+          { url: '/Hotel8.jpg', publicId: 'Hotel8', isPrimary: false, order: 1 },
+          { url: '/Hotel9.jpg', publicId: 'Hotel9', isPrimary: false, order: 2 },
+        ],
+      },
       houseRules: {
         smokingAllowed: false,
         petsAllowed: false,
@@ -513,7 +519,7 @@ async function main() {
     },
   });
 
-  await attachAmenities(prop3.id, [
+  await attachFeatures(prop3.id, [
     'Free WiFi',
     'Free Parking',
     'River View',
@@ -594,11 +600,13 @@ async function main() {
       minPricePerNight: 6500,
       averageRating: 4.8,
       totalReviews: 12,
-      images: [
-        { url: '/Hotel10.jpg', publicId: 'Hotel10', isPrimary: true },
-        { url: '/Hotel11.jpg', publicId: 'Hotel11', isPrimary: false },
-        { url: '/Hotel1.jpg', publicId: 'Hotel1b', isPrimary: false },
-      ],
+      images: {
+        create: [
+          { url: '/Hotel10.jpg', publicId: 'Hotel10', isPrimary: true, order: 0 },
+          { url: '/Hotel11.jpg', publicId: 'Hotel11', isPrimary: false, order: 1 },
+          { url: '/Hotel1.jpg', publicId: 'Hotel1b', isPrimary: false, order: 2 },
+        ],
+      },
       houseRules: {
         smokingAllowed: false,
         petsAllowed: false,
@@ -621,7 +629,7 @@ async function main() {
     },
   });
 
-  await attachAmenities(prop4.id, [
+  await attachFeatures(prop4.id, [
     'Free WiFi',
     'Free Parking',
     'Mountain View',

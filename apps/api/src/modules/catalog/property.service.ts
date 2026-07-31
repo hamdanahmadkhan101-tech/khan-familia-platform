@@ -14,7 +14,16 @@ export const propertySelect = {
   address: true,
   city: true,
   country: true,
-  images: true,
+  images: {
+    select: {
+      id: true,
+      url: true,
+      publicId: true,
+      isPrimary: true,
+      order: true,
+    },
+    orderBy: { order: 'asc' },
+  },
   starRating: true,
   propertyType: true,
   propertyCategory: true,
@@ -114,11 +123,21 @@ export const createProperty = async (
       description: body.description,
       city: body.city,
       country: body.country,
-      images: body.images,
       isWholePropertyBookable: body.isWholePropertyBookable ?? false,
       requiresApproval: body.requiresApproval ?? false,
       approvalStatus: PropertyApprovalStatus.PENDING,
     };
+
+    if (body.images && body.images.length > 0) {
+      createData.images = {
+        create: body.images.map((img, idx) => ({
+          url: img.url,
+          publicId: img.publicId ?? '',
+          isPrimary: img.isPrimary ?? false,
+          order: idx,
+        })),
+      };
+    }
 
     if (body.address !== undefined) {
       createData.address = body.address;
@@ -222,7 +241,19 @@ export const updateProperty = async (
     ...(body.address !== undefined ? { address: body.address } : {}),
     ...(body.propertyType !== undefined ? { propertyType: body.propertyType } : {}),
     ...(body.propertyCategory !== undefined ? { propertyCategory: body.propertyCategory } : {}),
-    ...(body.images !== undefined ? { images: body.images } : {}),
+    ...(body.images !== undefined
+      ? {
+          images: {
+            deleteMany: {},
+            create: body.images.map((img, idx) => ({
+              url: img.url,
+              publicId: img.publicId ?? '',
+              isPrimary: img.isPrimary ?? false,
+              order: idx,
+            })),
+          },
+        }
+      : {}),
     ...(body.starRating !== undefined ? { starRating: body.starRating } : {}),
     ...(body.isWholePropertyBookable !== undefined
       ? { isWholePropertyBookable: body.isWholePropertyBookable }

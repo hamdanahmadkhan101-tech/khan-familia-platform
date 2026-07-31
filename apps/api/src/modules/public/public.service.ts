@@ -79,15 +79,15 @@ export const getPublicPropertyBySlug = async (slug: string): Promise<PublicPrope
         },
       },
 
-      // Only amenity data, join-table fields excluded
-      amenities: {
+      // Only feature data, join-table fields excluded
+      features: {
         select: {
-          amenity: {
+          feature: {
             select: {
               id: true,
               name: true,
               icon: true,
-              category: true,
+              type: true,
               isPopular: true,
             },
           },
@@ -96,6 +96,7 @@ export const getPublicPropertyBySlug = async (slug: string): Promise<PublicPrope
 
       // Room types — only what the UI renders, no tenantId or timestamps
       unitTypes: {
+        where: { isDeleted: false },
         select: {
           id: true,
           name: true,
@@ -115,10 +116,16 @@ export const getPublicPropertyBySlug = async (slug: string): Promise<PublicPrope
     throw AppError.notFound('Property not found');
   }
 
-  // Flatten amenities: [{ amenity: {...} }] → [{...}]
-  // Cast needed because Prisma types images as JsonValue, not PropertyImage[]
+  // Flatten features and map to amenities for frontend compatibility
+  const { features, ...rest } = property;
   return {
-    ...property,
-    amenities: property.amenities.map((a) => a.amenity),
+    ...rest,
+    amenities: features.map((f) => ({
+      id: f.feature.id,
+      name: f.feature.name,
+      icon: f.feature.icon,
+      category: f.feature.type,
+      isPopular: f.feature.isPopular,
+    })),
   } as unknown as PublicPropertyDetails;
 };
