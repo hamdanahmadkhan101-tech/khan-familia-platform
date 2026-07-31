@@ -135,7 +135,7 @@ const listWhere = (
 
 const attachPayments = async <T extends BookingDto>(booking: T) => {
   const paymentIntents = await prisma.paymentIntent.findMany({
-    where: { bookingId: booking.id },
+    where: { accommodationBookingId: booking.id },
     orderBy: { createdAt: 'desc' },
     select: {
       id: true,
@@ -351,7 +351,7 @@ export const approveGuestBooking = async (tenantId: string, bookingId: string, u
     }
 
     const paymentRecord = await tx.paymentRecord.findFirst({
-      where: { paymentIntent: { bookingId: booking.id } },
+      where: { paymentIntent: { accommodationBookingId: booking.id } },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -408,7 +408,7 @@ export const rejectGuestBooking = async (
     }
 
     const paymentRecord = await tx.paymentRecord.findFirst({
-      where: { paymentIntent: { bookingId: booking.id } },
+      where: { paymentIntent: { accommodationBookingId: booking.id } },
       orderBy: { createdAt: 'desc' },
     });
 

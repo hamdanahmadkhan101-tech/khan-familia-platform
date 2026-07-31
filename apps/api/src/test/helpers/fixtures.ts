@@ -64,7 +64,6 @@ export const createTestProperty = async (tenantId: string) => {
       description: 'A comfortable test property with enough detail for validation.',
       city: 'Lahore',
       country: 'Pakistan',
-      images: [],
       approvalStatus: 'APPROVED',
       approvedAt: new Date(),
     },

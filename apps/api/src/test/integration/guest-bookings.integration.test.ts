@@ -63,7 +63,7 @@ const createConfirmedBookingFixture = async () => {
       id: 'pi_guest_booking_test',
       tenantId: fixture.tenant.id,
       bookingType: 'ACCOMMODATION',
-      bookingId: booking.id,
+      accommodationBookingId: booking.id,
       amount: 45_000,
       currency: 'PKR',
       provider: 'STRIPE',
@@ -147,6 +147,9 @@ describeDb('guest booking management', () => {
       .set('Authorization', authHeaderFor(guest.clerkId))
       .send({ reason: 'Travel plans changed' });
 
+    if (response.status !== 200) {
+      console.log('500 ERROR BODY:', response.body, response.error);
+    }
     expect(response.status).toBe(200);
     expect(response.body.booking).toMatchObject({
       id: booking.id,

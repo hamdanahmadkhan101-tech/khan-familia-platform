@@ -112,10 +112,12 @@ enum PropertyCategory {
   SHARED_ACCOMMODATION
 }
 
-enum AmenityCategory {
+enum FeatureType {
   PROPERTY
   UNIT
-  BOTH
+  TOUR_INCLUSION
+  TOUR_EXCLUSION
+  TOUR_HIGHLIGHT
 }
 
 // 7-state booking lifecycle — re-exported from @khan-familia/database (Prisma enum)
@@ -407,7 +409,6 @@ model Property {
   address                 String?
   city                    String
   country                 String
-  images                  Json // [{ url, publicId, isPrimary }]
   starRating              Int?
   propertyType            PropertyType?
   propertyCategory        PropertyCategory?
@@ -419,7 +420,6 @@ model Property {
   timezone                String?
   languages               String[]               @default([])
   houseRules              Json?
-  facilities              Json?
   totalRooms              Int?
   propertySizeSqm         Float?
   bedroomsCount           Int?
@@ -451,7 +451,8 @@ model Property {
 
   location           Location?
   unitTypes          UnitType[]
-  amenities          PropertyAmenity[]
+  features           PropertyFeature[]
+  images             PropertyImage[]
   reviews            Review[]
   bookings           AccommodationBooking[]
   cancellationPolicy CancellationPolicy?
@@ -500,13 +501,15 @@ model UnitType {
   tenant     Tenant   @relation(fields: [tenantId], references: [id])
   name       String
 
-  unitCount   Int      @default(1)
-  capacity    Int      @default(2)
+  unitCount   Int       @default(1)
+  capacity    Int       @default(2)
   description String?
   images      Json?
   defaultRate Int?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  isDeleted   Boolean   @default(false)
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   inventory    UnitInventory[]
   bookings     AccommodationBooking[]
@@ -517,26 +520,64 @@ model UnitType {
   @@index([tenantId])
 }
 
-model Amenity {
-  id          String          @id @default(cuid())
-  name        String          @unique
+model Feature {
+  id          String      @id @default(cuid())
+  name        String      @unique
   icon        String?
-  category    AmenityCategory
+  type        FeatureType
   description String?
-  isPopular   Boolean         @default(false)
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  isPopular   Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
-  properties PropertyAmenity[]
+  properties PropertyFeature[]
+  tours      TourFeature[]
 }
 
-model PropertyAmenity {
+model PropertyFeature {
   propertyId String
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  amenityId  String
-  amenity    Amenity  @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+  featureId  String
+  feature    Feature  @relation(fields: [featureId], references: [id], onDelete: Cascade)
 
-  @@id([propertyId, amenityId])
+  @@id([propertyId, featureId])
+}
+
+model TourFeature {
+  tourPackageId String
+  tourPackage   TourPackage @relation(fields: [tourPackageId], references: [id], onDelete: Cascade)
+  featureId     String
+  feature       Feature     @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@id([tourPackageId, featureId])
+}
+
+model PropertyImage {
+  id         String   @id @default(cuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  url        String
+  publicId   String
+  isPrimary  Boolean  @default(false)
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([propertyId])
+}
+
+model TourPackageImage {
+  id            String      @id @default(cuid())
+  tourPackageId String
+  tourPackage   TourPackage @relation(fields: [tourPackageId], references: [id], onDelete: Cascade)
+  url           String
+  publicId      String
+  isPrimary     Boolean     @default(false)
+  order         Int         @default(0)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([tourPackageId])
 }
 
 // INVARIANT: availableCount + bookedCount + blockedCount = totalCount
@@ -621,6 +662,7 @@ model AccommodationBooking {
   reservations                      Reservation[]
   review                            Review?
   inquiries                         PropertyInquiry[]
+  paymentIntents                    PaymentIntent[]
   BookingPriceSnapshot              BookingPriceSnapshot?
   AccommodationBookingStatusHistory AccommodationBookingStatusHistory[]
 
@@ -1039,7 +1081,6 @@ model TourPackage {
   title            String
   description      String
   summary          String? // Short blurb for listing cards
-  images           Json // [{ url, publicId, isPrimary }]
   category         TourCategory
   difficultyLevel  TourDifficultyLevel @default(EASY)
   durationDays     Int
@@ -1052,9 +1093,6 @@ model TourPackage {
   departureCity    String
   departurePoint   String? // Specific meeting point
   destinations     String[] // ["Swat", "Kalam", "Malam Jabba"]
-  // { accommodation: bool, transport: bool, meals: bool, guide: bool, activities: bool }
-  inclusions       Json
-  exclusions       Json                @default("[]")
   highlights       String[]            @default([])
   requirements     Json? // { minAge?, maxAge?, fitnessLevel?, documents?: [] }
   requiresApproval Boolean             @default(false)
@@ -1068,6 +1106,8 @@ model TourPackage {
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
 
+  images     TourPackageImage[]
+  features   TourFeature[]
   itinerary  TourItineraryDay[]
   departures TourDeparture[]
   bookings   TourBooking[]
@@ -1152,6 +1192,7 @@ model TourBooking {
   updatedAt          DateTime          @updatedAt
 
   review               TourReview?
+  paymentIntents       PaymentIntent[]
   BookingPriceSnapshot BookingPriceSnapshot?
   participants         TourParticipant[]
 
@@ -1218,25 +1259,29 @@ enum BookingType {
 }
 
 model PaymentIntent {
-  id          String           @id @default(cuid())
-  tenantId    String
-  tenant      Tenant           @relation(fields: [tenantId], references: [id])
-  bookingType BookingType
-  bookingId   String // Polymorphic link to either AccommodationBooking or TourBooking
-  amount      Int
-  currency    String           @default("PKR")
-  provider    PaymentProvider?
-  status      PaymentStatus    @default(PENDING)
-  expiresAt   DateTime?
-  metadata    Json?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  id                     String                @id @default(cuid())
+  tenantId               String
+  tenant                 Tenant                @relation(fields: [tenantId], references: [id])
+  bookingType            BookingType
+  accommodationBookingId String?
+  accommodationBooking   AccommodationBooking? @relation(fields: [accommodationBookingId], references: [id])
+  tourBookingId          String?
+  tourBooking            TourBooking?          @relation(fields: [tourBookingId], references: [id])
+  amount                 Int
+  currency               String                @default("PKR")
+  provider               PaymentProvider?
+  status                 PaymentStatus         @default(PENDING)
+  expiresAt              DateTime?
+  metadata               Json?
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
 
   records PaymentRecord[]
   refunds Refund[]
 
   @@index([tenantId])
-  @@index([bookingId])
+  @@index([accommodationBookingId])
+  @@index([tourBookingId])
 }
 
 model PaymentRecord {
