@@ -19,9 +19,10 @@ export function CheckoutWrapper({ clientSecret, amount }: CheckoutWrapperProps) 
   if (!process.env['NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY']) {
     return (
       <div className="rounded-xl border border-destructive bg-destructive/10 p-6 text-destructive">
-        <h3 className="font-bold">Missing Stripe Configuration</h3>
+        <h3 className="font-bold">Payment System Unavailable</h3>
         <p className="mt-2 text-sm">
-          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY is not set in your environment variables.
+          We are currently unable to process payments. Please try again later or contact support if
+          the issue persists.
         </p>
       </div>
     );

@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
-import type { GuestBooking } from '@khan-familia/types';
 import { useApi } from '@/hooks/useApi';
 import { toast } from 'sonner';
 import { CheckCircle2, Loader2, CalendarDays, MapPin, Users, ArrowRight, Home } from 'lucide-react';
@@ -19,48 +19,36 @@ function CheckoutSuccessContent() {
   const paymentIntentId = searchParams.get('payment_intent');
   const redirectStatus = searchParams.get('redirect_status');
 
-  const [booking, setBooking] = useState<GuestBooking | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data: booking,
+    isLoading: isConfirming,
+    error: queryError,
+  } = useQuery({
+    queryKey: ['confirmPayment', paymentIntentId],
+    queryFn: async () => {
+      if (!client) throw new Error('API client not initialized');
+      if (!paymentIntentId) throw new Error('No payment intent found in URL.');
 
-  useEffect(() => {
-    if (!paymentIntentId) {
-      setError('No payment intent found in URL.');
-      setIsLoading(false);
-      return;
-    }
+      const { booking: confirmedBooking } = await client.confirmPaymentIntent(paymentIntentId);
+      clearHold();
+      toast.success('Payment successful! Your booking is confirmed 🎉');
+      return confirmedBooking;
+    },
+    enabled: !!client && !!paymentIntentId && redirectStatus === 'succeeded',
+    retry: false, // Don't retry payment confirmations automatically to avoid duplicate calls
+    refetchOnWindowFocus: false, // Don't re-confirm when window regains focus
+  });
 
-    if (redirectStatus && redirectStatus !== 'succeeded') {
-      setError(`Payment status is ${redirectStatus}. Please try again.`);
-      setIsLoading(false);
-      return;
-    }
+  const isLoading = isConfirming || !client;
+  let error: string | null = null;
 
-    if (!client) return;
-
-    let isSubscribed = true;
-
-    client
-      .confirmPaymentIntent(paymentIntentId)
-      .then(({ booking: confirmedBooking }) => {
-        if (!isSubscribed) return;
-        setBooking(confirmedBooking);
-        clearHold();
-        toast.success('Payment successful! Your booking is confirmed 🎉');
-      })
-      .catch((err: unknown) => {
-        if (!isSubscribed) return;
-        const msg = err instanceof Error ? err.message : 'Could not confirm booking.';
-        setError(msg);
-      })
-      .finally(() => {
-        if (isSubscribed) setIsLoading(false);
-      });
-
-    return () => {
-      isSubscribed = false;
-    };
-  }, [client, paymentIntentId, redirectStatus]);
+  if (!paymentIntentId) {
+    error = 'No payment intent found in URL.';
+  } else if (redirectStatus && redirectStatus !== 'succeeded') {
+    error = `Payment status is ${redirectStatus}. Please try again.`;
+  } else if (queryError) {
+    error = queryError instanceof Error ? queryError.message : 'Could not confirm booking.';
+  }
 
   if (isLoading) {
     return (

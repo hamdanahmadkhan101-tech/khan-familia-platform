@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import type { GuestBooking } from '@khan-familia/types';
-import { useApi } from '@/hooks/useApi';
+import { useState } from 'react';
 import { BookingCard } from '@/components/dashboard/BookingCard';
 import { Loader2, CalendarX } from 'lucide-react';
+import { useGuestBookings } from '@/hooks/useGuestBookings';
 
 // ---------------------------------------------------------------------------
 // Scope tabs config
@@ -23,38 +22,8 @@ const TABS: { value: Scope; label: string }[] = [
 // ---------------------------------------------------------------------------
 
 export default function BookingsPage() {
-  const client = useApi();
   const [scope, setScope] = useState<Scope>('upcoming');
-  const [bookings, setBookings] = useState<GuestBooking[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!client) return;
-
-    let cancelled = false;
-    setIsLoading(true);
-    setError(null);
-
-    client
-      .listGuestBookings({ scope })
-      .then(({ bookings: data }) => {
-        if (!cancelled) setBookings(data);
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          const message = err instanceof Error ? err.message : 'Failed to load bookings.';
-          setError(message);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [client, scope]);
+  const { data: bookings, isLoading, error } = useGuestBookings(scope);
 
   return (
     <section>
@@ -92,9 +61,11 @@ export default function BookingsPage() {
           </div>
         ) : error ? (
           <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-6 py-8 text-center">
-            <p className="text-sm text-destructive">{error}</p>
+            <p className="text-sm text-destructive">
+              {error instanceof Error ? error.message : 'An error occurred'}
+            </p>
           </div>
-        ) : bookings.length === 0 ? (
+        ) : !bookings || bookings.length === 0 ? (
           <EmptyState scope={scope} />
         ) : (
           <ul className="space-y-4">

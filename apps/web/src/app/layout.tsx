@@ -21,6 +21,7 @@ export const metadata: Metadata = siteMetadata;
 import { Toaster } from 'sonner';
 
 import { PendingCheckoutBanner } from '@/components/checkout/PendingCheckoutBanner';
+import { ReactQueryProvider } from '@/components/providers/ReactQueryProvider';
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
@@ -33,15 +34,17 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     >
       <html lang="en" className={spaceGrotesk.variable}>
         <body className="flex min-h-screen flex-col antialiased">
-          <NuqsAdapter>
-            <div className="sticky top-0 z-50 flex w-full flex-col">
-              <PendingCheckoutBanner />
-              <Header />
-            </div>
-            <main className="flex-1 flex flex-col">{children}</main>
-            <Footer />
-            <Toaster position="bottom-right" richColors />
-          </NuqsAdapter>
+          <ReactQueryProvider>
+            <NuqsAdapter>
+              <div className="sticky top-0 z-50 flex w-full flex-col">
+                <PendingCheckoutBanner />
+                <Header />
+              </div>
+              <main className="flex-1 flex flex-col">{children}</main>
+              <Footer />
+              <Toaster position="bottom-right" richColors />
+            </NuqsAdapter>
+          </ReactQueryProvider>
         </body>
       </html>
     </ClerkProvider>
