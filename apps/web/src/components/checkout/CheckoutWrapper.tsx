@@ -6,6 +6,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { Loader2, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
+import { Button } from '@khan-familia/ui';
 
 // Load Stripe outside of components to avoid recreating the object
 const stripePromise = loadStripe(process.env['NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY'] || '');
@@ -98,19 +99,19 @@ function CheckoutForm() {
     <form onSubmit={handleSubmit} className="space-y-6">
       <PaymentElement className="min-h-[250px]" />
 
-      <button
+      <Button
         disabled={isLoading || !stripe || !elements}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-8 py-4 text-base font-semibold text-primary-foreground transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full rounded-xl px-8 py-6 text-base font-semibold"
       >
         {isLoading ? (
           <>
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             Processing Payment...
           </>
         ) : (
           'Pay & Confirm Booking'
         )}
-      </button>
+      </Button>
 
       <p className="text-center text-xs text-muted-foreground">
         Your payment is securely processed by Stripe. We do not store your credit card details.

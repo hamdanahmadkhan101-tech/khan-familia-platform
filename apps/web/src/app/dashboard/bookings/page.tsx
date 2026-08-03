@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { BookingCard } from '@/components/dashboard/BookingCard';
 import { Loader2, CalendarX } from 'lucide-react';
 import { useGuestBookings } from '@/hooks/useGuestBookings';
+import { Tabs, TabsList, TabsTrigger } from '@khan-familia/ui';
 
 // ---------------------------------------------------------------------------
 // Scope tabs config
@@ -35,23 +36,15 @@ export default function BookingsPage() {
         </p>
       </div>
 
-      {/* Scope tabs */}
-      <div className="mb-6 flex gap-1 rounded-xl border border-border bg-muted/40 p-1">
-        {TABS.map((tab) => (
-          <button
-            key={tab.value}
-            id={`bookings-tab-${tab.value}`}
-            onClick={() => setScope(tab.value)}
-            className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-              scope === tab.value
-                ? 'bg-card text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <Tabs value={scope} onValueChange={(val) => setScope(val as Scope)} className="mb-6">
+        <TabsList className="grid w-full grid-cols-3 sm:w-[400px]">
+          {TABS.map((tab) => (
+            <TabsTrigger key={tab.value} value={tab.value}>
+              {tab.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
       {/* Content */}
       <div className="min-h-[50vh]">

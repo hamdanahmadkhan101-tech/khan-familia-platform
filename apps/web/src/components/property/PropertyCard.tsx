@@ -76,3 +76,26 @@ export function PropertyCard({ property }: PropertyCardProps) {
     </Link>
   );
 }
+
+import { Skeleton } from '@khan-familia/ui';
+
+export function PropertyCardSkeleton() {
+  return (
+    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+      <Skeleton className="relative aspect-[4/3] w-full rounded-none" />
+      <div className="flex flex-1 flex-col justify-between p-5">
+        <div>
+          <Skeleton className="mb-2 h-4 w-1/3" />
+          <Skeleton className="mb-2 h-6 w-3/4" />
+          <Skeleton className="h-3 w-1/2" />
+        </div>
+        <div className="mt-4 flex items-end justify-between border-t border-border pt-4">
+          <div>
+            <Skeleton className="mb-1 h-3 w-20" />
+            <Skeleton className="h-6 w-24" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

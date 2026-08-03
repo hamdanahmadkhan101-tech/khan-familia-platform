@@ -6,8 +6,9 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { HeaderUserButton } from './HeaderUserButton';
-import { cn } from '@/lib/utils';
+import { cn } from '@khan-familia/ui';
 import { Bell, HelpCircle } from 'lucide-react';
+import { Button, Skeleton } from '@khan-familia/ui';
 
 export function Header() {
   const { isSignedIn, isLoaded } = useAuth();
@@ -83,23 +84,17 @@ export function Header() {
         </div>
 
         {!isLoaded ? (
-          <div className="h-10 w-10 rounded-full bg-surface-container-high animate-pulse" />
+          <Skeleton className="h-10 w-10 rounded-full" />
         ) : isSignedIn ? (
           <HeaderUserButton />
         ) : (
           <>
-            <Link
-              href="/sign-in"
-              className="text-primary font-button px-4 py-2 hover:bg-surface-container-low rounded-lg transition-all"
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/sign-up"
-              className="bg-secondary text-on-secondary font-button px-6 py-2 rounded-full hover:opacity-90 transition-all shadow-sm"
-            >
-              Join Now
-            </Link>
+            <Button variant="ghost" asChild>
+              <Link href="/sign-in">Sign In</Link>
+            </Button>
+            <Button asChild className="rounded-full px-6">
+              <Link href="/sign-up">Join Now</Link>
+            </Button>
           </>
         )}
       </div>

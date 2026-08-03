@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { useApi } from '@/hooks/useApi';
 import type { PublicUnitType } from '@khan-familia/types';
 import { useHoldSession } from '@/hooks/useHoldSession';
+import { Button } from '@khan-familia/ui';
 
 interface RoomTypeCardProps {
   propertyId: string;
@@ -127,21 +128,46 @@ export function RoomTypeCard({ propertyId, room }: RoomTypeCardProps) {
             </div>
           </div>
 
-          <button
+          <Button
             onClick={handleReserve}
             disabled={!canBook || isLoading}
-            className="group flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+            className="group w-full sm:w-auto"
             title={canBook ? 'Reserve this room' : 'Please select travel dates first'}
           >
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <>
-                Reserve
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </>
+            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Reserve
+            {!isLoading && (
+              <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
             )}
-          </button>
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+import { Skeleton } from '@khan-familia/ui';
+
+export function RoomTypeCardSkeleton() {
+  return (
+    <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card sm:flex-row">
+      <Skeleton className="relative aspect-video w-full sm:w-1/3 sm:min-w-[240px] rounded-none" />
+      <div className="flex flex-1 flex-col justify-between p-5">
+        <div>
+          <Skeleton className="mb-2 h-6 w-1/3" />
+          <div className="mt-3 flex flex-wrap gap-4">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+          <Skeleton className="mt-4 h-4 w-3/4" />
+        </div>
+        <div className="mt-6 flex flex-col justify-between gap-4 border-t border-border pt-4 sm:flex-row sm:items-end">
+          <div>
+            <Skeleton className="mb-1 h-3 w-20" />
+            <Skeleton className="h-8 w-32" />
+          </div>
+          <Skeleton className="h-10 w-full sm:w-28 rounded-xl" />
         </div>
       </div>
     </div>

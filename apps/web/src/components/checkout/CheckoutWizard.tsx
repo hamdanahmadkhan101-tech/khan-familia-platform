@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   Lock,
 } from 'lucide-react';
+import { Button, Input, Textarea, Label } from '@khan-familia/ui';
 
 interface CheckoutWizardProps {
   holdToken: string;
@@ -59,7 +60,7 @@ export function CheckoutWizard({ holdToken }: CheckoutWizardProps) {
 
   useEffect(() => {
     if (isLoaded && user && guests.length > 0 && !guests[0]?.name) {
-      setValue('guests.0.name', user.fullName || user.firstName || '', { shouldValidate: true });
+      setValue('guests.0.name', user.fullName || user.firstName || '');
     }
   }, [isLoaded, user, guests, setValue]);
 
@@ -201,12 +202,12 @@ export function CheckoutWizard({ holdToken }: CheckoutWizardProps) {
               </div>
 
               <div className="flex justify-center pt-4">
-                <button
+                <Button
                   onClick={() => setStep(2)}
-                  className="flex items-center gap-2 rounded-2xl bg-primary px-8 py-4 font-semibold text-primary-foreground transition-all hover:scale-105 hover:bg-primary/90 hover:shadow-xl hover:shadow-primary/20"
+                  className="rounded-2xl px-8 py-6 text-base font-semibold hover:scale-105 transition-all shadow-lg hover:shadow-primary/20"
                 >
-                  Continue to Guest Details <ChevronRight className="h-5 w-5" />
-                </button>
+                  Continue to Guest Details <ChevronRight className="ml-2 h-5 w-5" />
+                </Button>
               </div>
             </div>
           )}
@@ -248,10 +249,10 @@ export function CheckoutWizard({ holdToken }: CheckoutWizardProps) {
                           control={control}
                           render={({ field: inputProps, fieldState: { error } }) => (
                             <>
-                              <input
+                              <Input
                                 {...inputProps}
                                 id={`name-${idx}`}
-                                className={`peer w-full rounded-2xl border ${error ? 'border-red-500 bg-red-50 focus:ring-red-500/10 dark:bg-red-950/20' : 'border-border/50 bg-background/50 focus:border-primary focus:ring-primary/10'} px-5 pb-3 pt-7 text-sm text-foreground outline-none transition-all focus:bg-background focus:ring-4`}
+                                className={`peer h-14 w-full rounded-2xl border ${error ? 'border-red-500 bg-red-50 focus-visible:ring-red-500/20 dark:bg-red-950/20' : 'border-border/50 bg-background/50 focus-visible:border-primary focus-visible:ring-primary/20'} px-5 pt-6 pb-2 text-sm text-foreground outline-none transition-all focus-visible:bg-background focus-visible:ring-4`}
                                 placeholder=" "
                               />
                               <label
@@ -277,7 +278,7 @@ export function CheckoutWizard({ holdToken }: CheckoutWizardProps) {
                             fieldState: { error },
                           }) => (
                             <>
-                              <input
+                              <Input
                                 {...inputProps}
                                 type="number"
                                 id={`age-${idx}`}
@@ -285,7 +286,7 @@ export function CheckoutWizard({ holdToken }: CheckoutWizardProps) {
                                 onChange={(e) =>
                                   onChange(e.target.value === '' ? '' : Number(e.target.value))
                                 }
-                                className={`peer w-full rounded-2xl border ${error ? 'border-red-500 bg-red-50 focus:ring-red-500/10 dark:bg-red-950/20' : 'border-border/50 bg-background/50 focus:border-primary focus:ring-primary/10'} px-5 pb-3 pt-7 text-sm text-foreground outline-none transition-all focus:bg-background focus:ring-4`}
+                                className={`peer h-14 w-full rounded-2xl border ${error ? 'border-red-500 bg-red-50 focus-visible:ring-red-500/20 dark:bg-red-950/20' : 'border-border/50 bg-background/50 focus-visible:border-primary focus-visible:ring-primary/20'} px-5 pt-6 pb-2 text-sm text-foreground outline-none transition-all focus-visible:bg-background focus-visible:ring-4`}
                                 placeholder=" "
                               />
                               <label
@@ -349,13 +350,13 @@ export function CheckoutWizard({ holdToken }: CheckoutWizardProps) {
                                   placeholder=" "
                                 />
                               ) : (
-                                <input
+                                <Input
                                   {...inputProps}
                                   type="text"
                                   id={`idNum-${idx}`}
                                   value={value || ''}
                                   onChange={onChange}
-                                  className={`peer w-full rounded-2xl border ${error ? 'border-red-500 bg-red-50 focus:ring-red-500/10 dark:bg-red-950/20' : 'border-border/50 bg-background/50 focus:border-primary focus:ring-primary/10'} px-5 pb-3 pt-7 text-sm text-foreground outline-none transition-all focus:bg-background focus:ring-4`}
+                                  className={`peer h-14 w-full rounded-2xl border ${error ? 'border-red-500 bg-red-50 focus-visible:ring-red-500/20 dark:bg-red-950/20' : 'border-border/50 bg-background/50 focus-visible:border-primary focus-visible:ring-primary/20'} px-5 pt-6 pb-2 text-sm text-foreground outline-none transition-all focus-visible:bg-background focus-visible:ring-4`}
                                   placeholder=" "
                                 />
                               )}
@@ -377,31 +378,33 @@ export function CheckoutWizard({ holdToken }: CheckoutWizardProps) {
                 ))}
               </div>
 
-              <button
+              <Button
+                variant="outline"
                 onClick={() =>
                   append({ isPrimary: false, name: '', age: 0, idType: 'CNIC', idNumber: '' })
                 }
-                className="group flex w-full flex-col items-center justify-center gap-3 rounded-[2rem] border-2 border-dashed border-primary/30 bg-primary/5 py-10 transition-all hover:border-primary/60 hover:bg-primary/10 active:scale-[0.98]"
+                className="group flex w-full h-auto flex-col items-center justify-center gap-3 rounded-[2rem] border-2 border-dashed border-primary/30 bg-primary/5 py-10 transition-all hover:border-primary/60 hover:bg-primary/10"
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/20 text-primary transition-transform group-hover:scale-110">
                   <Plus className="h-6 w-6" />
                 </div>
                 <span className="font-semibold text-primary">Add Another Guest</span>
-              </button>
+              </Button>
 
               <div className="flex items-center justify-between pt-8">
-                <button
+                <Button
+                  variant="ghost"
                   onClick={() => setStep(1)}
-                  className="flex items-center gap-2 rounded-2xl px-6 py-3.5 font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  className="rounded-2xl px-6 py-6 text-base font-semibold"
                 >
-                  <ChevronLeft className="h-5 w-5" /> Back
-                </button>
-                <button
+                  <ChevronLeft className="mr-2 h-5 w-5" /> Back
+                </Button>
+                <Button
                   onClick={handleStep2Next}
-                  className="flex items-center gap-2 rounded-2xl bg-primary px-8 py-3.5 font-semibold text-primary-foreground transition-all hover:scale-105 hover:bg-primary/90 hover:shadow-xl hover:shadow-primary/20"
+                  className="rounded-2xl px-8 py-6 text-base font-semibold hover:scale-105 transition-all shadow-lg hover:shadow-primary/20"
                 >
-                  Special Requests <ChevronRight className="h-5 w-5" />
-                </button>
+                  Special Requests <ChevronRight className="ml-2 h-5 w-5" />
+                </Button>
               </div>
             </div>
           )}
@@ -436,38 +439,35 @@ export function CheckoutWizard({ holdToken }: CheckoutWizardProps) {
               </div>
 
               <div className="relative mt-8">
-                <textarea
+                <Textarea
                   value={customNeed}
                   onChange={(e) => setCustomNeed(e.target.value)}
-                  className="peer w-full min-h-[140px] rounded-[2rem] border border-border/50 bg-background/50 p-6 pt-8 text-base text-foreground outline-none transition-all focus:border-primary focus:bg-background focus:ring-4 focus:ring-primary/10 resize-none"
+                  className="peer w-full min-h-[140px] rounded-[2rem] border border-border/50 bg-background/50 p-6 pt-8 text-base text-foreground outline-none transition-all focus-visible:border-primary focus-visible:bg-background focus-visible:ring-4 focus-visible:ring-primary/10 resize-none"
                   placeholder=" "
                 />
-                <label className="absolute left-6 top-6 z-10 origin-[0] -translate-y-3 scale-75 transform text-muted-foreground transition-all peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-3 peer-focus:scale-75 peer-focus:text-primary font-medium">
+                <Label className="absolute left-6 top-6 z-10 origin-[0] -translate-y-3 scale-75 transform text-muted-foreground transition-all peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-3 peer-focus:scale-75 peer-focus:text-primary font-medium">
                   Anything else we should know? (Optional)
-                </label>
+                </Label>
               </div>
 
               <div className="flex items-center justify-between pt-8">
-                <button
+                <Button
+                  variant="ghost"
                   disabled={isLoading}
                   onClick={() => setStep(2)}
-                  className="flex items-center gap-2 rounded-2xl px-6 py-3.5 font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+                  className="rounded-2xl px-6 py-6 text-base font-semibold"
                 >
-                  <ChevronLeft className="h-5 w-5" /> Back
-                </button>
-                <button
+                  <ChevronLeft className="mr-2 h-5 w-5" /> Back
+                </Button>
+                <Button
                   disabled={isLoading}
                   onClick={proceedToPayment}
-                  className="flex items-center gap-2 rounded-2xl bg-primary px-8 py-3.5 font-semibold text-primary-foreground transition-all hover:scale-105 hover:bg-primary/90 hover:shadow-xl hover:shadow-primary/20 disabled:opacity-50 disabled:hover:scale-100"
+                  className="rounded-2xl px-8 py-6 text-base font-semibold hover:scale-105 transition-all shadow-lg hover:shadow-primary/20"
                 >
-                  {isLoading ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <>
-                      Proceed to Payment <ChevronRight className="h-5 w-5" />
-                    </>
-                  )}
-                </button>
+                  {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
+                  Proceed to Payment
+                  {!isLoading && <ChevronRight className="ml-2 h-5 w-5" />}
+                </Button>
               </div>
             </div>
           )}
