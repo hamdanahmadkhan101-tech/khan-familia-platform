@@ -2,6 +2,7 @@ import type { GuestBooking, BookingStatus } from '@khan-familia/types';
 import Image from 'next/image';
 import Link from 'next/link';
 import { CalendarDays, MapPin, Users, Clock, ArrowRight } from 'lucide-react';
+import { Card, CardContent } from '@khan-familia/ui';
 
 // ---------------------------------------------------------------------------
 // Status badge config — single source of truth, no duplication
@@ -58,7 +59,7 @@ export function BookingCard({ booking }: BookingCardProps) {
   const price = formatPrice(booking.BookingPriceSnapshot);
 
   return (
-    <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 sm:flex-row">
+    <Card className="group relative flex flex-col overflow-hidden rounded-2xl transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 sm:flex-row">
       {/* Property image */}
       <div className="relative h-48 w-full shrink-0 overflow-hidden sm:h-auto sm:w-52">
         {primaryImage?.url ? (
@@ -84,7 +85,7 @@ export function BookingCard({ booking }: BookingCardProps) {
       </div>
 
       {/* Body */}
-      <div className="flex flex-1 flex-col justify-between gap-4 p-5">
+      <CardContent className="flex flex-1 flex-col justify-between gap-4 p-5 pb-5">
         <div className="space-y-2">
           <div className="flex items-start justify-between gap-2">
             <h3 className="text-base font-semibold leading-snug text-foreground group-hover:text-primary transition-colors">
@@ -131,7 +132,7 @@ export function BookingCard({ booking }: BookingCardProps) {
             View property <ArrowRight className="h-3 w-3" />
           </Link>
         </div>
-      </div>
-    </article>
+      </CardContent>
+    </Card>
   );
 }

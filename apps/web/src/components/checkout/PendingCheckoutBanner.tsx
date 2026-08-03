@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useHoldSession } from '@/hooks/useHoldSession';
 import { Clock, ArrowRight, X } from 'lucide-react';
+import { Button } from '@khan-familia/ui';
 
 export function PendingCheckoutBanner() {
   const { activeHold, clearHold } = useHoldSession();
@@ -59,19 +60,25 @@ export function PendingCheckoutBanner() {
       </div>
 
       <div className="flex items-center gap-3">
-        <Link
-          href={`/checkout/${activeHold.holdToken}`}
-          className="flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-sm font-bold text-primary transition-colors hover:bg-white/90"
+        <Button
+          variant="secondary"
+          size="sm"
+          asChild
+          className="rounded-full px-4 font-bold transition-colors hover:bg-secondary/90"
         >
-          Resume <ArrowRight className="h-3.5 w-3.5" />
-        </Link>
-        <button
+          <Link href={`/checkout/${activeHold.holdToken}`}>
+            Resume <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+          </Link>
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={() => clearHold()}
-          className="rounded-full p-1.5 text-primary-foreground/70 transition-colors hover:bg-white/20 hover:text-white"
+          className="h-8 w-8 rounded-full text-primary-foreground/70 hover:bg-white/20 hover:text-white"
           aria-label="Cancel reservation"
         >
           <X className="h-4 w-4" />
-        </button>
+        </Button>
       </div>
     </div>
   );

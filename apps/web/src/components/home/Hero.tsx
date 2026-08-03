@@ -1,6 +1,14 @@
-import { MapPin, Calendar, Users, Search } from 'lucide-react';
+'use client';
+
+import { MapPin, Calendar as CalendarIcon, Users, Search, Bed, Compass } from 'lucide-react';
+import { Button, Input, Calendar, Popover, PopoverContent, PopoverTrigger } from '@khan-familia/ui';
+import { useState } from 'react';
+import { formatIsoDate } from '@khan-familia/utils';
+import { cn } from '@khan-familia/ui';
 
 export function Hero() {
+  const [date, setDate] = useState<Date>();
+
   return (
     <section className="w-full relative min-h-[870px] flex items-center justify-center overflow-hidden">
       <div className="absolute inset-0 hero-gradient"></div>
@@ -21,8 +29,8 @@ export function Hero() {
               <p className="text-label-sm text-on-surface-variant uppercase tracking-wider">
                 Location
               </p>
-              <input
-                className="w-full bg-transparent border-none focus:ring-0 p-0 text-body-md font-semibold text-primary placeholder:text-outline/70 focus:outline-none"
+              <Input
+                className="w-full bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0 h-6 text-body-md font-semibold text-primary placeholder:text-outline/70"
                 placeholder="Where to?"
                 type="text"
               />
@@ -31,19 +39,29 @@ export function Hero() {
 
           <div className="hidden md:block w-px h-10 bg-outline-variant"></div>
 
-          <div className="flex-1 flex items-center px-6 gap-3 group">
-            <Calendar className="w-6 h-6 text-secondary" />
-            <div className="text-left w-full">
-              <p className="text-label-sm text-on-surface-variant uppercase tracking-wider">
-                Dates
-              </p>
-              <input
-                className="w-full bg-transparent border-none focus:ring-0 p-0 text-body-md font-semibold text-primary placeholder:text-outline/70 focus:outline-none"
-                placeholder="Add dates"
-                type="text"
-              />
-            </div>
-          </div>
+          <Popover>
+            <PopoverTrigger asChild>
+              <div className="flex-1 flex items-center px-6 gap-3 group cursor-pointer hover:bg-white/10 rounded-xl transition-colors py-2">
+                <CalendarIcon className="w-6 h-6 text-secondary" />
+                <div className="text-left w-full">
+                  <p className="text-label-sm text-on-surface-variant uppercase tracking-wider">
+                    Dates
+                  </p>
+                  <p
+                    className={cn(
+                      'text-body-md font-semibold h-6 leading-6',
+                      !date && 'text-outline/70 font-normal',
+                    )}
+                  >
+                    {date ? formatIsoDate(date, 'PPP') : 'Add dates'}
+                  </p>
+                </div>
+              </div>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={date} onSelect={setDate} autoFocus />
+            </PopoverContent>
+          </Popover>
 
           <div className="hidden md:block w-px h-10 bg-outline-variant"></div>
 
@@ -53,27 +71,30 @@ export function Hero() {
               <p className="text-label-sm text-on-surface-variant uppercase tracking-wider">
                 Travelers
               </p>
-              <input
-                className="w-full bg-transparent border-none focus:ring-0 p-0 text-body-md font-semibold text-primary placeholder:text-outline/70 focus:outline-none"
+              <Input
+                className="w-full bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0 h-6 text-body-md font-semibold text-primary placeholder:text-outline/70"
                 placeholder="Add guests"
                 type="text"
               />
             </div>
           </div>
 
-          <button className="bg-primary text-white rounded-full px-8 py-4 flex items-center justify-center gap-2 hover:bg-primary/90 transition-all shadow-lg group shrink-0">
+          <Button
+            size="lg"
+            className="rounded-full px-8 py-7 flex items-center justify-center gap-2 shadow-lg shrink-0"
+          >
             <Search className="w-5 h-5" />
-            <span className="font-button">Search</span>
-          </button>
+            Search
+          </Button>
         </div>
 
         <div className="mt-8 flex justify-center gap-4">
           <div className="bg-white/10 backdrop-blur-md rounded-full px-4 py-2 border border-white/20 flex items-center gap-2 text-white text-label-md cursor-pointer hover:bg-white/20 transition-all">
-            <MapPin className="w-5 h-5 text-secondary-fixed" />
+            <Bed className="w-5 h-5 text-secondary-fixed" />
             Stays
           </div>
           <div className="bg-white/10 backdrop-blur-md rounded-full px-4 py-2 border border-white/20 flex items-center gap-2 text-white text-label-md cursor-pointer hover:bg-white/20 transition-all">
-            <MapPin className="w-5 h-5 text-secondary-fixed" />
+            <Compass className="w-5 h-5 text-secondary-fixed" />
             Expeditions
           </div>
         </div>

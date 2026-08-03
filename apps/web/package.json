@@ -21,9 +21,6 @@
     "@tanstack/react-query-devtools": "^5.100.10",
     "@tanstack/react-table": "^8.21.3",
     "axios": "^1.16.1",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "date-fns": "^3.6.0",
     "decimal.js": "^10.6.0",
     "embla-carousel-autoplay": "^8.6.0",
     "embla-carousel-react": "^8.6.0",
@@ -41,11 +38,11 @@
     "react-leaflet": "^5.0.0",
     "recharts": "^3.8.1",
     "sonner": "^2.0.7",
-    "tailwind-merge": "^3.6.0",
     "zod": "^3.24.1",
     "zustand": "^5.0.13"
   },
   "devDependencies": {
+    "@khan-familia/config": "workspace:*",
     "@types/leaflet": "^1.9.21",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

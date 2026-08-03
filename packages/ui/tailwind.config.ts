@@ -3,7 +3,7 @@ import sharedConfig from '@khan-familia/config/tailwind.config';
 
 const config = {
   ...sharedConfig,
-  content: ['./src/**/*.{ts,tsx}', '../../packages/ui/src/**/*.{ts,tsx}'],
+  content: ['./src/**/*.{ts,tsx}'],
 } satisfies Config;
 
 export default config;
