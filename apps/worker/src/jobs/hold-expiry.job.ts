@@ -1,3 +1,4 @@
+import type { Job } from 'bullmq';
 import { releaseHoldInventory } from '@khan-familia/database';
 import { logger } from '../logger.js';
 import { prisma } from '../infrastructure/database/client.js';
@@ -6,7 +7,10 @@ import type { HoldExpiryJobPayload } from '@khan-familia/types';
 /**
  * Handle hold expiry: release unpaid property holds.
  */
-export const handleHoldExpiryJob = async (payload: HoldExpiryJobPayload) => {
+export const handleHoldExpiryJob = async (
+  payload: HoldExpiryJobPayload,
+  job?: Job<HoldExpiryJobPayload>,
+) => {
   logger.info({ holdId: payload.holdId }, 'Processing hold expiry job');
 
   try {
@@ -21,8 +25,21 @@ export const handleHoldExpiryJob = async (payload: HoldExpiryJobPayload) => {
       }
 
       // We explicitly check if it expired, just in case job fired early or delayed
-      if (hold.expiresAt >= new Date()) {
-        logger.warn({ holdId: payload.holdId }, 'Hold expiry job ran before expiration time');
+      const now = new Date();
+      if (hold.expiresAt > now) {
+        const remainingDelay = hold.expiresAt.getTime() - now.getTime();
+        if (job) {
+          logger.warn(
+            { holdId: payload.holdId, remainingDelayMs: remainingDelay },
+            'Hold expiry job ran before expiration time. Re-enqueueing.',
+          );
+          await job.moveToDelayed(Date.now() + remainingDelay, job.token);
+        } else {
+          logger.warn(
+            { holdId: payload.holdId, remainingDelayMs: remainingDelay },
+            'Hold cleanup found unexpired hold. Skipping.',
+          );
+        }
         return false;
       }
 

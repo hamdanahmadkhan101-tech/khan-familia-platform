@@ -1,4 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { addDays, format } from 'date-fns';
+import crypto from 'node:crypto';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@clerk/express', () => ({
   verifyToken: vi.fn(async (token: string) => ({ sub: token })),
@@ -16,6 +18,7 @@ import {
   testDate,
 } from '../helpers/fixtures.js';
 import { createTestAgent } from '../helpers/http.js';
+import { StripeGateway } from '../../modules/payments/stripe.gateway.js';
 
 const runDbTests = process.env['RUN_DB_TESTS'] === 'true';
 const describeDb = runDbTests ? describe : describe.skip;
@@ -27,7 +30,10 @@ const createConfirmedBookingFixture = async () => {
     where: {
       propertyId: fixture.property.id,
       unitTypeId: fixture.unitType.id,
-      date: { gte: testDate('2026-08-01'), lt: testDate('2026-08-03') },
+      date: {
+        gte: testDate(format(addDays(new Date(), 30), 'yyyy-MM-dd')),
+        lt: testDate(format(addDays(new Date(), 32), 'yyyy-MM-dd')),
+      },
     },
     data: {
       availableCount: { decrement: 1 },
@@ -41,13 +47,13 @@ const createConfirmedBookingFixture = async () => {
       propertyId: fixture.property.id,
       unitTypeId: fixture.unitType.id,
       tenantId: fixture.tenant.id,
-      checkIn: testDate('2026-08-01'),
-      checkOut: testDate('2026-08-03'),
+      checkIn: testDate(format(addDays(new Date(), 30), 'yyyy-MM-dd')),
+      checkOut: testDate(format(addDays(new Date(), 32), 'yyyy-MM-dd')),
       nights: 2,
       guests: 1,
       status: 'BOOKED',
       confirmedAt: new Date(),
-      idempotencyKey: 'guest-booking-test-key',
+      idempotencyKey: `guest-booking-test-${crypto.randomUUID()}`,
       BookingPriceSnapshot: {
         create: {
           currency: 'PKR',
@@ -58,9 +64,11 @@ const createConfirmedBookingFixture = async () => {
     },
   });
 
+  const paymentIntentId = `pi_guest_booking_test_${crypto.randomUUID()}`;
+
   await testPrisma.paymentIntent.create({
     data: {
-      id: 'pi_guest_booking_test',
+      id: paymentIntentId,
       tenantId: fixture.tenant.id,
       bookingType: 'ACCOMMODATION',
       accommodationBookingId: booking.id,
@@ -70,7 +78,7 @@ const createConfirmedBookingFixture = async () => {
       status: 'PAID',
       records: {
         create: {
-          transactionId: 'pi_guest_booking_test',
+          transactionId: paymentIntentId,
           amountCaptured: 45_000,
           currency: 'PKR',
           status: 'PAID',
@@ -83,8 +91,12 @@ const createConfirmedBookingFixture = async () => {
 };
 
 describeDb('guest booking management', () => {
-  beforeEach(async () => {
+  beforeAll(async () => {
     await truncateTestDatabase();
+  });
+
+  beforeEach(() => {
+    vi.spyOn(StripeGateway.prototype, 'cancelIntent').mockImplementation(async () => {});
   });
 
   it('lists bookings owned by the authenticated guest', async () => {
@@ -120,7 +132,7 @@ describeDb('guest booking management', () => {
       status: 'BOOKED',
       paymentIntents: [
         expect.objectContaining({
-          id: 'pi_guest_booking_test',
+          id: expect.stringContaining('pi_guest_booking_test'),
           status: 'PAID',
           records: [expect.objectContaining({ amountCaptured: 45_000 })],
         }),
@@ -137,6 +149,28 @@ describeDb('guest booking management', () => {
       .set('Authorization', authHeaderFor(otherGuest.clerkId));
 
     expect(response.status).toBe(404);
+  });
+
+  it('rejects concurrent state transitions on the same booking', async () => {
+    const { guest, booking } = await createConfirmedBookingFixture();
+
+    const agent = createTestAgent();
+    // Simulate two concurrent cancellation requests
+    const [res1, res2] = await Promise.all([
+      agent
+        .post(`/bookings/${booking.id}/cancel`)
+        .set('Authorization', authHeaderFor(guest.clerkId))
+        .send({ reason: 'Race 1' }),
+      agent
+        .post(`/bookings/${booking.id}/cancel`)
+        .set('Authorization', authHeaderFor(guest.clerkId))
+        .send({ reason: 'Race 2' }),
+    ]);
+
+    // One should succeed (200) and the other should fail (409 Conflict)
+    const statuses = [res1.status, res2.status];
+    expect(statuses).toContain(200);
+    expect(statuses).toContain(409);
   });
 
   it('cancels an owned booking and restores inventory', async () => {
@@ -212,8 +246,8 @@ describeDb('guest booking management', () => {
       tenantId: tenant.id,
       propertyId: property.id,
       unitTypeId: unitType.id,
-      startDate: '2026-09-01',
-      endDate: '2026-09-03',
+      startDate: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
+      endDate: format(addDays(new Date(), 32), 'yyyy-MM-dd'),
     });
     await testPrisma.accommodationBooking.create({
       data: {
@@ -221,8 +255,8 @@ describeDb('guest booking management', () => {
         propertyId: property.id,
         unitTypeId: unitType.id,
         tenantId: tenant.id,
-        checkIn: testDate('2026-09-01'),
-        checkOut: testDate('2026-09-03'),
+        checkIn: testDate(format(addDays(new Date(), 30), 'yyyy-MM-dd')),
+        checkOut: testDate(format(addDays(new Date(), 32), 'yyyy-MM-dd')),
         nights: 3,
         guests: 1,
         status: 'BOOKED',

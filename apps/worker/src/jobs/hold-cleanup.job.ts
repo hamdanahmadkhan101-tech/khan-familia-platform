@@ -18,6 +18,8 @@ export const handleHoldCleanupCronJob = async (): Promise<void> => {
       },
       select: {
         id: true,
+        holdToken: true,
+        expiresAt: true,
       },
     });
 
@@ -30,7 +32,11 @@ export const handleHoldCleanupCronJob = async (): Promise<void> => {
 
     for (const hold of expiredHolds) {
       try {
-        await handleHoldExpiryJob({ holdId: hold.id, holdToken: '', holdExpiresAt: '' });
+        await handleHoldExpiryJob({
+          holdId: hold.id,
+          holdToken: hold.holdToken,
+          holdExpiresAt: hold.expiresAt.toISOString(),
+        });
       } catch (error) {
         logger.error(
           { holdId: hold.id, err: error },

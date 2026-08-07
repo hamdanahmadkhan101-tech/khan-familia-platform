@@ -1,5 +1,5 @@
 import type { Prisma } from '@khan-familia/database';
-import { PropertyApprovalStatus } from '@khan-familia/database';
+import { PropertyApprovalStatus, AccommodationBookingStatus } from '@khan-familia/database';
 import { generateShortId, generateSlug } from '@khan-familia/utils';
 
 import { prisma } from '../../infrastructure/database/client.js';
@@ -195,12 +195,28 @@ export const createProperty = async (
   });
 };
 
-export const listPropertiesForTenant = async (tenantId: string): Promise<PropertyDto[]> => {
-  return prisma.property.findMany({
-    where: { tenantId, isDeleted: false },
-    select: propertySelect,
-    orderBy: { createdAt: 'desc' },
-  });
+export const listPropertiesForTenant = async (
+  tenantId: string,
+  options: { page?: number | undefined; limit?: number | undefined } = {},
+): Promise<{ properties: PropertyDto[]; total: number; page: number; limit: number }> => {
+  const page = Math.max(1, options.page ?? 1);
+  const limit = Math.min(50, Math.max(1, options.limit ?? 20));
+  const skip = (page - 1) * limit;
+
+  const where = { tenantId, isDeleted: false };
+
+  const [properties, total] = await prisma.$transaction([
+    prisma.property.findMany({
+      where,
+      select: propertySelect,
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+    }),
+    prisma.property.count({ where }),
+  ]);
+
+  return { properties, total, page, limit };
 };
 
 export const getPropertyForTenant = async (
@@ -333,6 +349,33 @@ export const updateProperty = async (
 };
 
 export const softDeleteProperty = async (tenantId: string, propertyId: string): Promise<void> => {
+  const activeHoldsCount = await prisma.propertyHold.count({
+    where: {
+      propertyId,
+      tenantId,
+      expiresAt: { gt: new Date() },
+    },
+  });
+
+  const futureBookingsCount = await prisma.accommodationBooking.count({
+    where: {
+      propertyId,
+      tenantId,
+      checkIn: { gte: new Date() },
+      status: {
+        notIn: [
+          AccommodationBookingStatus.CANCELLED,
+          AccommodationBookingStatus.CHECKED_OUT,
+          AccommodationBookingStatus.NO_SHOW,
+        ],
+      },
+    },
+  });
+
+  if (activeHoldsCount > 0 || futureBookingsCount > 0) {
+    throw AppError.conflict('Cannot delete property with active holds or future bookings');
+  }
+
   const result = await prisma.property.updateMany({
     where: { id: propertyId, tenantId, isDeleted: false },
     data: { isDeleted: true, deletedAt: new Date() },

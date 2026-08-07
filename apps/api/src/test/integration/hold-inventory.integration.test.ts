@@ -1,4 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { addDays, format } from 'date-fns';
+import crypto from 'node:crypto';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@clerk/express', () => ({
   verifyToken: vi.fn(async (token: string) => ({ sub: token })),
@@ -13,7 +15,7 @@ const runDbTests = process.env['RUN_DB_TESTS'] === 'true';
 const describeDb = runDbTests ? describe : describe.skip;
 
 describeDb('inventory and hold integration flow', () => {
-  beforeEach(async () => {
+  beforeAll(async () => {
     await truncateTestDatabase();
   });
 
@@ -27,8 +29,8 @@ describeDb('inventory and hold integration flow', () => {
       .set('X-Tenant-ID', property.tenantId)
       .send({
         unitTypeId: unitType.id,
-        startDate: '2026-08-01',
-        endDate: '2026-08-03',
+        startDate: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
+        endDate: format(addDays(new Date(), 32), 'yyyy-MM-dd'),
         blockCount: 1,
         reason: 'Maintenance',
       });
@@ -54,8 +56,8 @@ describeDb('inventory and hold integration flow', () => {
       .set('X-Tenant-ID', property.tenantId)
       .send({
         unitTypeId: unitType.id,
-        startDate: '2026-08-01',
-        endDate: '2026-08-03',
+        startDate: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
+        endDate: format(addDays(new Date(), 32), 'yyyy-MM-dd'),
         unblockCount: 1,
       });
 
@@ -78,13 +80,22 @@ describeDb('inventory and hold integration flow', () => {
   it('creates idempotent holds and releases inventory manually', async () => {
     const { guest, property, unitType } = await createBookableInventoryFixture();
     const agent = createTestAgent();
-    const idempotencyKey = 'hold-flow-test-001';
+    const idempotencyKey = `hold-flow-test-${crypto.randomUUID()}`;
     const holdPayload = {
       propertyId: property.id,
       unitTypeId: unitType.id,
-      startDate: '2026-08-01',
-      endDate: '2026-08-03',
+      startDate: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
+      endDate: format(addDays(new Date(), 32), 'yyyy-MM-dd'),
       quantity: 1,
+      guestDetails: [
+        {
+          name: 'John Doe',
+          age: 30,
+          idType: 'CNIC',
+          idNumber: '12345-1234567-1',
+          isPrimary: true,
+        },
+      ],
     };
 
     const firstHold = await agent
@@ -115,8 +126,8 @@ describeDb('inventory and hold integration flow', () => {
 
     expect(reservedRows.slice(0, 2)).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ availableCount: 2, bookedCount: 1 }),
-        expect.objectContaining({ availableCount: 2, bookedCount: 1 }),
+        expect.objectContaining({ availableCount: 2, heldCount: 1 }),
+        expect.objectContaining({ availableCount: 2, heldCount: 1 }),
       ]),
     );
 
@@ -138,8 +149,8 @@ describeDb('inventory and hold integration flow', () => {
 
     expect(releasedRows.slice(0, 2)).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ availableCount: 3, bookedCount: 0 }),
-        expect.objectContaining({ availableCount: 3, bookedCount: 0 }),
+        expect.objectContaining({ availableCount: 3, heldCount: 0 }),
+        expect.objectContaining({ availableCount: 3, heldCount: 0 }),
       ]),
     );
   });
@@ -153,9 +164,18 @@ describeDb('inventory and hold integration flow', () => {
       .send({
         propertyId: property.id,
         unitTypeId: unitType.id,
-        startDate: '2026-06-16',
-        endDate: '2026-06-19',
+        startDate: format(addDays(new Date(), -2), 'yyyy-MM-dd'),
+        endDate: format(addDays(new Date(), 2), 'yyyy-MM-dd'),
         quantity: 1,
+        guestDetails: [
+          {
+            name: 'John Doe',
+            age: 30,
+            idType: 'CNIC',
+            idNumber: '12345-1234567-1',
+            isPrimary: true,
+          },
+        ],
       });
 
     expect(response.status).toBe(400);
@@ -163,6 +183,39 @@ describeDb('inventory and hold integration flow', () => {
     expect(response.body.error.details).toMatchObject({
       startDate: 'startDate must be today or a future date',
     });
+  });
+
+  it('rejects holds where guest count exceeds unit capacity', async () => {
+    const { guest, property, unitType } = await createBookableInventoryFixture();
+
+    // Assume unitType has capacity of 2
+    await testPrisma.unitType.update({
+      where: { id: unitType.id },
+      data: { capacity: 2 },
+    });
+
+    const agent = createTestAgent();
+    const response = await agent
+      .post('/bookings/holds')
+      .set('Authorization', authHeaderFor(guest.clerkId))
+      .send({
+        propertyId: property.id,
+        unitTypeId: unitType.id,
+        startDate: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
+        endDate: format(addDays(new Date(), 32), 'yyyy-MM-dd'),
+        quantity: 1,
+        guestDetails: [
+          { name: 'G1', age: 30, isPrimary: true, idType: 'CNIC', idNumber: '12345-1234567-1' },
+          { name: 'G2', age: 30, idType: 'CNIC', idNumber: '12345-1234567-2' },
+          { name: 'G3', age: 30, idType: 'CNIC', idNumber: '12345-1234567-3' }, // Exceeds maxGuests of 2
+        ],
+      });
+
+    if (response.status !== 400 || response.body.error.message === 'Validation failed') {
+      console.log('Validation Error Details:', response.body.error.details);
+    }
+    expect(response.status).toBe(400);
+    expect(response.body.error.message).toContain('exceeds unit capacity');
   });
 
   it('prevents tenant staff from booking their own property as a guest', async () => {
@@ -174,9 +227,18 @@ describeDb('inventory and hold integration flow', () => {
       .send({
         propertyId: property.id,
         unitTypeId: unitType.id,
-        startDate: '2026-08-01',
-        endDate: '2026-08-03',
+        startDate: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
+        endDate: format(addDays(new Date(), 32), 'yyyy-MM-dd'),
         quantity: 1,
+        guestDetails: [
+          {
+            name: 'John Doe',
+            age: 30,
+            idType: 'CNIC',
+            idNumber: '12345-1234567-1',
+            isPrimary: true,
+          },
+        ],
       });
 
     expect(response.status).toBe(403);

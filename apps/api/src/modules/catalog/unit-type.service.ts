@@ -105,7 +105,20 @@ export const updateUnitType = async (
   unitTypeId: string,
   body: UpdateUnitTypeBody,
 ): Promise<UnitTypeDto> => {
-  await getUnitType(tenantId, propertyId, unitTypeId);
+  const existing = await getUnitType(tenantId, propertyId, unitTypeId);
+
+  if (body.unitCount !== undefined && body.unitCount < existing.unitCount) {
+    const conflicts = await prisma.$queryRawUnsafe<{ cnt: bigint }[]>(
+      `SELECT COUNT(*)::bigint as cnt FROM "UnitInventory" WHERE "unitTypeId" = $1 AND date >= CURRENT_DATE AND ("bookedCount" + "blockedCount" + "heldCount") > $2`,
+      unitTypeId,
+      body.unitCount,
+    );
+    if (conflicts[0] && Number(conflicts[0].cnt) > 0) {
+      throw AppError.conflict(
+        'Cannot reduce unit count: some future dates have more booked/blocked units than the new total',
+      );
+    }
+  }
 
   if (body.name) {
     const nameTaken = await prisma.unitType.findFirst({
@@ -122,17 +135,35 @@ export const updateUnitType = async (
     }
   }
 
-  return prisma.unitType.update({
-    where: { id: unitTypeId },
-    data: {
-      ...(body.name !== undefined ? { name: body.name } : {}),
-      ...(body.unitCount !== undefined ? { unitCount: body.unitCount } : {}),
-      ...(body.capacity !== undefined ? { capacity: body.capacity } : {}),
-      ...(body.description !== undefined ? { description: body.description } : {}),
-      ...(body.defaultRate !== undefined ? { defaultRate: body.defaultRate } : {}),
-      ...(body.images !== undefined ? { images: body.images } : {}),
-    },
-    select: unitTypeSelect,
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.unitType.update({
+      where: { id: unitTypeId },
+      data: {
+        ...(body.name !== undefined ? { name: body.name } : {}),
+        ...(body.unitCount !== undefined ? { unitCount: body.unitCount } : {}),
+        ...(body.capacity !== undefined ? { capacity: body.capacity } : {}),
+        ...(body.description !== undefined ? { description: body.description } : {}),
+        ...(body.defaultRate !== undefined ? { defaultRate: body.defaultRate } : {}),
+        ...(body.images !== undefined ? { images: body.images } : {}),
+      },
+      select: unitTypeSelect,
+    });
+
+    if (body.unitCount !== undefined && body.unitCount !== existing.unitCount) {
+      // We must update the inventory ledger for future dates
+      const diff = body.unitCount - existing.unitCount; // negative if reducing
+
+      await tx.$executeRawUnsafe(
+        `UPDATE "UnitInventory" 
+         SET "totalCount" = "totalCount" + $1, 
+             "availableCount" = "availableCount" + $1 
+         WHERE "unitTypeId" = $2 AND date >= CURRENT_DATE`,
+        diff,
+        unitTypeId,
+      );
+    }
+
+    return updated;
   });
 };
 

@@ -1,6 +1,5 @@
+import { addDays, format } from 'date-fns';
 import type { PlatformRole, TenantRole } from '@khan-familia/database';
-
-import { addDays } from '@khan-familia/utils';
 
 import { testPrisma } from '../database.js';
 
@@ -121,8 +120,9 @@ export const createInventoryRange = async (input: {
 };
 
 export const createBookableInventoryFixture = async () => {
-  const owner = await createTestUser({ clerkId: 'owner-clerk' });
-  const guest = await createTestUser({ clerkId: 'guest-clerk' });
+  const suffix = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
+  const owner = await createTestUser({ clerkId: `owner-${suffix}` });
+  const guest = await createTestUser({ clerkId: `guest-${suffix}` });
   const tenant = await createTestTenant(owner.id, 'OWNER');
   const property = await createTestProperty(tenant.id);
   const unitType = await createTestUnitType(tenant.id, property.id);
@@ -131,8 +131,8 @@ export const createBookableInventoryFixture = async () => {
     tenantId: tenant.id,
     propertyId: property.id,
     unitTypeId: unitType.id,
-    startDate: '2026-08-01',
-    endDate: '2026-08-05',
+    startDate: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
+    endDate: format(addDays(new Date(), 34), 'yyyy-MM-dd'),
     totalCount: 3,
   });
 

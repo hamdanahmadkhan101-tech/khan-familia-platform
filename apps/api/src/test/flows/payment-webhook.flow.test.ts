@@ -1,4 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { addDays, format } from 'date-fns';
+import crypto from 'node:crypto';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const stripeState = vi.hoisted(() => ({
   event: undefined as unknown,
@@ -14,40 +16,59 @@ vi.mock('@clerk/express', () => ({
   verifyToken: vi.fn(async (token: string) => ({ sub: token })),
 }));
 
-vi.mock('../../infrastructure/stripe/client.js', () => ({
-  stripe: {
-    paymentIntents: {
-      create: vi.fn(async () => stripeState.createdPaymentIntent),
-      retrieve: vi.fn(async (id: string) => ({
-        id,
-        client_secret: `${id}_secret`,
-      })),
-    },
-    webhooks: {
-      constructEvent: vi.fn(() => stripeState.event),
-    },
-  },
-}));
+import type Stripe from 'stripe';
+import { StripeGateway } from '../../modules/payments/stripe.gateway.js';
 
 import { authHeaderFor } from '../helpers/auth.js';
 import { truncateTestDatabase, testPrisma } from '../database.js';
 import { createBookableInventoryFixture } from '../helpers/fixtures.js';
 import { createTestAgent } from '../helpers/http.js';
-import { createStripePaymentIntent } from '../../modules/payments/payment.service.js';
+import { createPaymentIntent } from '../../modules/payments/payment.service.js';
+import type { WebhookEventPayload } from '../../modules/payments/gateway.interface.js';
 
 const runDbTests = process.env['RUN_DB_TESTS'] === 'true';
 const describeDb = runDbTests ? describe : describe.skip;
 
 describeDb('payment integration flow', () => {
-  beforeEach(async () => {
+  beforeAll(async () => {
+    await truncateTestDatabase();
+  });
+
+  beforeEach(() => {
+    const id = `pi_test_created_${crypto.randomUUID()}`;
     stripeState.event = undefined;
     stripeState.createdPaymentIntent = {
-      id: 'pi_test_created',
-      client_secret: 'pi_test_created_secret',
+      id,
+      client_secret: `${id}_secret`,
       amount_received: 0,
       payment_method: 'pm_card_visa',
     };
-    await truncateTestDatabase();
+
+    vi.spyOn(StripeGateway.prototype, 'createIntent').mockImplementation(async (req) => ({
+      gatewayIntentId: stripeState.createdPaymentIntent.id,
+      clientSecret: stripeState.createdPaymentIntent.client_secret,
+      metadata: req.metadata,
+      amount: req.amountMinor,
+      currency: req.currency,
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+    }));
+    vi.spyOn(StripeGateway.prototype, 'retrieveIntent').mockImplementation(
+      async () => stripeState.createdPaymentIntent as unknown as Stripe.PaymentIntent,
+    );
+    vi.spyOn(StripeGateway.prototype, 'confirmIntent').mockImplementation(async () => {});
+    vi.spyOn(StripeGateway.prototype, 'cancelIntent').mockImplementation(async () => {});
+    vi.spyOn(StripeGateway.prototype, 'parseWebhookEvent').mockImplementation(() => {
+      const e = stripeState.event as unknown as Stripe.Event;
+      const obj = e.data.object as unknown as Stripe.PaymentIntent;
+      return {
+        type: e.type,
+        intentId: obj.id,
+        amountCaptured: obj.amount_received || 0,
+        metadata: obj.metadata || {},
+        status: e.type === 'payment_intent.succeeded' ? 'succeeded' : 'failed',
+        rawEvent: e, // Add this so event.rawEvent is defined
+      } as WebhookEventPayload;
+    });
   });
 
   const createPaidHold = async () => {
@@ -55,15 +76,25 @@ describeDb('payment integration flow', () => {
     const response = await createTestAgent()
       .post('/bookings/holds')
       .set('Authorization', authHeaderFor(fixture.guest.clerkId))
-      .set('Idempotency-Key', 'payment-flow-hold')
+      .set('Idempotency-Key', `payment-flow-hold-${crypto.randomUUID()}`)
       .send({
         propertyId: fixture.property.id,
         unitTypeId: fixture.unitType.id,
-        startDate: '2026-08-01',
-        endDate: '2026-08-03',
+        startDate: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
+        endDate: format(addDays(new Date(), 32), 'yyyy-MM-dd'),
         quantity: 1,
+        guestDetails: [
+          {
+            name: 'John Doe',
+            age: 30,
+            idType: 'CNIC',
+            idNumber: '12345-1234567-1',
+            isPrimary: true,
+          },
+        ],
       });
 
+    if (response.status !== 201) console.log('HOLD ERROR', response.body);
     expect(response.status).toBe(201);
 
     return { ...fixture, holdToken: response.body.holdToken as string };
@@ -72,28 +103,29 @@ describeDb('payment integration flow', () => {
   it('reuses an existing pending payment intent for the same hold', async () => {
     const { guest, holdToken } = await createPaidHold();
 
-    const firstIntent = await createStripePaymentIntent(holdToken, guest.id);
-    const secondIntent = await createStripePaymentIntent(holdToken, guest.id);
+    const firstIntent = await createPaymentIntent(holdToken, guest.id);
+    const secondIntent = await createPaymentIntent(holdToken, guest.id);
 
-    expect(firstIntent.paymentIntentId).toBe('pi_test_created');
-    expect(secondIntent.paymentIntentId).toBe('pi_test_created');
-    expect(secondIntent.clientSecret).toBe('pi_test_created_secret');
+    expect(firstIntent.paymentIntentId).toBe(stripeState.createdPaymentIntent.id);
+    expect(secondIntent.paymentIntentId).toBe(stripeState.createdPaymentIntent.id);
+    expect(secondIntent.clientSecret).toBe(`${stripeState.createdPaymentIntent.id}_secret`);
 
     const internalIntents = await testPrisma.paymentIntent.findMany({
-      where: { metadata: { equals: { holdToken } } },
+      where: { metadata: { path: ['holdToken'], equals: holdToken } },
     });
     expect(internalIntents).toHaveLength(1);
   });
 
   it('converts a successful Stripe payment into a booking and deletes the hold', async () => {
     const { guest, holdToken, property, unitType } = await createPaidHold();
-    await createStripePaymentIntent(holdToken, guest.id);
+    await createPaymentIntent(holdToken, guest.id);
 
     stripeState.event = {
+      id: `evt_test_${crypto.randomUUID()}`,
       type: 'payment_intent.succeeded',
       data: {
         object: {
-          id: 'pi_test_created',
+          id: stripeState.createdPaymentIntent.id,
           amount_received: 45_000,
           payment_method: 'pm_card_visa',
           metadata: { holdToken, userId: guest.id },
@@ -106,6 +138,7 @@ describeDb('payment integration flow', () => {
       .set('stripe-signature', 'test-signature')
       .send(Buffer.from('{}'));
 
+    if (webhookResponse.status !== 200) console.log('WEBHOOK 500 ERROR:', webhookResponse.body);
     expect(webhookResponse.status).toBe(200);
     expect(webhookResponse.body).toEqual({ received: true });
 
@@ -122,26 +155,27 @@ describeDb('payment integration flow', () => {
     await expect(testPrisma.propertyHold.findUnique({ where: { holdToken } })).resolves.toBeNull();
 
     const paymentIntent = await testPrisma.paymentIntent.findUniqueOrThrow({
-      where: { id: 'pi_test_created' },
+      where: { id: stripeState.createdPaymentIntent.id },
     });
     expect(paymentIntent.status).toBe('PAID');
     expect(paymentIntent.accommodationBookingId).toBe(booking?.id);
 
     const paymentRecord = await testPrisma.paymentRecord.findUnique({
-      where: { transactionId: 'pi_test_created' },
+      where: { transactionId: stripeState.createdPaymentIntent.id },
     });
     expect(paymentRecord).toMatchObject({ status: 'PAID', amountCaptured: 45_000 });
   });
 
   it('does not create duplicate bookings when Stripe retries a success webhook', async () => {
     const { guest, holdToken } = await createPaidHold();
-    await createStripePaymentIntent(holdToken, guest.id);
+    await createPaymentIntent(holdToken, guest.id);
 
     stripeState.event = {
+      id: `evt_test_${crypto.randomUUID()}`,
       type: 'payment_intent.succeeded',
       data: {
         object: {
-          id: 'pi_test_created',
+          id: stripeState.createdPaymentIntent.id,
           amount_received: 45_000,
           payment_method: 'pm_card_visa',
           metadata: { holdToken, userId: guest.id },
@@ -171,11 +205,12 @@ describeDb('payment integration flow', () => {
 
   it('releases inventory and marks pending intent failed on payment failure', async () => {
     const { guest, holdToken, property, unitType } = await createPaidHold();
-    await createStripePaymentIntent(holdToken, guest.id);
+    await createPaymentIntent(holdToken, guest.id);
 
     stripeState.event = {
+      id: `evt_test_${crypto.randomUUID()}`,
       type: 'payment_intent.payment_failed',
-      data: { object: { id: 'pi_test_created', metadata: { holdToken } } },
+      data: { object: { id: stripeState.createdPaymentIntent.id, metadata: { holdToken } } },
     };
 
     const response = await createTestAgent()
@@ -187,7 +222,7 @@ describeDb('payment integration flow', () => {
     await expect(testPrisma.propertyHold.findUnique({ where: { holdToken } })).resolves.toBeNull();
 
     const paymentIntent = await testPrisma.paymentIntent.findUniqueOrThrow({
-      where: { id: 'pi_test_created' },
+      where: { id: stripeState.createdPaymentIntent.id },
     });
     expect(paymentIntent.status).toBe('FAILED');
 
@@ -206,11 +241,12 @@ describeDb('payment integration flow', () => {
 
   it('marks pending intents canceled when Stripe cancels payment', async () => {
     const { guest, holdToken } = await createPaidHold();
-    await createStripePaymentIntent(holdToken, guest.id);
+    await createPaymentIntent(holdToken, guest.id);
 
     stripeState.event = {
+      id: `evt_test_${crypto.randomUUID()}`,
       type: 'payment_intent.canceled',
-      data: { object: { id: 'pi_test_created', metadata: { holdToken } } },
+      data: { object: { id: stripeState.createdPaymentIntent.id, metadata: { holdToken } } },
     };
 
     const response = await createTestAgent()
@@ -221,7 +257,7 @@ describeDb('payment integration flow', () => {
     expect(response.status).toBe(200);
 
     const paymentIntent = await testPrisma.paymentIntent.findUniqueOrThrow({
-      where: { id: 'pi_test_created' },
+      where: { id: stripeState.createdPaymentIntent.id },
     });
     expect(paymentIntent.status).toBe('CANCELLED');
   });
