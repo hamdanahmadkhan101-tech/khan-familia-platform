@@ -7,6 +7,7 @@ export {
   BookingChannel,
   BookingType,
   BusinessVertical,
+  CancellationPolicyType,
   PaymentStatus,
   PlatformRole,
   PropertyApprovalStatus,
@@ -17,4 +18,5 @@ export {
   TenantStatus,
   TenantUserStatus,
   UserStatus,
+  PaymentProvider,
 } from '@prisma/client';

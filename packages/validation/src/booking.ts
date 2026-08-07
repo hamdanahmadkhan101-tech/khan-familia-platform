@@ -50,8 +50,8 @@ export const createHoldBodySchema = z
     startDate: z.string().date(),
     endDate: z.string().date(),
     quantity: z.number().int().min(1).default(1),
-    guestDetails: z.array(guestDetailSchema).optional(),
-    specialNeeds: z.array(z.string()).optional(),
+    guestDetails: z.array(guestDetailSchema).default([]),
+    specialNeeds: z.array(z.string()).default([]),
   })
   .refine((data) => data.startDate >= todayDateString(), {
     message: 'startDate must be today or a future date',
@@ -61,7 +61,7 @@ export const createHoldBodySchema = z
     (data) => {
       const start = new Date(data.startDate);
       const end = new Date(data.endDate);
-      return end >= start;
+      return end > start;
     },
     {
       message: 'endDate must be greater than or equal to startDate',

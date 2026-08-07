@@ -148,8 +148,7 @@ enum PaymentStatus {
 enum PaymentProvider {
   STRIPE
   MANUAL // Cash or bank transfer recorded by operator
-  JAZZCASH // Phase 2
-  EASYPAISA // Phase 2
+  RAPID_GATEWAY
 }
 
 enum DiscountType {
@@ -305,6 +304,8 @@ model User {
   confirmedBookings       AccommodationBooking[]              @relation("BookingConfirmer")
   checkedInBookings       AccommodationBooking[]              @relation("BookingCheckinStaff")
   checkedOutBookings      AccommodationBooking[]              @relation("BookingCheckoutStaff")
+  requestedModifications  BookingModification[]
+  reviewedModifications   BookingModification[]               @relation("ModificationReviewer")
   tourBookings            TourBooking[]                       @relation("TourBookingUser")
   createdTourPackages     TourPackage[]                       @relation("TourPackageCreator")
   reviews                 Review[]                            @relation("ReviewAuthor")
@@ -342,6 +343,9 @@ model Tenant {
   inventoryHorizonDays Int               @default(365)
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
+  currency             String            @default("PKR")
+  serviceFeePercentage Float             @default(5.0)
+  taxPercentage        Float             @default(0.0)
 
   defaultUsers   User[]                 @relation("DefaultTenant")
   users          TenantUser[]
@@ -580,7 +584,7 @@ model TourPackageImage {
   @@index([tourPackageId])
 }
 
-// INVARIANT: availableCount + bookedCount + blockedCount = totalCount
+// INVARIANT: availableCount + bookedCount + blockedCount + heldCount = totalCount
 // See raw migration #1 — add check constraint after first migration.
 model UnitInventory {
   id             String   @id @default(cuid())
@@ -595,6 +599,7 @@ model UnitInventory {
   availableCount Int      @default(1)
   bookedCount    Int      @default(0)
   blockedCount   Int      @default(0)
+  heldCount      Int      @default(0)
   priceOverride  Int?
   blockReason    String?
   version        Int      @default(0) // Optimistic lock counter
@@ -631,6 +636,7 @@ model AccommodationBooking {
   checkOut           DateTime
   nights             Int
   guests             Int                        @default(1)
+  unitQuantity       Int                        @default(1)
   promoCodeId        String?
   promoCode          PromoCode?                 @relation(fields: [promoCodeId], references: [id], onDelete: SetNull)
   promoUsageApplied  Boolean                    @default(false)
@@ -663,6 +669,7 @@ model AccommodationBooking {
   review                            Review?
   inquiries                         PropertyInquiry[]
   paymentIntents                    PaymentIntent[]
+  modifications                     BookingModification[]
   BookingPriceSnapshot              BookingPriceSnapshot?
   AccommodationBookingStatusHistory AccommodationBookingStatusHistory[]
 
@@ -1245,12 +1252,40 @@ model PropertyHold {
   guestDetails   Json?
   specialNeeds   Json?
   createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@index([userId])
   @@index([tenantId])
   @@index([propertyId])
   @@index([unitTypeId, startDate, endDate])
   @@index([expiresAt])
+}
+
+model BookingModification {
+  id               String               @id @default(cuid())
+  bookingId        String
+  booking          AccommodationBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  requestedById    String
+  requestedBy      User                 @relation(fields: [requestedById], references: [id])
+  status           ModificationStatus   @default(PENDING)
+  changesRequested Json
+  reason           String?
+  reviewedAt       DateTime?
+  reviewedById     String?
+  reviewedBy       User?                @relation("ModificationReviewer", fields: [reviewedById], references: [id])
+  rejectionReason  String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  @@index([bookingId])
+  @@index([status])
+}
+
+enum ModificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
 }
 
 enum BookingType {
