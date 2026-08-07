@@ -1,0 +1,76 @@
+import type { Prisma } from '@khan-familia/database';
+
+export const bookingSelect = {
+  id: true,
+  userId: true,
+  tenantId: true,
+  propertyId: true,
+  unitTypeId: true,
+  channel: true,
+  checkIn: true,
+  checkOut: true,
+  nights: true,
+  guests: true,
+  unitQuantity: true,
+  status: true,
+  confirmedAt: true,
+  checkedInAt: true,
+  checkedOutAt: true,
+  cancellationReason: true,
+  cancellationDate: true,
+  refundAmount: true,
+  contactName: true,
+  contactEmail: true,
+  contactPhone: true,
+  notes: true,
+  createdAt: true,
+  updatedAt: true,
+  property: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      city: true,
+      country: true,
+      address: true,
+      images: true,
+      checkInTime: true,
+      checkOutTime: true,
+      timezone: true,
+    },
+  },
+  unitType: {
+    select: {
+      id: true,
+      name: true,
+      capacity: true,
+      defaultRate: true,
+      images: true,
+    },
+  },
+  BookingPriceSnapshot: {
+    select: {
+      id: true,
+      currency: true,
+      totalMinor: true,
+      breakdown: true,
+      createdAt: true,
+    },
+  },
+  guestDetails: {
+    select: {
+      id: true,
+      isPrimary: true,
+      name: true,
+      age: true,
+    },
+    orderBy: { id: 'asc' },
+  },
+  specialRequests: {
+    select: {
+      id: true,
+      text: true,
+    },
+    orderBy: { id: 'asc' },
+  },
+} satisfies Prisma.AccommodationBookingSelect;
