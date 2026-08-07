@@ -1,4 +1,4 @@
-import { BookingType } from '@khan-familia/database';
+import { BookingType, convertHoldToBookingInventory } from '@khan-familia/database';
 import Stripe from 'stripe';
 import { stripe } from '../../infrastructure/stripe/client.js';
 import { prisma } from '../../infrastructure/database/client.js';
@@ -6,6 +6,8 @@ import { env } from '../../env.js';
 import { AppError } from '../../shared/errors/AppError.js';
 import { calculateNights, multiplyMoney, toMinorUnits, encrypt } from '@khan-familia/utils';
 import { releaseHold } from '../inventory/inventory.service.js';
+import { bookingSelect } from '../booking/booking.selectors.js';
+import { PaymentGatewayFactory } from './gateway.factory.js';
 
 /**
  * Payment Service — Provider-agnostic layer.
@@ -18,7 +20,7 @@ import { releaseHold } from '../inventory/inventory.service.js';
 // ---------------------------------------------------------------------------
 // Create Stripe PaymentIntent + internal PaymentIntent record
 // ---------------------------------------------------------------------------
-export const createStripePaymentIntent = async (
+export const createPaymentIntent = async (
   holdToken: string,
   userId: string,
   guestDetails?: Record<string, unknown>[],
@@ -39,6 +41,13 @@ export const createStripePaymentIntent = async (
               requiresApproval: true,
             },
           },
+        },
+      },
+      tenant: {
+        select: {
+          currency: true,
+          serviceFeePercentage: true,
+          taxPercentage: true,
         },
       },
     },
@@ -88,17 +97,30 @@ export const createStripePaymentIntent = async (
     select: { priceOverride: true },
   });
 
-  let totalCharge = 0;
-  if (inventoryRows.length === nights) {
-    totalCharge = inventoryRows.reduce(
-      (sum, row) => sum + (row.priceOverride ?? defaultBaseRate),
-      0,
+  if (inventoryRows.length !== nights) {
+    throw AppError.conflict(
+      'Inventory records do not match the expected night count. Please try again.',
+      { expected: nights, actual: inventoryRows.length },
     );
-  } else {
-    totalCharge = defaultBaseRate * nights;
   }
 
-  const totalMinor = multiplyMoney(toMinorUnits(totalCharge), hold.quantity); // stored in minor units (paisa/cents)
+  const baseTotal = inventoryRows.reduce(
+    (sum, row) => sum + (row.priceOverride ?? defaultBaseRate),
+    0,
+  );
+
+  const baseMinor = multiplyMoney(toMinorUnits(baseTotal), hold.quantity);
+  const serviceFeeMinor = Math.round(baseMinor * ((hold.tenant.serviceFeePercentage ?? 5) / 100));
+  const taxesMinor = Math.round(baseMinor * ((hold.tenant.taxPercentage ?? 0) / 100));
+
+  const totalMinor = baseMinor + serviceFeeMinor + taxesMinor;
+
+  const breakdown = {
+    base: baseMinor,
+    taxes: taxesMinor,
+    fees: serviceFeeMinor,
+    discount: 0,
+  };
 
   if (totalMinor <= 0) {
     throw AppError.badRequest(
@@ -108,18 +130,22 @@ export const createStripePaymentIntent = async (
 
   const reusableIntent = await prisma.paymentIntent.findFirst({
     where: {
-      metadata: { equals: { holdToken } },
+      metadata: { path: ['holdToken'], equals: holdToken },
       status: 'PENDING',
       expiresAt: { gt: new Date() },
     },
     orderBy: { createdAt: 'desc' },
   });
 
+  const provider = 'STRIPE'; // Default to stripe for now
+  const gateway = PaymentGatewayFactory.getGateway(provider);
+
   if (reusableIntent) {
-    const stripeIntent = await stripe.paymentIntents.retrieve(reusableIntent.id);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const gatewayIntent = (await gateway.retrieveIntent(reusableIntent.id)) as any;
 
     return {
-      clientSecret: stripeIntent.client_secret,
+      clientSecret: gatewayIntent.client_secret || gatewayIntent.clientSecret,
       paymentIntentId: reusableIntent.id,
       amount: reusableIntent.amount,
       currency: reusableIntent.currency,
@@ -127,41 +153,41 @@ export const createStripePaymentIntent = async (
     };
   }
 
-  // 3. Create Stripe PaymentIntent
-  const stripeIntent = await stripe.paymentIntents.create({
-    amount: totalMinor, // Stripe uses smallest currency unit
+  // 3. Create Gateway PaymentIntent
+  const gatewayIntent = await gateway.createIntent({
+    amountMinor: totalMinor, // Gateway uses smallest currency unit
     currency: 'pkr',
-    capture_method: hold.unitType.property.requiresApproval ? 'manual' : 'automatic',
+    captureMethod: hold.unitType.property.requiresApproval ? 'manual' : 'automatic',
     metadata: {
       holdToken,
       userId,
       tenantId: hold.tenantId,
-      propertyId: hold.unitType.propertyId,
+      propertyId: hold.propertyId,
       unitTypeId: hold.unitTypeId,
       nights: nights.toString(),
+      breakdown: JSON.stringify(breakdown),
     },
-    automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
   });
 
   // 4. Persist an internal PaymentIntent record so we can reconcile webhooks
   const internalIntent = await prisma.paymentIntent.create({
     data: {
-      id: stripeIntent.id, // use Stripe's pi_ ID as our PK for easy lookup
+      id: gatewayIntent.gatewayIntentId, // use Gateway's ID as our PK for easy lookup
       tenantId: hold.tenantId,
       bookingType: BookingType.ACCOMMODATION,
       amount: totalMinor,
-      currency: 'PKR',
-      provider: 'STRIPE',
+      currency: hold.tenant.currency,
+      provider: provider,
       expiresAt: hold.expiresAt,
-      metadata: { holdToken },
+      metadata: { holdToken, breakdown },
     },
   });
 
   return {
-    clientSecret: stripeIntent.client_secret,
+    clientSecret: gatewayIntent.clientSecret,
     paymentIntentId: internalIntent.id,
     amount: totalMinor,
-    currency: 'PKR',
+    currency: hold.tenant.currency,
     expiresAt: hold.expiresAt,
   };
 };
@@ -225,9 +251,10 @@ const createBookingRecord = async (
       checkOut: hold.endDate,
       nights,
       guests: finalGuestCount,
+      unitQuantity: hold.quantity,
       status: bookingStatus,
       idempotencyKey: holdToken,
-      confirmedAt: new Date(),
+      ...(bookingStatus === 'CONFIRMED' ? { confirmedAt: new Date() } : {}),
     },
   });
 };
@@ -242,7 +269,7 @@ const createReservations = async (
     where: {
       propertyId: hold.unitType.propertyId,
       unitTypeId: hold.unitTypeId,
-      date: { gte: hold.startDate, lte: hold.endDate },
+      date: { gte: hold.startDate, lt: hold.endDate },
     },
     select: { id: true, date: true },
   });
@@ -258,19 +285,20 @@ const createReservations = async (
   }
 };
 
-/** Step 3 inside transaction: snapshot the price actually charged by Stripe. */
 const createPriceSnapshot = async (
   tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
   bookingId: string,
   /** The authoritative total in minor units — taken from Stripe's settled amount. */
   chargedMinor: number,
+  currency: string,
+  breakdown?: { base: number; taxes: number; fees: number; discount: number },
 ) => {
   await tx.bookingPriceSnapshot.create({
     data: {
       accommodationBookingId: bookingId,
-      currency: 'PKR',
+      currency,
       totalMinor: chargedMinor,
-      breakdown: {
+      breakdown: breakdown ?? {
         base: chargedMinor,
         taxes: 0,
         fees: 0,
@@ -285,13 +313,14 @@ const createPaymentRecord = async (
   tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
   stripeIntent: Stripe.PaymentIntent,
   paymentStatus: 'PAID' | 'PENDING',
+  currency: string,
 ) => {
   await tx.paymentRecord.create({
     data: {
       paymentIntentId: stripeIntent.id,
       transactionId: stripeIntent.id,
       amountCaptured: stripeIntent.amount_received || stripeIntent.amount_capturable || 0,
-      currency: 'PKR',
+      currency,
       status: paymentStatus,
       ...(stripeIntent.payment_method
         ? { paymentMethod: { id: stripeIntent.payment_method as string } }
@@ -306,7 +335,10 @@ const createBookingGuests = async (
   bookingId: string,
   guestDetails: unknown,
 ) => {
-  if (!guestDetails || !Array.isArray(guestDetails)) return;
+  if (!guestDetails) return;
+  if (!Array.isArray(guestDetails)) {
+    throw AppError.internal('Corrupted guest details: expected an array');
+  }
 
   const encryptionKey = env.ENCRYPTION_KEY;
 
@@ -333,7 +365,10 @@ const createSpecialRequests = async (
   bookingId: string,
   specialNeeds: unknown,
 ) => {
-  if (!specialNeeds || !Array.isArray(specialNeeds)) return;
+  if (!specialNeeds) return;
+  if (!Array.isArray(specialNeeds)) {
+    throw AppError.internal('Corrupted special needs: expected an array');
+  }
 
   await tx.bookingSpecialRequest.createMany({
     data: (specialNeeds as string[]).map((need) => ({
@@ -395,7 +430,10 @@ export const processPaymentIntentConfirmation = async (stripeIntent: Stripe.Paym
 
   const hold = await prisma.propertyHold.findUnique({
     where: { holdToken },
-    include: { unitType: { select: { defaultRate: true, propertyId: true } } },
+    include: {
+      unitType: { select: { defaultRate: true, propertyId: true } },
+      tenant: { select: { currency: true } },
+    },
   });
 
   if (!hold) {
@@ -405,16 +443,31 @@ export const processPaymentIntentConfirmation = async (stripeIntent: Stripe.Paym
   const nights = Math.max(1, calculateNights(hold.startDate, hold.endDate));
   const { bookingStatus, paymentStatus } = deriveStatuses(stripeIntent.status);
 
-  // Use the amount Stripe actually settled as the authoritative total for the
-  // price snapshot. This avoids a mismatch if priceOverrides were in effect
-  // when the PaymentIntent was created but defaultRate was used for the snapshot.
-  const chargedMinor = stripeIntent.amount_received || stripeIntent.amount_capturable || 0;
+  const chargedMinor =
+    stripeIntent.amount_received || stripeIntent.amount_capturable || stripeIntent.amount || 0;
+  let breakdownObj: { base: number; taxes: number; fees: number; discount: number } | undefined;
+  try {
+    const breakdownStr = stripeIntent.metadata['breakdown'];
+    breakdownObj = breakdownStr ? JSON.parse(breakdownStr) : undefined;
+  } catch {
+    // Ignore parse error
+  }
 
   return prisma.$transaction(async (tx) => {
     const booking = await createBookingRecord(tx, hold, userId, nights, bookingStatus, holdToken);
+
+    await convertHoldToBookingInventory(tx, {
+      propertyId: hold.propertyId,
+      unitTypeId: hold.unitTypeId,
+      tenantId: hold.tenantId,
+      startDate: hold.startDate,
+      endDate: hold.endDate,
+      quantity: hold.quantity,
+    });
+
     await createReservations(tx, hold, booking.id);
-    await createPriceSnapshot(tx, booking.id, chargedMinor);
-    await createPaymentRecord(tx, stripeIntent, paymentStatus);
+    await createPriceSnapshot(tx, booking.id, chargedMinor, hold.tenant.currency, breakdownObj);
+    await createPaymentRecord(tx, stripeIntent, paymentStatus, hold.tenant.currency);
     await createBookingGuests(tx, booking.id, hold.guestDetails);
     await createSpecialRequests(tx, booking.id, hold.specialNeeds);
     await finaliseHoldAndIntent(tx, hold.id, stripeIntent.id, booking.id, paymentStatus);
@@ -443,8 +496,6 @@ export const confirmStripePaymentIntent = async (paymentIntentId: string, userId
     throw AppError.badRequest('Booking hold expired or payment details mismatch');
   }
 
-  const { bookingSelect } = await import('../booking/booking.service.js');
-
   const hydratedBooking = await prisma.accommodationBooking.findUnique({
     where: { id: booking.id },
     select: bookingSelect,
@@ -460,29 +511,35 @@ export const confirmStripePaymentIntent = async (paymentIntentId: string, userId
 // ---------------------------------------------------------------------------
 // Handle Stripe webhook event — converts hold → confirmed AccommodationBooking
 // ---------------------------------------------------------------------------
-export const handleStripeWebhookEvent = async (
-  rawBody: Buffer,
-  signature: string,
-  webhookSecret: string,
-) => {
+export const handleStripeWebhookEvent = async (rawBody: Buffer, signature: string) => {
+  const gateway = PaymentGatewayFactory.getGateway('STRIPE');
   let event;
 
   try {
-    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
+    event = gateway.parseWebhookEvent(signature, rawBody);
   } catch {
     throw AppError.badRequest('Invalid Stripe webhook signature');
+  }
+
+  const rawEvent = event.rawEvent as Stripe.Event;
+
+  const existingEvent = await prisma.processedEvent.findUnique({
+    where: { eventId: rawEvent.id },
+  });
+  if (existingEvent) {
+    return { received: true };
   }
 
   const isSucceeded = event.type === 'payment_intent.succeeded';
   const isCapturable = event.type === 'payment_intent.amount_capturable_updated';
 
   if (isSucceeded || isCapturable) {
-    const stripeIntent = event.data.object as Stripe.PaymentIntent;
+    const stripeIntent = rawEvent.data.object as Stripe.PaymentIntent;
     await processPaymentIntentConfirmation(stripeIntent);
   }
 
   if (event.type === 'payment_intent.payment_failed' || event.type === 'payment_intent.canceled') {
-    const stripeIntent = event.data.object;
+    const stripeIntent = rawEvent.data.object as Stripe.PaymentIntent;
     const { holdToken } = stripeIntent.metadata;
 
     if (holdToken) {
@@ -503,39 +560,57 @@ export const handleStripeWebhookEvent = async (
     }
   }
 
+  await prisma.processedEvent.create({
+    data: { eventId: rawEvent.id, type: event.type },
+  });
+
   return { received: true };
 };
 
 // ---------------------------------------------------------------------------
-// Stripe payment intent lifecycle operations
+// Payment intent lifecycle operations (Provider-Agnostic)
 // ---------------------------------------------------------------------------
 
-export const captureStripePaymentIntent = async (paymentIntentId: string) => {
-  try {
-    return await stripe.paymentIntents.capture(paymentIntentId);
-  } catch (error) {
-    const stripeError = error as { code?: string; message?: string };
-    if (
-      stripeError.code === 'payment_intent_unexpected_state' &&
-      stripeError.message?.includes('already been captured')
-    ) {
-      return; // Idempotent success
-    }
-    throw error;
+export const capturePaymentIntent = async (paymentIntentId: string) => {
+  const intent = await prisma.paymentIntent.findUnique({
+    where: { id: paymentIntentId },
+    select: { provider: true },
+  });
+  if (!intent?.provider) throw AppError.notFound('Payment intent or provider not found');
+  const gateway = PaymentGatewayFactory.getGateway(intent.provider);
+  if (gateway.confirmIntent) {
+    await gateway.confirmIntent(paymentIntentId);
   }
 };
 
-export const cancelStripePaymentIntent = async (paymentIntentId: string) => {
-  try {
-    return await stripe.paymentIntents.cancel(paymentIntentId);
-  } catch (error) {
-    const stripeError = error as { code?: string; message?: string };
-    if (
-      stripeError.code === 'payment_intent_unexpected_state' &&
-      stripeError.message?.includes('already been canceled')
-    ) {
-      return; // Idempotent success
-    }
-    throw error;
+export const cancelPaymentIntent = async (paymentIntentId: string) => {
+  const intent = await prisma.paymentIntent.findUnique({
+    where: { id: paymentIntentId },
+    select: { provider: true },
+  });
+  if (!intent?.provider) throw AppError.notFound('Payment intent or provider not found');
+  const gateway = PaymentGatewayFactory.getGateway(intent.provider);
+  if (gateway.cancelIntent) {
+    await gateway.cancelIntent(paymentIntentId);
+  }
+};
+
+export const refundPaymentIntent = async (
+  paymentIntentId: string,
+  amountMinor?: number,
+  reason?: string,
+) => {
+  const intent = await prisma.paymentIntent.findUnique({
+    where: { id: paymentIntentId },
+    select: { provider: true },
+  });
+  if (!intent?.provider) throw AppError.notFound('Payment intent or provider not found');
+  const gateway = PaymentGatewayFactory.getGateway(intent.provider);
+  if (gateway.refundIntent) {
+    await gateway.refundIntent({
+      intentId: paymentIntentId,
+      ...(amountMinor !== undefined && { amountMinor }),
+      ...(reason !== undefined && { reason }),
+    });
   }
 };
