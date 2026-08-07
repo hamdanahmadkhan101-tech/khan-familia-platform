@@ -30,8 +30,10 @@ export const listPropertiesForTenant = async (
 ): Promise<void> => {
   try {
     const tenantReq = req as TenantRequest;
-    const properties = await listPropertiesForTenantService(tenantReq.tenantId);
-    res.status(200).json({ properties });
+    const page = req.query['page'] ? Number(req.query['page']) : undefined;
+    const limit = req.query['limit'] ? Number(req.query['limit']) : undefined;
+    const result = await listPropertiesForTenantService(tenantReq.tenantId, { page, limit });
+    res.status(200).json(result);
   } catch (err) {
     next(err);
   }

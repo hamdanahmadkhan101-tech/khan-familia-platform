@@ -6,3 +6,5 @@ export { releaseReservedInventoryForStay } from './inventory/release-reserved-in
 export type { ReleaseReservedInventoryParams } from './inventory/release-reserved-inventory.js';
 export { releaseHoldInventory } from './inventory/release-hold-inventory.js';
 export type { ReleaseHoldInventoryParams } from './inventory/release-hold-inventory.js';
+export { convertHoldToBookingInventory } from './inventory/convert-hold-to-booking.js';
+export type { ConvertHoldToBookingParams } from './inventory/convert-hold-to-booking.js';

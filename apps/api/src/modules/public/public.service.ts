@@ -1,4 +1,5 @@
 import { prisma } from '../../infrastructure/database/client.js';
+import type { Prisma } from '@khan-familia/database';
 import { PropertyApprovalStatus } from '@khan-familia/database';
 import { AppError } from '../../shared/errors/AppError.js';
 import type { PublicPropertyDetails, PublicPropertySummary } from '@khan-familia/types';
@@ -7,33 +8,87 @@ import type { PublicPropertyDetails, PublicPropertySummary } from '@khan-familia
  * Lists all approved, non-deleted properties.
  * Returns only the fields needed to render a property card.
  */
-export const listPublicProperties = async (): Promise<PublicPropertySummary[]> => {
-  const rows = await prisma.property.findMany({
-    where: {
-      approvalStatus: PropertyApprovalStatus.APPROVED,
-      isDeleted: false,
-    },
-    select: {
-      id: true,
-      slug: true,
-      name: true,
-      city: true,
-      country: true,
-      starRating: true,
-      minPricePerNight: true,
-      averageRating: true,
-      totalReviews: true,
-      images: true,
-      propertyType: true,
-      propertyCategory: true,
-    },
-    orderBy: {
-      createdAt: 'desc',
-    },
-  });
+export type PublicPropertyFilters = {
+  city?: string | undefined;
+  country?: string | undefined;
+  propertyType?: string | undefined;
+  propertyCategory?: string | undefined;
+  minPrice?: number | undefined;
+  maxPrice?: number | undefined;
+  starRating?: number | undefined;
+  query?: string | undefined;
+  page?: number | undefined;
+  limit?: number | undefined;
+};
 
-  // images is stored as Json in Prisma — cast to our typed shape
-  return rows as unknown as PublicPropertySummary[];
+/**
+ * Lists all approved, non-deleted properties.
+ * Returns only the fields needed to render a property card.
+ */
+export const listPublicProperties = async (
+  filters: PublicPropertyFilters = {},
+): Promise<{ properties: PublicPropertySummary[]; total: number; page: number; limit: number }> => {
+  const page = Math.max(1, filters.page ?? 1);
+  const limit = Math.min(50, Math.max(1, filters.limit ?? 20));
+  const skip = (page - 1) * limit;
+
+  const where: Prisma.PropertyWhereInput = {
+    approvalStatus: PropertyApprovalStatus.APPROVED,
+    isDeleted: false,
+  };
+
+  if (filters.city) where.city = { contains: filters.city, mode: 'insensitive' };
+  if (filters.country) where.country = { contains: filters.country, mode: 'insensitive' };
+  if (filters.propertyType)
+    where.propertyType = filters.propertyType as import('@khan-familia/database').PropertyType;
+  if (filters.propertyCategory)
+    where.propertyCategory =
+      filters.propertyCategory as import('@khan-familia/database').PropertyCategory;
+  if (filters.starRating) where.starRating = { gte: filters.starRating };
+  if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
+    const priceFilter: Prisma.IntFilter = {};
+    if (filters.minPrice !== undefined) priceFilter.gte = filters.minPrice;
+    if (filters.maxPrice !== undefined) priceFilter.lte = filters.maxPrice;
+    where.minPricePerNight = priceFilter;
+  }
+  if (filters.query) {
+    where.OR = [
+      { name: { contains: filters.query, mode: 'insensitive' } },
+      { description: { contains: filters.query, mode: 'insensitive' } },
+      { city: { contains: filters.query, mode: 'insensitive' } },
+    ];
+  }
+
+  const [rows, total] = await prisma.$transaction([
+    prisma.property.findMany({
+      where,
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        city: true,
+        country: true,
+        starRating: true,
+        minPricePerNight: true,
+        averageRating: true,
+        totalReviews: true,
+        images: true,
+        propertyType: true,
+        propertyCategory: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+    }),
+    prisma.property.count({ where }),
+  ]);
+
+  return {
+    properties: rows as unknown as PublicPropertySummary[],
+    total,
+    page,
+    limit,
+  };
 };
 
 /**

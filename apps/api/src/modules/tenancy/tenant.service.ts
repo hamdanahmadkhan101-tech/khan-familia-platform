@@ -63,6 +63,16 @@ export const createTenant = async (
   db: PrismaClient = prisma,
 ): Promise<TenantDto> => {
   return db.$transaction(async (tx) => {
+    const application = await tx.tenantApplication.findFirst({
+      where: { userId, status: 'APPROVED', approvedTenantId: null },
+    });
+
+    if (!application) {
+      throw AppError.forbidden(
+        'You must have an approved, unused tenant application to create a new tenant.',
+      );
+    }
+
     const slug = await resolveUniqueTenantSlug(tx, input.name, input.slug);
 
     const createData: Prisma.TenantCreateInput = {
@@ -97,6 +107,11 @@ export const createTenant = async (
         data: { defaultTenantId: tenant.id },
       });
     }
+
+    await tx.tenantApplication.update({
+      where: { id: application.id },
+      data: { approvedTenantId: tenant.id },
+    });
 
     return tenant;
   });

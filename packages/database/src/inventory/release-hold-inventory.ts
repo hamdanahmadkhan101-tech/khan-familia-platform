@@ -48,10 +48,10 @@ export const releaseHoldInventory = async (
   const released = await tx.unitInventory.updateMany({
     where: {
       id: { in: inventoryRows.map((row) => row.id) },
-      bookedCount: { gte: params.quantity },
+      heldCount: { gte: params.quantity },
     },
     data: {
-      bookedCount: { decrement: params.quantity },
+      heldCount: { decrement: params.quantity },
       availableCount: { increment: params.quantity },
       version: { increment: 1 },
     },

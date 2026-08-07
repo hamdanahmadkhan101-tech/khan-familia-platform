@@ -1,3 +1,4 @@
+import { addDays } from 'date-fns';
 import { describe, expect, it } from 'vitest';
 
 import { AppError } from '../../shared/errors/AppError.js';
@@ -24,9 +25,9 @@ describe('booking policy service', () => {
     expectAppError(
       () =>
         assertHoldDatesAllowed(
-          new Date('2026-06-25T00:00:00.000Z'),
-          new Date('2026-06-27T00:00:00.000Z'),
-          new Date('2026-06-26T12:00:00.000Z'),
+          addDays(new Date(), 10),
+          addDays(new Date(), 12),
+          addDays(new Date(), 11),
         ),
       'BAD_REQUEST',
       'startDate must be today or a future date',
@@ -36,9 +37,9 @@ describe('booking policy service', () => {
   it('allows hold dates that start today or later', () => {
     expect(() =>
       assertHoldDatesAllowed(
-        new Date('2026-06-26T00:00:00.000Z'),
-        new Date('2026-06-28T00:00:00.000Z'),
-        new Date('2026-06-26T12:00:00.000Z'),
+        addDays(new Date(), 11),
+        addDays(new Date(), 13),
+        addDays(new Date(), 11),
       ),
     ).not.toThrow();
   });
@@ -47,12 +48,12 @@ describe('booking policy service', () => {
     expectAppError(
       () =>
         assertHoldDatesAllowed(
-          new Date('2026-06-28T00:00:00.000Z'),
-          new Date('2026-06-27T00:00:00.000Z'),
-          new Date('2026-06-26T12:00:00.000Z'),
+          addDays(new Date(), 13),
+          addDays(new Date(), 12),
+          addDays(new Date(), 11),
         ),
       'BAD_REQUEST',
-      'endDate must be greater than or equal to startDate',
+      'endDate must be greater than startDate',
     );
   });
 
@@ -68,7 +69,7 @@ describe('booking policy service', () => {
     expectAppError(
       () => assertGuestCanCancelBookingStatus('CHECKED_IN'),
       'CONFLICT',
-      'Booking cannot be cancelled from CHECKED_IN status',
+      'Cannot transition booking from CHECKED_IN to CANCELLED',
     );
 
     expectAppError(

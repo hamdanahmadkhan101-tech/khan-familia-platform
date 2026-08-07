@@ -1,10 +1,9 @@
 import type { NextFunction, Request, Response } from 'express';
-import { env } from '../../env.js';
 import { AppError } from '../../shared/errors/AppError.js';
 import type { AuthenticatedRequest } from '../../shared/types/request.js';
 import {
   confirmStripePaymentIntent,
-  createStripePaymentIntent,
+  createPaymentIntent,
   handleStripeWebhookEvent,
 } from './payment.service.js';
 import {
@@ -31,7 +30,7 @@ export const createPaymentIntentController = async (
       throw AppError.unauthorized('Authentication required');
     }
 
-    const result = await createStripePaymentIntent(
+    const result = await createPaymentIntent(
       body.holdToken,
       authReq.userId,
       body.guestDetails,
@@ -82,11 +81,7 @@ export const stripeWebhookController = async (
       throw AppError.badRequest('Missing stripe-signature header');
     }
 
-    const result = await handleStripeWebhookEvent(
-      req.body as Buffer,
-      signature,
-      env.STRIPE_WEBHOOK_SECRET,
-    );
+    const result = await handleStripeWebhookEvent(req.body as Buffer, signature);
 
     res.status(200).json(result);
   } catch (err) {

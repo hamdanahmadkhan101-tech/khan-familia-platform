@@ -1,4 +1,6 @@
 import type { Prisma } from '@khan-familia/database';
+import { differenceInDays } from '@khan-familia/utils';
+import { logger } from '../../logger.js';
 
 import { prisma } from '../../infrastructure/database/client.js';
 import { AppError } from '../../shared/errors/AppError.js';
@@ -7,6 +9,7 @@ import {
   assertGuestCanCancelBookingStatus,
   assertGuestCanCreateHoldForTenant,
   assertHoldDatesAllowed,
+  calculateRefundAmount,
 } from './booking-policy.service.js';
 import type {
   CancelGuestBookingBody,
@@ -15,84 +18,12 @@ import type {
   RejectBookingBody,
 } from '@khan-familia/validation';
 import {
-  cancelStripePaymentIntent,
-  captureStripePaymentIntent,
+  cancelPaymentIntent,
+  capturePaymentIntent,
+  refundPaymentIntent,
 } from '../payments/payment.service.js';
-
-export const bookingSelect = {
-  id: true,
-  userId: true,
-  tenantId: true,
-  propertyId: true,
-  unitTypeId: true,
-  channel: true,
-  checkIn: true,
-  checkOut: true,
-  nights: true,
-  guests: true,
-  status: true,
-  confirmedAt: true,
-  checkedInAt: true,
-  checkedOutAt: true,
-  cancellationReason: true,
-  cancellationDate: true,
-  refundAmount: true,
-  contactName: true,
-  contactEmail: true,
-  contactPhone: true,
-  notes: true,
-  createdAt: true,
-  updatedAt: true,
-  property: {
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      city: true,
-      country: true,
-      address: true,
-      images: true,
-      checkInTime: true,
-      checkOutTime: true,
-      timezone: true,
-    },
-  },
-  unitType: {
-    select: {
-      id: true,
-      name: true,
-      capacity: true,
-      defaultRate: true,
-      images: true,
-    },
-  },
-  BookingPriceSnapshot: {
-    select: {
-      id: true,
-      currency: true,
-      totalMinor: true,
-      breakdown: true,
-      createdAt: true,
-    },
-  },
-  guestDetails: {
-    select: {
-      id: true,
-      name: true,
-      age: true,
-      idType: true,
-      idNumber: true,
-    },
-    orderBy: { id: 'asc' },
-  },
-  specialRequests: {
-    select: {
-      id: true,
-      text: true,
-    },
-    orderBy: { id: 'asc' },
-  },
-} satisfies Prisma.AccommodationBookingSelect;
+import { assertValidTransition } from './booking-state-machine.js';
+import { bookingSelect } from './booking.selectors.js';
 
 type BookingDto = Prisma.AccommodationBookingGetPayload<{ select: typeof bookingSelect }>;
 
@@ -193,12 +124,36 @@ export const createGuestHold = async (
     throw AppError.notFound('Property not found');
   }
 
+  const unitType = await prisma.unitType.findUnique({
+    where: { id: input.unitTypeId },
+    select: { capacity: true },
+  });
+
+  if (!unitType) {
+    throw AppError.notFound('Unit Type not found');
+  }
+
+  const requestedGuests = input.guestDetails?.length || input.quantity;
+  if (unitType.capacity !== null && requestedGuests > unitType.capacity * input.quantity) {
+    throw AppError.badRequest('Requested guest count exceeds unit capacity');
+  }
+
   const tenantMembership = await prisma.tenantUser.findFirst({
     where: { tenantId: property.tenantId, userId },
     select: { userId: true },
   });
 
   assertGuestCanCreateHoldForTenant({ isTenantStaff: Boolean(tenantMembership) });
+
+  const activeHoldsCount = await prisma.propertyHold.count({
+    where: { userId, expiresAt: { gt: new Date() } },
+  });
+
+  if (activeHoldsCount >= 3) {
+    throw AppError.badRequest(
+      'You have reached the maximum number of active holds (3). Please complete checkout or release them.',
+    );
+  }
 
   return acquireHold(
     userId,
@@ -249,7 +204,10 @@ export const getGuestBookingById = async (userId: string, bookingId: string) => 
 
 const releaseBookedInventory = async (
   tx: Prisma.TransactionClient,
-  booking: Pick<BookingDto, 'id' | 'propertyId' | 'unitTypeId' | 'checkIn' | 'checkOut' | 'guests'>,
+  booking: Pick<
+    BookingDto,
+    'id' | 'propertyId' | 'unitTypeId' | 'checkIn' | 'checkOut' | 'unitQuantity'
+  >,
 ) => {
   if (!booking.unitTypeId) {
     return;
@@ -264,8 +222,11 @@ const releaseBookedInventory = async (
     select: { id: true },
   });
 
-  if (inventoryRows.length === 0) {
-    throw AppError.conflict('No inventory rows found for booking cancellation');
+  const expectedNights = differenceInDays(booking.checkOut, booking.checkIn);
+  if (inventoryRows.length !== expectedNights) {
+    throw AppError.conflict(
+      'Inventory rows found do not match the expected night count for booking cancellation',
+    );
   }
 
   await tx.reservation.deleteMany({
@@ -275,11 +236,11 @@ const releaseBookedInventory = async (
   const released = await tx.unitInventory.updateMany({
     where: {
       id: { in: inventoryRows.map((row) => row.id) },
-      bookedCount: { gte: booking.guests },
+      bookedCount: { gte: booking.unitQuantity },
     },
     data: {
-      bookedCount: { decrement: booking.guests },
-      availableCount: { increment: booking.guests },
+      bookedCount: { decrement: booking.unitQuantity },
+      availableCount: { increment: booking.unitQuantity },
       version: { increment: 1 },
     },
   });
@@ -294,94 +255,188 @@ export const cancelGuestBooking = async (
   bookingId: string,
   input: CancelGuestBookingBody,
 ) => {
-  const cancelled = await prisma.$transaction(async (tx) => {
-    const booking = await tx.accommodationBooking.findFirst({
-      where: { id: bookingId, userId },
-      select: bookingSelect,
-    });
+  // Phase 1: Validate and cancel booking + release inventory (in transaction)
+  const {
+    cancelled,
+    previousStatus,
+    propertyId,
+    checkIn,
+    paymentIntentId,
+    gatewayIntentId,
+    capturedAmount,
+  } = await prisma.$transaction(
+    async (tx) => {
+      const booking = await tx.accommodationBooking.findFirst({
+        where: { id: bookingId, userId },
+        select: bookingSelect,
+      });
 
-    if (!booking) {
-      throw AppError.notFound('Booking not found');
+      if (!booking) {
+        throw AppError.notFound('Booking not found');
+      }
+
+      assertGuestCanCancelBookingStatus(booking.status);
+
+      await releaseBookedInventory(tx, booking);
+
+      const resultCount = await tx.accommodationBooking.updateMany({
+        where: { id: booking.id, status: booking.status },
+        data: {
+          status: 'CANCELLED',
+          cancellationReason: input.reason,
+          cancellationDate: new Date(),
+        },
+      });
+      if (resultCount.count === 0) throw AppError.conflict('Booking was modified concurrently');
+      const updated = (await tx.accommodationBooking.findUnique({
+        where: { id: booking.id },
+        select: bookingSelect,
+      }))!;
+
+      await tx.accommodationBookingStatusHistory.create({
+        data: {
+          bookingId: booking.id,
+          oldStatus: booking.status,
+          newStatus: 'CANCELLED',
+          changedById: userId,
+          reason: input.reason,
+        },
+      });
+
+      // Look up payment intent for Stripe operations
+      const paymentIntent = await tx.paymentIntent.findFirst({
+        where: { accommodationBookingId: booking.id },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, status: true, amount: true },
+      });
+
+      return {
+        cancelled: updated,
+        previousStatus: booking.status,
+        propertyId: booking.propertyId,
+        checkIn: booking.checkIn,
+        paymentIntentId: paymentIntent?.id ?? null,
+        gatewayIntentId: paymentIntent?.id ?? null,
+        capturedAmount: paymentIntent?.amount ?? 0,
+      };
+    },
+    { timeout: 15000 },
+  );
+
+  // Phase 2: Handle Stripe payment cancellation/refund OUTSIDE transaction
+  if (paymentIntentId && gatewayIntentId) {
+    try {
+      if (previousStatus === 'BOOKED') {
+        // Payment was authorized but not captured — cancel the authorization
+        await cancelPaymentIntent(paymentIntentId);
+        await prisma.paymentIntent.update({
+          where: { id: paymentIntentId },
+          data: { status: 'CANCELLED' },
+        });
+      } else if (previousStatus === 'CONFIRMED') {
+        // Payment was captured — calculate refund based on cancellation policy
+        const { refundAmountMinor: refundAmount } = await calculateRefundAmount(
+          propertyId,
+          checkIn,
+          capturedAmount,
+        );
+        await refundPaymentIntent(
+          paymentIntentId,
+          refundAmount,
+          input.reason ?? 'Guest cancellation',
+        );
+        await prisma.$transaction(
+          async (tx) => {
+            await tx.refund.create({
+              data: {
+                paymentIntentId,
+                amount: refundAmount,
+                reason: input.reason ?? 'Guest cancellation',
+                status: 'REFUNDED',
+              },
+            });
+            await tx.paymentIntent.update({
+              where: { id: paymentIntentId },
+              data: { status: 'REFUNDED' },
+            });
+            await tx.accommodationBooking.update({
+              where: { id: cancelled.id },
+              data: { refundAmount },
+            });
+          },
+          { timeout: 15000 },
+        );
+      }
+    } catch (error) {
+      // Log but don't throw — the booking is already cancelled in our DB
+      // The payment team can reconcile manually if Stripe call fails
+      logger.error({ err: error }, 'Failed to process Stripe cancellation/refund');
     }
-
-    assertGuestCanCancelBookingStatus(booking.status);
-
-    await releaseBookedInventory(tx, booking);
-
-    const updated = await tx.accommodationBooking.update({
-      where: { id: booking.id },
-      data: {
-        status: 'CANCELLED',
-        cancellationReason: input.reason,
-        cancellationDate: new Date(),
-      },
-      select: bookingSelect,
-    });
-
-    await tx.accommodationBookingStatusHistory.create({
-      data: {
-        bookingId: booking.id,
-        oldStatus: booking.status,
-        newStatus: 'CANCELLED',
-        changedById: userId,
-        reason: input.reason,
-      },
-    });
-
-    return updated;
-  });
+  }
 
   return attachPayments(cancelled);
 };
 
 export const approveGuestBooking = async (tenantId: string, bookingId: string, userId: string) => {
   // Phase 1: Validate state and fetch the payment record (short read, no external calls).
-  const { booking, paymentRecord } = await prisma.$transaction(async (tx) => {
-    const booking = await tx.accommodationBooking.findFirst({
-      where: { id: bookingId, tenantId },
-      select: bookingSelect,
-    });
+  const { booking, paymentRecord } = await prisma.$transaction(
+    async (tx) => {
+      const booking = await tx.accommodationBooking.findFirst({
+        where: { id: bookingId, tenantId },
+        select: bookingSelect,
+      });
 
-    if (!booking) {
-      throw AppError.notFound('Booking not found');
-    }
+      if (!booking) {
+        throw AppError.notFound('Booking not found');
+      }
 
-    if (booking.status !== 'BOOKED') {
-      throw AppError.conflict('Only BOOKED status can be approved');
-    }
+      assertValidTransition(booking.status, 'CONFIRMED');
 
-    const paymentRecord = await tx.paymentRecord.findFirst({
-      where: { paymentIntent: { accommodationBookingId: booking.id } },
-      orderBy: { createdAt: 'desc' },
-    });
+      const paymentRecord = await tx.paymentRecord.findFirst({
+        where: { paymentIntent: { accommodationBookingId: booking.id } },
+        orderBy: { createdAt: 'desc' },
+      });
 
-    if (!paymentRecord?.paymentIntentId) {
-      throw AppError.internal('Payment intent not found for booking');
-    }
+      if (!paymentRecord?.paymentIntentId) {
+        throw AppError.internal('Payment intent not found for booking');
+      }
 
-    return { booking, paymentRecord };
-  });
+      return { booking, paymentRecord };
+    },
+    { timeout: 15000 },
+  );
 
-  // Phase 2: Call Stripe OUTSIDE the transaction. Network latency must not
+  // Phase 2: Call payment gateway OUTSIDE the transaction. Network latency must not
   // block a DB connection. If this throws, the booking stays BOOKED (safe).
-  await captureStripePaymentIntent(paymentRecord.paymentIntentId);
+  await capturePaymentIntent(paymentRecord.paymentIntentId);
 
   // Phase 3: Write the confirmed state now that Stripe has settled.
-  const updated = await prisma.accommodationBooking.update({
-    where: { id: booking.id },
-    data: { status: 'CONFIRMED' },
-    select: bookingSelect,
-  });
+  const updated = await prisma.$transaction(
+    async (tx) => {
+      const resultCount = await tx.accommodationBooking.updateMany({
+        where: { id: booking.id, status: booking.status },
+        data: { status: 'CONFIRMED' },
+      });
+      if (resultCount.count === 0) throw AppError.conflict('Booking was modified concurrently');
+      const result = (await tx.accommodationBooking.findUnique({
+        where: { id: booking.id },
+        select: bookingSelect,
+      }))!;
 
-  await prisma.accommodationBookingStatusHistory.create({
-    data: {
-      bookingId: booking.id,
-      oldStatus: booking.status,
-      newStatus: 'CONFIRMED',
-      changedById: userId,
-      reason: 'Host approved booking',
+      await tx.accommodationBookingStatusHistory.create({
+        data: {
+          bookingId: booking.id,
+          oldStatus: booking.status,
+          newStatus: 'CONFIRMED',
+          changedById: userId,
+          reason: 'Host approved booking',
+        },
+      });
+
+      return result;
     },
-  });
+    { timeout: 15000 },
+  );
 
   return attachPayments(updated);
 };
@@ -393,61 +448,171 @@ export const rejectGuestBooking = async (
   input: RejectBookingBody,
 ) => {
   // Phase 1: Validate state and fetch payment record.
-  const { booking, paymentRecord } = await prisma.$transaction(async (tx) => {
-    const booking = await tx.accommodationBooking.findFirst({
-      where: { id: bookingId, tenantId },
-      select: bookingSelect,
-    });
+  const { booking, paymentRecord } = await prisma.$transaction(
+    async (tx) => {
+      const booking = await tx.accommodationBooking.findFirst({
+        where: { id: bookingId, tenantId },
+        select: bookingSelect,
+      });
 
-    if (!booking) {
-      throw AppError.notFound('Booking not found');
-    }
+      if (!booking) {
+        throw AppError.notFound('Booking not found');
+      }
 
-    if (booking.status !== 'BOOKED') {
-      throw AppError.conflict('Only BOOKED status can be rejected');
-    }
+      assertValidTransition(booking.status, 'CANCELLED');
 
-    const paymentRecord = await tx.paymentRecord.findFirst({
-      where: { paymentIntent: { accommodationBookingId: booking.id } },
-      orderBy: { createdAt: 'desc' },
-    });
+      const paymentRecord = await tx.paymentRecord.findFirst({
+        where: { paymentIntent: { accommodationBookingId: booking.id } },
+        orderBy: { createdAt: 'desc' },
+      });
 
-    return { booking, paymentRecord };
-  });
+      return { booking, paymentRecord };
+    },
+    { timeout: 15000 },
+  );
 
-  // Phase 2: Cancel the Stripe authorization OUTSIDE the transaction.
+  // Phase 2: Cancel the authorization OUTSIDE the transaction.
   // If this fails, the booking stays BOOKED and no DB state is corrupted.
   if (paymentRecord?.paymentIntentId) {
-    await cancelStripePaymentIntent(paymentRecord.paymentIntentId);
+    await cancelPaymentIntent(paymentRecord.paymentIntentId);
   }
 
   // Phase 3: Release inventory and write the cancelled state.
-  const cancelled = await prisma.$transaction(async (tx) => {
-    // Release the inventory slots that were held for this booking.
-    await releaseBookedInventory(tx, booking);
+  const cancelled = await prisma.$transaction(
+    async (tx) => {
+      // Release the inventory slots that were held for this booking.
+      await releaseBookedInventory(tx, booking);
 
-    const updated = await tx.accommodationBooking.update({
-      where: { id: booking.id },
-      data: {
-        status: 'CANCELLED',
-        cancellationReason: input.reason,
-        cancellationDate: new Date(),
-      },
-      select: bookingSelect,
+      const resultCount = await tx.accommodationBooking.updateMany({
+        where: { id: booking.id, status: booking.status },
+        data: {
+          status: 'CANCELLED',
+          cancellationReason: input.reason,
+          cancellationDate: new Date(),
+        },
+      });
+      if (resultCount.count === 0) throw AppError.conflict('Booking was modified concurrently');
+      const updated = (await tx.accommodationBooking.findUnique({
+        where: { id: booking.id },
+        select: bookingSelect,
+      }))!;
+
+      await tx.accommodationBookingStatusHistory.create({
+        data: {
+          bookingId: booking.id,
+          oldStatus: booking.status,
+          newStatus: 'CANCELLED',
+          changedById: userId,
+          reason: input.reason,
+        },
+      });
+
+      return updated;
+    },
+    { timeout: 15000 },
+  );
+
+  return attachPayments(cancelled);
+};
+
+export const checkInBooking = async (tenantId: string, bookingId: string, userId: string) => {
+  // Phase 1: Validate state
+  const booking = await prisma.accommodationBooking.findFirst({
+    where: { id: bookingId, tenantId },
+    select: bookingSelect,
+  });
+  if (!booking) throw AppError.notFound('Booking not found');
+  assertValidTransition(booking.status, 'CHECKED_IN');
+
+  // Phase 2: Update
+  const updated = await prisma.$transaction(async (tx) => {
+    const resultCount = await tx.accommodationBooking.updateMany({
+      where: { id: booking.id, status: booking.status },
+      data: { status: 'CHECKED_IN', checkedInAt: new Date(), checkedInById: userId },
     });
-
+    if (resultCount.count === 0) throw AppError.conflict('Booking was modified concurrently');
+    const result = (await tx.accommodationBooking.findUnique({
+      where: { id: booking.id },
+      select: bookingSelect,
+    }))!;
     await tx.accommodationBookingStatusHistory.create({
       data: {
         bookingId: booking.id,
         oldStatus: booking.status,
-        newStatus: 'CANCELLED',
+        newStatus: 'CHECKED_IN',
         changedById: userId,
-        reason: input.reason,
+        reason: 'Guest checked in',
       },
     });
-
-    return updated;
+    return result;
   });
+  return attachPayments(updated);
+};
 
-  return attachPayments(cancelled);
+export const checkOutBooking = async (tenantId: string, bookingId: string, userId: string) => {
+  // Phase 1: Validate state
+  const booking = await prisma.accommodationBooking.findFirst({
+    where: { id: bookingId, tenantId },
+    select: bookingSelect,
+  });
+  if (!booking) throw AppError.notFound('Booking not found');
+  assertValidTransition(booking.status, 'CHECKED_OUT');
+
+  // Phase 2: Update
+  const updated = await prisma.$transaction(async (tx) => {
+    const resultCount = await tx.accommodationBooking.updateMany({
+      where: { id: booking.id, status: booking.status },
+      data: { status: 'CHECKED_OUT', checkedOutAt: new Date(), checkedOutById: userId },
+    });
+    if (resultCount.count === 0) throw AppError.conflict('Booking was modified concurrently');
+    const result = (await tx.accommodationBooking.findUnique({
+      where: { id: booking.id },
+      select: bookingSelect,
+    }))!;
+    await tx.accommodationBookingStatusHistory.create({
+      data: {
+        bookingId: booking.id,
+        oldStatus: booking.status,
+        newStatus: 'CHECKED_OUT',
+        changedById: userId,
+        reason: 'Guest checked out',
+      },
+    });
+    return result;
+  });
+  return attachPayments(updated);
+};
+
+export const markNoShow = async (tenantId: string, bookingId: string, userId: string) => {
+  // Phase 1: Validate state
+  const booking = await prisma.accommodationBooking.findFirst({
+    where: { id: bookingId, tenantId },
+    select: bookingSelect,
+  });
+  if (!booking) throw AppError.notFound('Booking not found');
+  assertValidTransition(booking.status, 'NO_SHOW');
+
+  // Phase 2: Update
+  const updated = await prisma.$transaction(async (tx) => {
+    const resultCount = await tx.accommodationBooking.updateMany({
+      where: { id: booking.id, status: booking.status },
+      data: { status: 'NO_SHOW' },
+    });
+    if (resultCount.count === 0) throw AppError.conflict('Booking was modified concurrently');
+    const result = (await tx.accommodationBooking.findUnique({
+      where: { id: booking.id },
+      select: bookingSelect,
+    }))!;
+    await tx.accommodationBookingStatusHistory.create({
+      data: {
+        bookingId: booking.id,
+        oldStatus: booking.status,
+        newStatus: 'NO_SHOW',
+        changedById: userId,
+        reason: 'Guest no-show',
+      },
+    });
+    return result;
+  });
+  return attachPayments(updated);
 };

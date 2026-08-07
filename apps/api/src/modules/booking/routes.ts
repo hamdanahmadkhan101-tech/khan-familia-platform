@@ -11,7 +11,13 @@ import {
   listGuestBookingsController,
   releaseHoldController,
 } from './booking.controller.js';
-import { approveBookingController, rejectBookingController } from './host-booking.controller.js';
+import {
+  approveBookingController,
+  rejectBookingController,
+  checkInBookingController,
+  checkOutBookingController,
+  markNoShowController,
+} from './host-booking.controller.js';
 import {
   bookingIdParamsSchema,
   cancelGuestBookingBodySchema,
@@ -95,4 +101,31 @@ hostBookingRouter.post(
   validateParams(bookingIdParamsSchema),
   validateBody(rejectBookingBodySchema),
   rejectBookingController,
+);
+
+/** Check in a guest booking. */
+hostBookingRouter.post(
+  '/:bookingId/check-in',
+  requireAuth,
+  attachUser,
+  validateParams(bookingIdParamsSchema),
+  checkInBookingController,
+);
+
+/** Check out a guest booking. */
+hostBookingRouter.post(
+  '/:bookingId/check-out',
+  requireAuth,
+  attachUser,
+  validateParams(bookingIdParamsSchema),
+  checkOutBookingController,
+);
+
+/** Mark a guest booking as no-show. */
+hostBookingRouter.post(
+  '/:bookingId/no-show',
+  requireAuth,
+  attachUser,
+  validateParams(bookingIdParamsSchema),
+  markNoShowController,
 );

@@ -91,13 +91,25 @@ export const blockInventory = async (
       data: {
         blockedCount: { increment: blockCount },
         availableCount: { decrement: blockCount },
-        blockReason: reason || null,
         version: { increment: 1 },
       },
     });
 
     if (count !== rows.length) {
       throw AppError.conflict('Concurrency conflict during block operation. Please try again.');
+    }
+
+    if (reason) {
+      await tx.unitInventory.updateMany({
+        where: {
+          tenantId,
+          propertyId,
+          unitTypeId,
+          date: { gte: startDate, lt: endDate },
+          blockReason: null,
+        },
+        data: { blockReason: reason },
+      });
     }
 
     await tx.auditLog.create({
@@ -305,7 +317,7 @@ export const acquireHold = async (
         availableCount: { gte: quantity },
       },
       data: {
-        bookedCount: { increment: quantity },
+        heldCount: { increment: quantity },
         availableCount: { decrement: quantity },
         version: { increment: 1 },
       },
