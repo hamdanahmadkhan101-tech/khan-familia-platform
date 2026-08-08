@@ -105,7 +105,9 @@ export function CheckoutWizard({ holdToken }: CheckoutWizardProps) {
       }
       if (sanitizedCustom) finalNeeds.push(sanitizedCustom);
 
-      const res = await createPaymentIntentAction(holdToken, formattedGuests, finalNeeds);
+      const idempKey = crypto.randomUUID();
+
+      const res = await createPaymentIntentAction(holdToken, formattedGuests, finalNeeds, idempKey);
       setPaymentData({ clientSecret: res.clientSecret, amount: res.amount });
       setStep(4);
     } catch (error: unknown) {

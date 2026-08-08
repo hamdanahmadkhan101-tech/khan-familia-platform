@@ -6,7 +6,7 @@ import type {
   PaymentIntentResponse,
   PropertyHoldResponse,
   PublicPropertyDetails,
-  PublicPropertySummary,
+  PaginatedProperties,
   UserProfile,
 } from '@khan-familia/types';
 
@@ -20,16 +20,16 @@ export type GetTokenFn = () => Promise<string | null>;
 
 export type ApiClient = {
   baseUrl: string;
-  getHealth: () => Promise<HealthStatus>;
-  getPublicProperties: () => Promise<PublicPropertySummary[]>;
-  getPublicPropertyDetails: (slug: string) => Promise<PublicPropertyDetails>;
+  getHealth: (options?: Parameters<FetchLike>[1]) => Promise<HealthStatus>;
+  getPublicProperties: (options?: Parameters<FetchLike>[1]) => Promise<PaginatedProperties>;
+  getPublicPropertyDetails: (
+    slug: string,
+    options?: Parameters<FetchLike>[1],
+  ) => Promise<PublicPropertyDetails>;
   /** Requires authentication. Returns the currently signed-in user's profile. */
   getMe: () => Promise<UserProfile>;
   /** Requires authentication. Places a temporary hold on inventory. */
-  createGuestHold: (
-    body: CreateGuestHoldBody,
-    idempotencyKey?: string | null,
-  ) => Promise<PropertyHoldResponse>;
+  createGuestHold: (body: CreateGuestHoldBody) => Promise<PropertyHoldResponse>;
   /** Requires authentication. Creates a Stripe payment intent for a hold. */
   createPaymentIntent: (
     holdToken: string,
@@ -68,9 +68,13 @@ export const createApiClient = ({
   const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
 
   /** Unauthenticated fetch — for public endpoints */
-  const apiFetch = async (path: string) => {
+  const apiFetch = async (path: string, options?: Parameters<FetchLike>[1]) => {
     const response = await fetcher(`${normalizedBaseUrl}${path}`, {
-      headers: { accept: 'application/json' },
+      ...options,
+      headers: {
+        accept: 'application/json',
+        ...(options?.headers as Record<string, string>),
+      },
     });
 
     if (!response.ok) {
@@ -109,19 +113,27 @@ export const createApiClient = ({
   return {
     baseUrl: normalizedBaseUrl,
 
-    async getHealth() {
-      const response = await apiFetch('/health');
+    async getHealth(options?: Parameters<FetchLike>[1]) {
+      const response = await apiFetch('/health', options);
       const payload = await response.json();
       return payload as HealthStatus;
     },
 
-    async getPublicProperties() {
-      const response = await apiFetch('/public/properties');
-      return response.json() as Promise<PublicPropertySummary[]>;
+    async getPublicProperties(options?: Parameters<FetchLike>[1]) {
+      try {
+        const response = await apiFetch('/public/properties', options);
+        return (await response.json()) as PaginatedProperties;
+      } catch (err) {
+        console.warn(
+          '[SDK] API offline during fetch, returning empty fallback.',
+          (err as Error).message,
+        );
+        return { properties: [], total: 0, page: 1, limit: 20 };
+      }
     },
 
-    async getPublicPropertyDetails(slug: string) {
-      const response = await apiFetch(`/public/properties/${slug}`);
+    async getPublicPropertyDetails(slug: string, options?: Parameters<FetchLike>[1]) {
+      const response = await apiFetch(`/public/properties/${slug}`, options);
       return response.json() as Promise<PublicPropertyDetails>;
     },
 
@@ -130,18 +142,19 @@ export const createApiClient = ({
       return response.json() as Promise<UserProfile>;
     },
 
-    async createGuestHold(body: CreateGuestHoldBody, idempotencyKey?: string | null) {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (idempotencyKey) {
-        headers['Idempotency-Key'] = idempotencyKey;
-      }
-
+    async createGuestHold(body: CreateGuestHoldBody) {
       const response = await authFetch('/bookings/holds', {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      return response.json() as Promise<PropertyHoldResponse>;
+
+      if (!response.ok) {
+        const errorData = (await response.json().catch(() => null)) as { message?: string };
+        throw new Error(errorData?.message || 'Failed to create hold');
+      }
+
+      return (await response.json()) as PropertyHoldResponse;
     },
 
     async createPaymentIntent(

@@ -21,6 +21,13 @@ export type ApiErrorPayload = {
 // Public Catalog Types — used by the SDK and frontend (no auth required)
 // ---------------------------------------------------------------------------
 
+export type PaginatedProperties = {
+  properties: PublicPropertySummary[];
+  total: number;
+  page: number;
+  limit: number;
+};
+
 export type PropertyImage = {
   url: string;
   publicId?: string;
@@ -127,6 +134,7 @@ export type CreateGuestHoldBody = {
   startDate: string;
   endDate: string;
   quantity: number;
+  idempotencyKey: string | null;
 };
 
 // ---------------------------------------------------------------------------

@@ -80,10 +80,11 @@ describeDb('inventory and hold integration flow', () => {
   it('creates idempotent holds and releases inventory manually', async () => {
     const { guest, property, unitType } = await createBookableInventoryFixture();
     const agent = createTestAgent();
-    const idempotencyKey = `hold-flow-test-${crypto.randomUUID()}`;
+    const idempotencyKey = crypto.randomUUID();
     const holdPayload = {
       propertyId: property.id,
       unitTypeId: unitType.id,
+      idempotencyKey,
       startDate: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
       endDate: format(addDays(new Date(), 32), 'yyyy-MM-dd'),
       quantity: 1,
@@ -104,6 +105,9 @@ describeDb('inventory and hold integration flow', () => {
       .set('Idempotency-Key', idempotencyKey)
       .send(holdPayload);
 
+    if (firstHold.status !== 201) {
+      throw new Error(`First hold failed: ${JSON.stringify(firstHold.body)}`);
+    }
     expect(firstHold.status).toBe(201);
     expect(firstHold.body.holdToken).toEqual(expect.any(String));
 
@@ -164,6 +168,7 @@ describeDb('inventory and hold integration flow', () => {
       .send({
         propertyId: property.id,
         unitTypeId: unitType.id,
+        idempotencyKey: crypto.randomUUID(),
         startDate: format(addDays(new Date(), -2), 'yyyy-MM-dd'),
         endDate: format(addDays(new Date(), 2), 'yyyy-MM-dd'),
         quantity: 1,
@@ -201,6 +206,7 @@ describeDb('inventory and hold integration flow', () => {
       .send({
         propertyId: property.id,
         unitTypeId: unitType.id,
+        idempotencyKey: crypto.randomUUID(),
         startDate: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
         endDate: format(addDays(new Date(), 32), 'yyyy-MM-dd'),
         quantity: 1,
@@ -227,6 +233,7 @@ describeDb('inventory and hold integration flow', () => {
       .send({
         propertyId: property.id,
         unitTypeId: unitType.id,
+        idempotencyKey: crypto.randomUUID(),
         startDate: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
         endDate: format(addDays(new Date(), 32), 'yyyy-MM-dd'),
         quantity: 1,

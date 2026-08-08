@@ -7,6 +7,7 @@ export async function createPaymentIntentAction(
   holdToken: string,
   guestDetails?: Record<string, unknown>[],
   specialNeeds?: string[],
+  idempotencyKey?: string,
 ) {
   const { getToken } = await auth();
   const token = await getToken();
@@ -15,12 +16,18 @@ export async function createPaymentIntentAction(
     throw new Error('Unauthorized');
   }
 
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
+  };
+
+  if (idempotencyKey) {
+    headers['Idempotency-Key'] = idempotencyKey;
+  }
+
   const res = await fetch(`${api.baseUrl}/payments/intent`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
+    headers,
     body: JSON.stringify({ holdToken, guestDetails, specialNeeds }),
   });
 

@@ -286,6 +286,16 @@ export const acquireHold = async (
       }
     }
 
+    const activeHoldsCount = await tx.propertyHold.count({
+      where: { userId, expiresAt: { gt: new Date() } },
+    });
+
+    if (activeHoldsCount >= 3) {
+      throw AppError.badRequest(
+        'You have reached the maximum number of active holds (3). Please complete checkout or release them.',
+      );
+    }
+
     const expectedDaysCount = differenceInDays(endDate, startDate);
 
     const rows = await tx.unitInventory.findMany({
