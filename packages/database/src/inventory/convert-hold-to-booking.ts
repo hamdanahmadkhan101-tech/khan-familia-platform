@@ -9,10 +9,13 @@ export type ConvertHoldToBookingParams = {
   quantity: number;
 };
 
+import { requireTenantId } from '../repositories/tenant-scoped.js';
+
 export const convertHoldToBookingInventory = async (
   tx: Prisma.TransactionClient,
   params: ConvertHoldToBookingParams,
 ): Promise<void> => {
+  requireTenantId(params.tenantId);
   const inventoryRows = await tx.unitInventory.findMany({
     where: {
       tenantId: params.tenantId,

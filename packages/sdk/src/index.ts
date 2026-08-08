@@ -35,11 +35,17 @@ export type ApiClient = {
     holdToken: string,
     guestDetails?: Record<string, unknown>[],
     specialNeeds?: string[],
+    options?: Parameters<FetchLike>[1],
   ) => Promise<PaymentIntentResponse>;
   /** Requires authentication. Synchronously verifies a Stripe payment and returns the confirmed booking. */
   confirmPaymentIntent: (
     paymentIntentId: string,
   ) => Promise<{ message: string; booking: GuestBooking }>;
+  /** Requires authentication. Gets the status of a hold. */
+  getHoldStatus: (
+    holdToken: string,
+    options?: Parameters<FetchLike>[1],
+  ) => Promise<PropertyHoldResponse>;
   /** Requires authentication. Lists the authenticated guest's bookings. */
   listGuestBookings: (query?: {
     scope?: 'upcoming' | 'past' | 'cancelled' | 'all';
@@ -161,10 +167,15 @@ export const createApiClient = ({
       holdToken: string,
       guestDetails?: Record<string, unknown>[],
       specialNeeds?: string[],
+      options?: Parameters<FetchLike>[1],
     ) {
       const response = await authFetch('/payments/intent', {
+        ...options,
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(options?.headers as Record<string, string>),
+        },
         body: JSON.stringify({ holdToken, guestDetails, specialNeeds }),
       });
       return response.json() as Promise<PaymentIntentResponse>;
@@ -177,6 +188,11 @@ export const createApiClient = ({
         body: JSON.stringify({ paymentIntentId }),
       });
       return response.json() as Promise<{ message: string; booking: GuestBooking }>;
+    },
+
+    async getHoldStatus(holdToken: string, options?: Parameters<FetchLike>[1]) {
+      const response = await authFetch(`/bookings/holds/${holdToken}`, options);
+      return response.json() as Promise<PropertyHoldResponse>;
     },
 
     async listGuestBookings(query = {}) {

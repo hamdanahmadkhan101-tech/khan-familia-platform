@@ -17,7 +17,6 @@ export async function createPaymentIntentAction(
   }
 
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
     Authorization: `Bearer ${token}`,
   };
 
@@ -25,34 +24,28 @@ export async function createPaymentIntentAction(
     headers['Idempotency-Key'] = idempotencyKey;
   }
 
-  const res = await fetch(`${api.baseUrl}/payments/intent`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ holdToken, guestDetails, specialNeeds }),
-  });
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.message || 'Failed to create payment intent');
+  try {
+    const res = await api.createPaymentIntent(holdToken, guestDetails, specialNeeds, { headers });
+    return res;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to create payment intent';
+    throw new Error(message);
   }
-
-  return res.json();
 }
+
 export async function verifyHoldStatusAction(holdToken: string) {
   const { getToken } = await auth();
   const token = await getToken();
 
   if (!token) return { isValid: false };
 
-  const res = await fetch(`${api.baseUrl}/bookings/holds/${holdToken}`, {
-    headers: { Authorization: `Bearer ${token}` },
-    // Cache for a very short time or no-store
-    cache: 'no-store',
-  });
-
-  if (!res.ok) {
+  try {
+    await api.getHoldStatus(holdToken, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    });
+    return { isValid: true };
+  } catch {
     return { isValid: false };
   }
-
-  return { isValid: true };
 }

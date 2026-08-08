@@ -26,7 +26,10 @@ export const resolveTenant = async (
     throw AppError.unauthorized('Internal user context required; use resolveInternalUser first');
   }
 
-  let tenantId = (req.query['tenantId'] as string) || (req.headers['x-tenant-id'] as string);
+  let tenantId =
+    (req.params['tenantId'] as string) ||
+    (req.query['tenantId'] as string) ||
+    (req.headers['x-tenant-id'] as string);
 
   if (!tenantId) {
     const user = await prisma.user.findUnique({

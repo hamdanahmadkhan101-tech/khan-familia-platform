@@ -93,7 +93,10 @@ export function TourPackages() {
                     <p className="text-outline text-label-sm">Starting from</p>
                     <p className="text-primary font-bold">{tour.price}</p>
                   </div>
-                  <button className="h-10 w-10 rounded-full bg-secondary text-white flex items-center justify-center group-hover:scale-110 transition-transform shadow-md shrink-0">
+                  <button
+                    aria-label={`View details for ${tour.title}`}
+                    className="h-10 w-10 rounded-full bg-secondary text-white flex items-center justify-center group-hover:scale-110 transition-transform shadow-md shrink-0"
+                  >
                     <ChevronRight className="w-5 h-5" />
                   </button>
                 </div>

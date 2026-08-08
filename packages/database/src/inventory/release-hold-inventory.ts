@@ -24,10 +24,13 @@ export type ReleaseHoldInventoryParams = {
  * @throws {Error} if no inventory rows are found for the hold window.
  * @throws {Error} if not all inventory rows could be released (concurrent write).
  */
+import { requireTenantId } from '../repositories/tenant-scoped.js';
+
 export const releaseHoldInventory = async (
   tx: Prisma.TransactionClient,
   params: ReleaseHoldInventoryParams,
 ): Promise<void> => {
+  requireTenantId(params.tenantId);
   const inventoryRows = await tx.unitInventory.findMany({
     where: {
       tenantId: params.tenantId,

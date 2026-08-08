@@ -43,6 +43,19 @@ export const handleHoldExpiryJob = async (
         return false;
       }
 
+      // Atomically delete the hold to prevent race conditions with Stripe webhooks
+      const deleteResult = await tx.propertyHold.deleteMany({
+        where: { id: payload.holdId },
+      });
+
+      if (deleteResult.count === 0) {
+        logger.info(
+          { holdId: payload.holdId },
+          'Hold was concurrently processed (e.g. converted to booking). Skipping inventory release.',
+        );
+        return false;
+      }
+
       await releaseHoldInventory(tx, {
         tenantId: hold.tenantId,
         propertyId: hold.propertyId,
@@ -50,10 +63,6 @@ export const handleHoldExpiryJob = async (
         startDate: hold.startDate,
         endDate: hold.endDate,
         quantity: hold.quantity,
-      });
-
-      await tx.propertyHold.delete({
-        where: { id: payload.holdId },
       });
 
       return true;
