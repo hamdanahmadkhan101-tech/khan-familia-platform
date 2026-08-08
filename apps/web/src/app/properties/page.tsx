@@ -16,7 +16,8 @@ export default async function PropertiesPage(props: {
   const locationQuery = searchParams['location'] as string | undefined;
 
   // We fetch directly in the Server Component
-  const properties = await api.getPublicProperties();
+  const result = await api.getPublicProperties({ next: { revalidate: 3600 } });
+  const properties = result.properties;
 
   // Basic filtering for MVP
   const filteredProperties = locationQuery

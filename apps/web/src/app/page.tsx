@@ -7,14 +7,14 @@ import { TourPackages } from '@/components/home/TourPackages';
 import { AppCTA } from '@/components/home/AppCTA';
 
 export default async function HomePage() {
-  const properties = await api.getPublicProperties();
+  const result = await api.getPublicProperties({ next: { revalidate: 3600 } });
 
   return (
     <div className="flex flex-col bg-surface text-on-surface">
       <Hero />
       <TrendingDestinations />
       <PhilosophySection />
-      <FeaturedProperties properties={properties} />
+      <FeaturedProperties properties={result.properties} />
       <TourPackages />
       <AppCTA />
     </div>

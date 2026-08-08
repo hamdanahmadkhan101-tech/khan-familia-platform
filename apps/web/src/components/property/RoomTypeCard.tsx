@@ -49,16 +49,14 @@ export function RoomTypeCard({ propertyId, room }: RoomTypeCardProps) {
 
     setIsLoading(true);
     try {
-      const response = await api.createGuestHold(
-        {
-          propertyId,
-          unitTypeId: room.id,
-          startDate: checkIn,
-          endDate: checkOut,
-          quantity: 1, // Only supporting 1 room per booking in MVP
-        },
-        idempotencyKeyRef.current,
-      );
+      const response = await api.createGuestHold({
+        propertyId,
+        unitTypeId: room.id,
+        startDate: checkIn,
+        endDate: checkOut,
+        quantity: 1, // Only supporting 1 room per booking in MVP
+        idempotencyKey: idempotencyKeyRef.current,
+      });
 
       saveHold(response.holdToken, response.expiresAt, room.name);
       router.push(`/checkout/${response.holdToken}`);

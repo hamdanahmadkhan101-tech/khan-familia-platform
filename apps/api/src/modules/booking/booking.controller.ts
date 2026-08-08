@@ -17,21 +17,6 @@ import type {
 } from '@khan-familia/validation';
 import type { AuthenticatedRequest } from '../../shared/types/request.js';
 
-const getIdempotencyKey = (req: Request): string | undefined => {
-  const value = req.headers['idempotency-key'];
-  const key = Array.isArray(value) ? value[0] : value;
-
-  if (key === undefined || key.trim().length === 0) {
-    return undefined;
-  }
-
-  if (key.trim().length > 128) {
-    throw AppError.badRequest('Idempotency-Key header must be 128 characters or fewer');
-  }
-
-  return key.trim();
-};
-
 export const listGuestBookingsController = async (
   req: Request,
   res: Response,
@@ -104,11 +89,7 @@ export const createHoldController = async (
       throw AppError.unauthorized('Authentication required');
     }
 
-    const hold = await createGuestHold(
-      authReq.userId,
-      req.body as CreateHoldBody,
-      getIdempotencyKey(req),
-    );
+    const hold = await createGuestHold(authReq.userId, req.body as CreateHoldBody);
 
     res.status(201).json({
       message: 'Hold acquired successfully',

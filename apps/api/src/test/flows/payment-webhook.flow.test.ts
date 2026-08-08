@@ -76,10 +76,10 @@ describeDb('payment integration flow', () => {
     const response = await createTestAgent()
       .post('/bookings/holds')
       .set('Authorization', authHeaderFor(fixture.guest.clerkId))
-      .set('Idempotency-Key', `payment-flow-hold-${crypto.randomUUID()}`)
       .send({
         propertyId: fixture.property.id,
         unitTypeId: fixture.unitType.id,
+        idempotencyKey: crypto.randomUUID(),
         startDate: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
         endDate: format(addDays(new Date(), 32), 'yyyy-MM-dd'),
         quantity: 1,
@@ -138,7 +138,9 @@ describeDb('payment integration flow', () => {
       .set('stripe-signature', 'test-signature')
       .send(Buffer.from('{}'));
 
-    if (webhookResponse.status !== 200) console.log('WEBHOOK 500 ERROR:', webhookResponse.body);
+    if (webhookResponse.status !== 200) {
+      throw new Error(`Webhook failed: ${JSON.stringify(webhookResponse.body)}`);
+    }
     expect(webhookResponse.status).toBe(200);
     expect(webhookResponse.body).toEqual({ received: true });
 

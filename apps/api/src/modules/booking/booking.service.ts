@@ -105,11 +105,7 @@ const attachPayments = async <T extends BookingDto>(booking: T) => {
   return { ...booking, paymentIntents };
 };
 
-export const createGuestHold = async (
-  userId: string,
-  input: CreateHoldBody,
-  idempotencyKey?: string,
-) => {
+export const createGuestHold = async (userId: string, input: CreateHoldBody) => {
   const startDate = new Date(input.startDate);
   const endDate = new Date(input.endDate);
 
@@ -145,16 +141,6 @@ export const createGuestHold = async (
 
   assertGuestCanCreateHoldForTenant({ isTenantStaff: Boolean(tenantMembership) });
 
-  const activeHoldsCount = await prisma.propertyHold.count({
-    where: { userId, expiresAt: { gt: new Date() } },
-  });
-
-  if (activeHoldsCount >= 3) {
-    throw AppError.badRequest(
-      'You have reached the maximum number of active holds (3). Please complete checkout or release them.',
-    );
-  }
-
   return acquireHold(
     userId,
     property.tenantId,
@@ -165,7 +151,7 @@ export const createGuestHold = async (
     input.quantity,
     input.guestDetails,
     input.specialNeeds,
-    idempotencyKey,
+    input.idempotencyKey,
   );
 };
 
