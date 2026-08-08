@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@khan-familia/constants": "workspace:*",
-    "@khan-familia/database": "workspace:*",
     "@khan-familia/types": "workspace:*",
     "zod": "^3.24.1"
   },

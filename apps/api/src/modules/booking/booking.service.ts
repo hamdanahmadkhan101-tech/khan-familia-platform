@@ -400,7 +400,7 @@ export const approveGuestBooking = async (tenantId: string, bookingId: string, u
   const updated = await prisma.$transaction(
     async (tx) => {
       const resultCount = await tx.accommodationBooking.updateMany({
-        where: { id: booking.id, status: booking.status },
+        where: { id: booking.id, status: booking.status, tenantId: booking.tenantId },
         data: { status: 'CONFIRMED' },
       });
       if (resultCount.count === 0) throw AppError.conflict('Booking was modified concurrently');
@@ -470,7 +470,7 @@ export const rejectGuestBooking = async (
       await releaseBookedInventory(tx, booking);
 
       const resultCount = await tx.accommodationBooking.updateMany({
-        where: { id: booking.id, status: booking.status },
+        where: { id: booking.id, status: booking.status, tenantId: booking.tenantId },
         data: {
           status: 'CANCELLED',
           cancellationReason: input.reason,
@@ -547,7 +547,7 @@ export const checkOutBooking = async (tenantId: string, bookingId: string, userI
   // Phase 2: Update
   const updated = await prisma.$transaction(async (tx) => {
     const resultCount = await tx.accommodationBooking.updateMany({
-      where: { id: booking.id, status: booking.status },
+      where: { id: booking.id, status: booking.status, tenantId: booking.tenantId },
       data: { status: 'CHECKED_OUT', checkedOutAt: new Date(), checkedOutById: userId },
     });
     if (resultCount.count === 0) throw AppError.conflict('Booking was modified concurrently');
@@ -581,7 +581,7 @@ export const markNoShow = async (tenantId: string, bookingId: string, userId: st
   // Phase 2: Update
   const updated = await prisma.$transaction(async (tx) => {
     const resultCount = await tx.accommodationBooking.updateMany({
-      where: { id: booking.id, status: booking.status },
+      where: { id: booking.id, status: booking.status, tenantId: booking.tenantId },
       data: { status: 'NO_SHOW' },
     });
     if (resultCount.count === 0) throw AppError.conflict('Booking was modified concurrently');
