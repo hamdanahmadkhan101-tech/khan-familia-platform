@@ -5,9 +5,9 @@ import { redirect } from 'next/navigation';
 import { BookOpen, User, Settings, LayoutDashboard } from 'lucide-react';
 
 const NAV_ITEMS = [
-  { href: '/dashboard/bookings', icon: BookOpen, label: 'My Bookings' },
-  { href: '/dashboard/profile', icon: User, label: 'Profile' },
-  { href: '/dashboard/settings', icon: Settings, label: 'Settings' },
+  { href: '/account/bookings', icon: BookOpen, label: 'My Bookings' },
+  { href: '/account/profile', icon: User, label: 'Profile' },
+  { href: '/account/settings', icon: Settings, label: 'Settings' },
 ] as const;
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
@@ -26,7 +26,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
           <div className="mb-4 flex items-center gap-2 px-2">
             <LayoutDashboard className="h-5 w-5 text-primary" />
             <span className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-              Dashboard
+              Account
             </span>
           </div>
 

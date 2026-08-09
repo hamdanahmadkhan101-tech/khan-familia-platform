@@ -48,7 +48,7 @@ export function CheckoutWizard({ holdToken }: CheckoutWizardProps) {
     defaultValues: {
       guests: [{ isPrimary: true, name: '', age: 0, idType: 'CNIC', idNumber: '' }],
     },
-    mode: 'onTouched',
+    mode: 'onChange',
   });
 
   const { fields, append, remove } = useFieldArray({
@@ -83,7 +83,7 @@ export function CheckoutWizard({ holdToken }: CheckoutWizardProps) {
     if (isValid) {
       setStep(3);
     } else {
-      toast.error('Please fix the errors in the guest details.');
+      toast.error('Please fix the highlighted errors (e.g. ID Number) before proceeding.');
     }
   };
 

@@ -265,9 +265,24 @@ async function main() {
       totalReviews: 24,
       images: {
         create: [
-          { url: '/Hotel1.jpg', publicId: 'Hotel1', isPrimary: true, order: 0 },
-          { url: '/Hotel2.jpg', publicId: 'Hotel2', isPrimary: false, order: 1 },
-          { url: '/Hotel3.jpg', publicId: 'Hotel3', isPrimary: false, order: 2 },
+          {
+            url: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80',
+            publicId: 'Hotel1',
+            isPrimary: true,
+            order: 0,
+          },
+          {
+            url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80',
+            publicId: 'Hotel2',
+            isPrimary: false,
+            order: 1,
+          },
+          {
+            url: 'https://images.unsplash.com/photo-1542314831-c6a4d27ce6a2?auto=format&fit=crop&w=800&q=80',
+            publicId: 'Hotel3',
+            isPrimary: false,
+            order: 2,
+          },
         ],
       },
       houseRules: {
@@ -317,8 +332,16 @@ async function main() {
       description:
         'Spacious room with floor-to-ceiling windows offering stunning mountain panoramas. King bed, premium bedding, and a private balcony.',
       images: [
-        { url: '/room1.jpg', publicId: 'room1', isPrimary: true },
-        { url: '/room2.jpg', publicId: 'room2', isPrimary: false },
+        {
+          url: 'https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=800&q=80',
+          publicId: 'room1',
+          isPrimary: true,
+        },
+        {
+          url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80',
+          publicId: 'room2',
+          isPrimary: false,
+        },
       ],
     },
   });
@@ -336,8 +359,16 @@ async function main() {
       description:
         'Comfortable and well-appointed room with all essential amenities. Queen bed and garden view.',
       images: [
-        { url: '/room3.jpg', publicId: 'room3', isPrimary: true },
-        { url: '/room4.jpg', publicId: 'room4', isPrimary: false },
+        {
+          url: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=800&q=80',
+          publicId: 'room3',
+          isPrimary: true,
+        },
+        {
+          url: 'https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=800&q=80',
+          publicId: 'room4',
+          isPrimary: false,
+        },
       ],
     },
   });
@@ -379,9 +410,24 @@ async function main() {
       totalReviews: 41,
       images: {
         create: [
-          { url: '/Hotel4.jpg', publicId: 'Hotel4', isPrimary: true, order: 0 },
-          { url: '/Hotel5.jpg', publicId: 'Hotel5', isPrimary: false, order: 1 },
-          { url: '/Hotel6.jpg', publicId: 'Hotel6', isPrimary: false, order: 2 },
+          {
+            url: 'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?auto=format&fit=crop&w=800&q=80',
+            publicId: 'Hotel4',
+            isPrimary: true,
+            order: 0,
+          },
+          {
+            url: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80',
+            publicId: 'Hotel5',
+            isPrimary: false,
+            order: 1,
+          },
+          {
+            url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80',
+            publicId: 'Hotel6',
+            isPrimary: false,
+            order: 2,
+          },
         ],
       },
       houseRules: {
@@ -432,8 +478,16 @@ async function main() {
       description:
         'Our flagship suite with a private hot tub, fireplace, and 270-degree panoramic mountain views. Perfect for couples and honeymooners.',
       images: [
-        { url: '/room5.jpg', publicId: 'room5', isPrimary: true },
-        { url: '/room6.jpg', publicId: 'room6', isPrimary: false },
+        {
+          url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80',
+          publicId: 'room5',
+          isPrimary: true,
+        },
+        {
+          url: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=800&q=80',
+          publicId: 'room6',
+          isPrimary: false,
+        },
       ],
     },
   });
@@ -451,8 +505,16 @@ async function main() {
       description:
         'Cozy timber-panelled room with mountain and forest views. Twin or king bed configuration available.',
       images: [
-        { url: '/room7.jpg', publicId: 'room7', isPrimary: true },
-        { url: '/room8.jpg', publicId: 'room8', isPrimary: false },
+        {
+          url: 'https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=800&q=80',
+          publicId: 'room7',
+          isPrimary: true,
+        },
+        {
+          url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80',
+          publicId: 'room8',
+          isPrimary: false,
+        },
       ],
     },
   });
@@ -494,9 +556,24 @@ async function main() {
       totalReviews: 18,
       images: {
         create: [
-          { url: '/Hotel7.jpg', publicId: 'Hotel7', isPrimary: true, order: 0 },
-          { url: '/Hotel8.jpg', publicId: 'Hotel8', isPrimary: false, order: 1 },
-          { url: '/Hotel9.jpg', publicId: 'Hotel9', isPrimary: false, order: 2 },
+          {
+            url: 'https://images.unsplash.com/photo-1542314831-c6a4d27ce6a2?auto=format&fit=crop&w=800&q=80',
+            publicId: 'Hotel7',
+            isPrimary: true,
+            order: 0,
+          },
+          {
+            url: 'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?auto=format&fit=crop&w=800&q=80',
+            publicId: 'Hotel8',
+            isPrimary: false,
+            order: 1,
+          },
+          {
+            url: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80',
+            publicId: 'Hotel9',
+            isPrimary: false,
+            order: 2,
+          },
         ],
       },
       houseRules: {
@@ -543,8 +620,16 @@ async function main() {
       description:
         "Private wooden cabin on the river's edge. Sit on your deck and watch the crystal-clear Swat River flow by.",
       images: [
-        { url: '/room9.jpg', publicId: 'room9', isPrimary: true },
-        { url: '/room10.jpg', publicId: 'room10', isPrimary: false },
+        {
+          url: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=800&q=80',
+          publicId: 'room9',
+          isPrimary: true,
+        },
+        {
+          url: 'https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=800&q=80',
+          publicId: 'room10',
+          isPrimary: false,
+        },
       ],
     },
   });
@@ -561,7 +646,13 @@ async function main() {
       defaultRate: 4500,
       description:
         'Simple, clean room with all essentials. Great value for backpackers and solo travellers.',
-      images: [{ url: '/room1.jpg', publicId: 'room1', isPrimary: true }],
+      images: [
+        {
+          url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80',
+          publicId: 'room1',
+          isPrimary: true,
+        },
+      ],
     },
   });
 
@@ -602,9 +693,24 @@ async function main() {
       totalReviews: 12,
       images: {
         create: [
-          { url: '/Hotel10.jpg', publicId: 'Hotel10', isPrimary: true, order: 0 },
-          { url: '/Hotel11.jpg', publicId: 'Hotel11', isPrimary: false, order: 1 },
-          { url: '/Hotel1.jpg', publicId: 'Hotel1b', isPrimary: false, order: 2 },
+          {
+            url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80',
+            publicId: 'Hotel10',
+            isPrimary: true,
+            order: 0,
+          },
+          {
+            url: 'https://images.unsplash.com/photo-1542314831-c6a4d27ce6a2?auto=format&fit=crop&w=800&q=80',
+            publicId: 'Hotel11',
+            isPrimary: false,
+            order: 1,
+          },
+          {
+            url: 'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?auto=format&fit=crop&w=800&q=80',
+            publicId: 'Hotel1b',
+            isPrimary: false,
+            order: 2,
+          },
         ],
       },
       houseRules: {
@@ -654,8 +760,16 @@ async function main() {
       description:
         'A grand suite with hand-painted wooden ceilings, traditional Swati furniture, and a private courtyard garden. The jewel of the haveli.',
       images: [
-        { url: '/room2.jpg', publicId: 'room2b', isPrimary: true },
-        { url: '/room3.jpg', publicId: 'room3b', isPrimary: false },
+        {
+          url: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=800&q=80',
+          publicId: 'room2b',
+          isPrimary: true,
+        },
+        {
+          url: 'https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=800&q=80',
+          publicId: 'room3b',
+          isPrimary: false,
+        },
       ],
     },
   });
@@ -673,8 +787,16 @@ async function main() {
       description:
         'A cozy room overlooking the walnut and apple orchards. Traditional Pashtun wooden furniture with modern en-suite bathroom.',
       images: [
-        { url: '/room4.jpg', publicId: 'room4b', isPrimary: true },
-        { url: '/room5.jpg', publicId: 'room5b', isPrimary: false },
+        {
+          url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80',
+          publicId: 'room4b',
+          isPrimary: true,
+        },
+        {
+          url: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=800&q=80',
+          publicId: 'room5b',
+          isPrimary: false,
+        },
       ],
     },
   });

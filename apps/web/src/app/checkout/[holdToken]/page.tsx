@@ -38,7 +38,7 @@ export default async function CheckoutPage(props: { params: Promise<{ holdToken:
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row justify-center">
             <Link
-              href="/dashboard/bookings"
+              href="/account/bookings"
               className="flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground hover:bg-primary/90 transition-all"
             >
               <CalendarDays className="h-4 w-4" /> My Bookings

@@ -72,7 +72,7 @@ function CheckoutSuccessContent() {
           </p>
           <div className="mt-6 flex justify-center gap-3">
             <button
-              onClick={() => router.push('/dashboard/bookings')}
+              onClick={() => router.push('/account/bookings')}
               className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
             >
               Go to My Bookings
@@ -179,7 +179,7 @@ function CheckoutSuccessContent() {
         {/* Action Buttons */}
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
           <Link
-            href="/dashboard/bookings"
+            href="/account/bookings"
             className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-all hover:bg-primary/90"
           >
             View in My Bookings <ArrowRight className="h-4 w-4" />

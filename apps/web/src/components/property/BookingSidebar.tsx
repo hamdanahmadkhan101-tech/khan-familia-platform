@@ -40,9 +40,9 @@ export function BookingSidebar({ minPrice }: BookingSidebarProps) {
           <Popover>
             <PopoverTrigger asChild>
               <Button
-                variant="outline"
+                variant="ghost"
                 className={cn(
-                  'w-full justify-start text-left font-normal rounded-2xl border border-white/50 dark:border-white/10 bg-white/50 dark:bg-black/50 px-4 py-6 text-sm backdrop-blur-md transition-all hover:bg-white/80 focus:border-primary focus:bg-background',
+                  'w-full justify-start text-left font-normal rounded-2xl border border-white/50 dark:border-white/10 bg-white/50 dark:bg-black/50 px-4 py-6 text-sm backdrop-blur-md transition-all hover:bg-white/80 hover:text-foreground focus:border-primary focus:bg-background',
                   !checkIn && 'text-muted-foreground',
                 )}
               >
@@ -79,9 +79,9 @@ export function BookingSidebar({ minPrice }: BookingSidebarProps) {
           <Popover>
             <PopoverTrigger asChild>
               <Button
-                variant="outline"
+                variant="ghost"
                 className={cn(
-                  'w-full justify-start text-left font-normal rounded-2xl border border-white/50 dark:border-white/10 bg-white/50 dark:bg-black/50 px-4 py-6 text-sm backdrop-blur-md transition-all hover:bg-white/80 focus:border-primary focus:bg-background',
+                  'w-full justify-start text-left font-normal rounded-2xl border border-white/50 dark:border-white/10 bg-white/50 dark:bg-black/50 px-4 py-6 text-sm backdrop-blur-md transition-all hover:bg-white/80 hover:text-foreground focus:border-primary focus:bg-background',
                   !checkOut && 'text-muted-foreground',
                 )}
               >
