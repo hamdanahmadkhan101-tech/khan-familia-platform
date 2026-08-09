@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { BookingCard } from '@/components/dashboard/BookingCard';
+import { BookingCard } from '@/components/account/BookingCard';
 import { Loader2, CalendarX } from 'lucide-react';
 import { useGuestBookings } from '@/hooks/useGuestBookings';
 import { Tabs, TabsList, TabsTrigger } from '@khan-familia/ui';

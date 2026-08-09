@@ -16,7 +16,7 @@ export function HeaderUserButton() {
         <UserButton.Link
           label="Guest Dashboard"
           labelIcon={<LayoutDashboard className="h-4 w-4" />}
-          href="/dashboard"
+          href="/account"
         />
       </UserButton.MenuItems>
     </UserButton>
