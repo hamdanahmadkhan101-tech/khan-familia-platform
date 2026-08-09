@@ -2,9 +2,10 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
-import { BookOpen, User, Settings, LayoutDashboard } from 'lucide-react';
+import { BookOpen, User, Settings, LayoutDashboard, Building2 } from 'lucide-react';
 
 const NAV_ITEMS = [
+  { href: '/account/properties', icon: Building2, label: 'Properties' },
   { href: '/account/bookings', icon: BookOpen, label: 'My Bookings' },
   { href: '/account/profile', icon: User, label: 'Profile' },
   { href: '/account/settings', icon: Settings, label: 'Settings' },

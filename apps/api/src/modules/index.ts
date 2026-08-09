@@ -7,3 +7,5 @@ export { INVENTORY_MODULE } from './inventory/index.js';
 export { PAYMENTS_MODULE } from './payments/index.js';
 export { TENANCY_MODULE } from './tenancy/index.js';
 export { tenancyRouter } from './tenancy/routes.js';
+export { UPLOAD_MODULE } from './upload/index.js';
+export { uploadRouter } from './upload/routes.js';
