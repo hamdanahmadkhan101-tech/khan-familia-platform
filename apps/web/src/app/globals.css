@@ -4,37 +4,44 @@
 
 @layer base {
   :root {
-    --background: 20 20% 98%;
-    --foreground: 180 2% 11%;
+    --background: 210 40% 98%; /* Slate 50 */
+    --foreground: 222 47% 11%; /* Deep Slate */
 
-    --card: 0 0% 100%;
-    --card-foreground: 180 2% 11%;
+    --card: 0 0% 100%; /* White */
+    --card-foreground: 222 47% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 180 2% 11%;
+    --popover-foreground: 222 47% 11%;
 
-    /* Deep Onyx for Primary */
-    --primary: 0 0% 10%;
+    /* Deep Slate */
+    --primary: 222 47% 11%;
     --primary-foreground: 0 0% 100%;
 
-    /* Champagne Gold for Secondary */
-    --secondary: 40 48% 56%;
-    --secondary-foreground: 0 0% 100%;
+    /* Warm Sand */
+    --secondary: 30 54% 64%;
+    --secondary-foreground: 222 47% 11%;
 
-    --muted: 0 5% 93%;
-    --muted-foreground: 180 2% 46%;
+    /* Slate 100 */
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%; /* Slate 500 */
 
-    --accent: 0 5% 93%;
-    --accent-foreground: 180 2% 11%;
+    --accent: 30 54% 64%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 75% 42%;
+    /* Rose 600 */
+    --destructive: 347 77% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 5% 89%;
-    --input: 0 5% 89%;
-    --ring: 0 0% 10%;
+    /* Emerald 600 */
+    --success: 161 94% 30%;
+    --success-foreground: 0 0% 100%;
 
-    --radius: 0.25rem;
+    /* Slate 200 */
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 222 47% 11%;
+
+    --radius: 0.5rem;
   }
 
   .dark {
