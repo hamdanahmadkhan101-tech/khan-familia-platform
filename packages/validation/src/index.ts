@@ -20,3 +20,4 @@ export * from './catalog.js';
 export * from './inventory.js';
 export * from './payments.js';
 export * from './tenancy.js';
+export * from './upload.js';

@@ -13,6 +13,7 @@ import { notFoundHandler } from './middleware/not-found.js';
 import { clerkWebhookHandler, iamRouter } from './modules/iam/index.js';
 import { catalogRouter } from './modules/catalog/index.js';
 import { adminRouter } from './modules/admin/index.js';
+import { uploadRouter } from './modules/upload/index.js';
 import { tenancyRouter } from './modules/tenancy/index.js';
 import { inventoryRouter } from './modules/inventory/index.js';
 import { bookingRouter } from './modules/booking/index.js';
@@ -82,6 +83,7 @@ export const createApp = () => {
   app.use('/public', publicRouter);
   app.use('/health', healthRouter);
   app.use('/iam', iamRouter);
+  app.use('/upload', uploadRouter);
   app.use('/tenants', tenancyRouter);
   app.use('/properties', catalogRouter);
   app.use('/admin', adminRouter);

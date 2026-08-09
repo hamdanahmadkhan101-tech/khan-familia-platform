@@ -385,3 +385,59 @@ export const softDeleteProperty = async (tenantId: string, propertyId: string): 
     throw AppError.notFound('Property not found');
   }
 };
+
+export const addPropertyImage = async (
+  tenantId: string,
+  propertyId: string,
+  url: string,
+  publicId: string,
+) => {
+  // Verify property belongs to tenant
+  const property = await prisma.property.findFirst({
+    where: { id: propertyId, tenantId, isDeleted: false },
+    select: { id: true },
+  });
+
+  if (!property) {
+    throw AppError.notFound('Property not found');
+  }
+
+  // Count existing images to determine order and if it should be primary
+  const existingImagesCount = await prisma.propertyImage.count({
+    where: { propertyId },
+  });
+
+  return prisma.propertyImage.create({
+    data: {
+      propertyId,
+      url,
+      publicId,
+      isPrimary: existingImagesCount === 0,
+      order: existingImagesCount,
+    },
+  });
+};
+
+export const deletePropertyImage = async (
+  tenantId: string,
+  propertyId: string,
+  imageId: string,
+) => {
+  // Verify property belongs to tenant
+  const property = await prisma.property.findFirst({
+    where: { id: propertyId, tenantId, isDeleted: false },
+    select: { id: true },
+  });
+
+  if (!property) {
+    throw AppError.notFound('Property not found');
+  }
+
+  const result = await prisma.propertyImage.deleteMany({
+    where: { id: imageId, propertyId },
+  });
+
+  if (result.count === 0) {
+    throw AppError.notFound('Property image not found');
+  }
+};

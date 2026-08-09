@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
+import { AppError } from '../../shared/errors/AppError.js';
 
 import type { TenantRequest } from '../../shared/types/request.js';
 import {
@@ -7,7 +8,10 @@ import {
   listPropertiesForTenant as listPropertiesForTenantService,
   softDeleteProperty as softDeletePropertyService,
   updateProperty as updatePropertyService,
+  addPropertyImage as addPropertyImageService,
+  deletePropertyImage as deletePropertyImageService,
 } from './property.service.js';
+import { addPropertyImageBodySchema } from '@khan-familia/validation';
 
 export const createProperty = async (
   req: Request,
@@ -78,6 +82,46 @@ export const softDeleteProperty = async (
     const tenantReq = req as TenantRequest;
     const { propertyId } = req.params as { propertyId: string };
     await softDeletePropertyService(tenantReq.tenantId, propertyId);
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const addPropertyImage = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const tenantReq = req as TenantRequest;
+    const { propertyId } = req.params as { propertyId: string };
+
+    const parsed = addPropertyImageBodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw AppError.badRequest('Invalid image data');
+    }
+
+    const { url, publicId } = parsed.data;
+    const image = await addPropertyImageService(tenantReq.tenantId, propertyId, url, publicId);
+
+    res.status(201).json(image);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const deletePropertyImage = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const tenantReq = req as TenantRequest;
+    const { propertyId, imageId } = req.params as { propertyId: string; imageId: string };
+
+    await deletePropertyImageService(tenantReq.tenantId, propertyId, imageId);
+
     res.status(204).send();
   } catch (err) {
     next(err);

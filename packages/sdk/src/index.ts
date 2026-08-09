@@ -22,6 +22,20 @@ export type ApiClient = {
   baseUrl: string;
   getHealth: (options?: Parameters<FetchLike>[1]) => Promise<HealthStatus>;
   getPublicProperties: (options?: Parameters<FetchLike>[1]) => Promise<PaginatedProperties>;
+  /** Requires authentication. Returns the tenant's properties. */
+  getTenantProperties: (options?: Parameters<FetchLike>[1]) => Promise<PaginatedProperties>;
+  /** Requires authentication. Adds an image to a property. */
+  addPropertyImage: (
+    propertyId: string,
+    url: string,
+    publicId: string,
+    options?: Parameters<FetchLike>[1],
+  ) => Promise<unknown>;
+  /** Requires authentication. Generates a secure upload signature. */
+  getUploadSignature: (
+    paramsToSign: Record<string, unknown>,
+    options?: Parameters<FetchLike>[1],
+  ) => Promise<{ signature: string; timestamp: number }>;
   getPublicPropertyDetails: (
     slug: string,
     options?: Parameters<FetchLike>[1],
@@ -129,13 +143,43 @@ export const createApiClient = ({
       try {
         const response = await apiFetch('/public/properties', options);
         return (await response.json()) as PaginatedProperties;
-      } catch (err) {
-        console.warn(
-          '[SDK] API offline during fetch, returning empty fallback.',
-          (err as Error).message,
-        );
+      } catch (error) {
+        console.error('API client error (getPublicProperties):', error);
+        // Fallback for graceful degradation in UI
         return { properties: [], total: 0, page: 1, limit: 20 };
       }
+    },
+
+    async getTenantProperties(options?: Parameters<FetchLike>[1]) {
+      const response = await apiFetch('/properties', options);
+      return (await response.json()) as PaginatedProperties;
+    },
+
+    async addPropertyImage(
+      propertyId: string,
+      url: string,
+      publicId: string,
+      options?: Parameters<FetchLike>[1],
+    ) {
+      const response = await apiFetch(`/properties/${propertyId}/images`, {
+        ...options,
+        method: 'POST',
+        body: JSON.stringify({ url, publicId }),
+      });
+      return response.json();
+    },
+
+    async getUploadSignature(
+      paramsToSign: Record<string, unknown>,
+      options?: Parameters<FetchLike>[1],
+    ) {
+      const response = await apiFetch('/upload/signature', {
+        ...options,
+        method: 'POST',
+        body: JSON.stringify(paramsToSign),
+      });
+      if (!response.ok) throw new Error('Failed to fetch signature');
+      return response.json() as Promise<{ signature: string; timestamp: number }>;
     },
 
     async getPublicPropertyDetails(slug: string, options?: Parameters<FetchLike>[1]) {

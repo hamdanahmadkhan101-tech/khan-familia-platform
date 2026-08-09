@@ -73,7 +73,12 @@ export const updatePropertyBodySchema = createPropertyBodySchema
   });
 
 export const propertyIdParamsSchema = z.object({
-  propertyId: z.string().min(1),
+  propertyId: z.string().uuid(),
+});
+
+export const addPropertyImageBodySchema = z.object({
+  url: z.string().url(),
+  publicId: z.string().min(1),
 });
 
 export const unitTypeParamsSchema = propertyIdParamsSchema.extend({

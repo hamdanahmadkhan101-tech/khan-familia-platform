@@ -12,6 +12,8 @@ import {
   listPropertiesForTenant,
   softDeleteProperty,
   updateProperty,
+  addPropertyImage,
+  deletePropertyImage,
 } from './property.controller.js';
 import {
   createPropertyBodySchema,
@@ -56,6 +58,21 @@ catalogRouter.post(
 
 /** List properties for the active tenant. */
 catalogRouter.get('/', ...tenantReadChain, listPropertiesForTenant);
+
+/** Add an image to a property */
+catalogRouter.post(
+  '/:propertyId/images',
+  ...tenantWriteChain,
+  validateParams(propertyIdParamsSchema),
+  addPropertyImage as RequestHandler,
+);
+
+/** Delete an image from a property */
+catalogRouter.delete(
+  '/:propertyId/images/:imageId',
+  ...tenantWriteChain,
+  deletePropertyImage as RequestHandler,
+);
 
 /** Get one property in the active tenant. */
 catalogRouter.get(
