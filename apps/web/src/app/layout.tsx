@@ -28,8 +28,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <ClerkProvider
       signInUrl="/sign-in"
       signUpUrl="/sign-up"
-      signInFallbackRedirectUrl="/"
-      signUpFallbackRedirectUrl="/"
+      signInFallbackRedirectUrl="/sync"
+      signUpFallbackRedirectUrl="/sync"
       afterSignOutUrl="/"
     >
       <html lang="en" className={spaceGrotesk.variable}>
