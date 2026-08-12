@@ -75,6 +75,12 @@ export function Header() {
 
       <div className="flex items-center gap-4">
         <div className="hidden lg:flex items-center gap-2 mr-4">
+          <Link
+            href="/host"
+            className="text-sm font-medium hover:bg-slate-100 dark:hover:bg-slate-800 px-4 py-2 rounded-full transition-colors hidden xl:block"
+          >
+            Become a Host
+          </Link>
           <button className="p-2 hover:bg-surface-container-low transition-colors rounded-full text-on-surface-variant">
             <Bell className="w-6 h-6 stroke-[1.5px]" />
           </button>

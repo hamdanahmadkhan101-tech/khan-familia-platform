@@ -9,4 +9,6 @@ export * from './components/ui/navigation-menu';
 export * from './components/ui/dropdown-menu';
 export * from './components/ui/calendar';
 export * from './components/ui/tabs';
+export * from './components/ui/form';
+export * from './components/ui/select';
 export { cn } from './lib/utils';
