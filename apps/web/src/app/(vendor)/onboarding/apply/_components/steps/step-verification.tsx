@@ -14,7 +14,8 @@ import {
   SelectValue,
   Button,
 } from '@khan-familia/ui';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, UploadCloud, X } from 'lucide-react';
+import { CldUploadWidget, type CloudinaryUploadWidgetInfo } from 'next-cloudinary';
 
 export function StepVerification() {
   const { control } = useFormContext<SubmitApplicationBody>();
@@ -120,7 +121,7 @@ export function StepVerification() {
 
         {fields.length === 0 && (
           <p className="text-sm text-slate-500 italic">
-            No documents added. You can provide URLs to Google Drive or Dropbox links for now.
+            No documents added. You must upload at least one valid identity or business document.
           </p>
         )}
 
@@ -133,7 +134,57 @@ export function StepVerification() {
                 render={({ field }) => (
                   <FormItem className="flex-1">
                     <FormControl>
-                      <Input placeholder="https://example.com/document.pdf" {...field} />
+                      {field.value ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={field.value}
+                            readOnly
+                            className="bg-slate-50 text-slate-500"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => field.onChange('')}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <CldUploadWidget
+                          signatureEndpoint="/api/cloudinary-signature"
+                          uploadPreset="ml_default"
+                          options={{
+                            clientAllowedFormats: ['png', 'jpg', 'jpeg', 'pdf'],
+                            maxFileSize: 5000000, // 5MB limit
+                            resourceType: 'auto',
+                          }}
+                          onSuccess={(result) => {
+                            if (
+                              result &&
+                              typeof result === 'object' &&
+                              'event' in result &&
+                              result.event === 'success' &&
+                              'info' in result
+                            ) {
+                              const info = result.info as CloudinaryUploadWidgetInfo;
+                              field.onChange(info.secure_url);
+                            }
+                          }}
+                        >
+                          {({ open }) => (
+                            <Button
+                              type="button"
+                              onClick={() => open()}
+                              variant="outline"
+                              className="w-full justify-start text-slate-500 font-normal"
+                            >
+                              <UploadCloud className="h-4 w-4 mr-2" />
+                              Upload Document (PDF/Image)
+                            </Button>
+                          )}
+                        </CldUploadWidget>
+                      )}
                     </FormControl>
                     <FormMessage />
                   </FormItem>
