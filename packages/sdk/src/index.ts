@@ -9,6 +9,7 @@ import type {
   PaginatedProperties,
   UserProfile,
 } from '@khan-familia/types';
+import type { SubmitApplicationBody, ApplicationReviewBody } from '@khan-familia/validation';
 
 export type FetchLike = typeof fetch;
 
@@ -66,6 +67,31 @@ export type ApiClient = {
     limit?: number;
     offset?: number;
   }) => Promise<GuestBookingListResponse>;
+
+  /** Requires authentication. Submits a new vendor application. */
+  submitApplication: (
+    body: SubmitApplicationBody,
+    options?: Parameters<FetchLike>[1],
+  ) => Promise<unknown>;
+  /** Requires authentication. Gets the status of the current user's application. */
+  getMyApplicationStatus: (options?: Parameters<FetchLike>[1]) => Promise<{ application: unknown }>;
+
+  /** Requires super admin. Gets pending applications. */
+  getPendingApplications: (
+    options?: Parameters<FetchLike>[1],
+  ) => Promise<{ applications: unknown[] }>;
+  /** Requires super admin. Approves an application. */
+  approveApplication: (
+    applicationId: string,
+    body?: ApplicationReviewBody,
+    options?: Parameters<FetchLike>[1],
+  ) => Promise<unknown>;
+  /** Requires super admin. Rejects an application. */
+  rejectApplication: (
+    applicationId: string,
+    body?: ApplicationReviewBody,
+    options?: Parameters<FetchLike>[1],
+  ) => Promise<unknown>;
 };
 
 export type CreateApiClientOptions = {
@@ -247,6 +273,55 @@ export const createApiClient = ({
       const qs = params.toString();
       const response = await authFetch(`/bookings/me${qs ? `?${qs}` : ''}`);
       return response.json() as Promise<GuestBookingListResponse>;
+    },
+
+    async submitApplication(body, options) {
+      const response = await authFetch('/tenants/applications', {
+        ...options,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(options?.headers as Record<string, string>),
+        },
+        body: JSON.stringify(body),
+      });
+      return response.json();
+    },
+
+    async getMyApplicationStatus(options) {
+      const response = await authFetch('/tenants/applications/my-status', options);
+      return response.json() as Promise<{ application: unknown }>;
+    },
+
+    async getPendingApplications(options) {
+      const response = await authFetch('/admin/applications/pending', options);
+      return response.json() as Promise<{ applications: unknown[] }>;
+    },
+
+    async approveApplication(applicationId, body, options) {
+      const response = await authFetch(`/admin/applications/${applicationId}/approve`, {
+        ...options,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(options?.headers as Record<string, string>),
+        },
+        body: JSON.stringify(body || {}),
+      });
+      return response.json();
+    },
+
+    async rejectApplication(applicationId, body, options) {
+      const response = await authFetch(`/admin/applications/${applicationId}/reject`, {
+        ...options,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(options?.headers as Record<string, string>),
+        },
+        body: JSON.stringify(body || {}),
+      });
+      return response.json();
     },
   };
 };

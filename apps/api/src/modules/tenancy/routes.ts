@@ -12,6 +12,7 @@ import {
   listTenantInvites,
   revokeTenantInvite,
 } from './invite.controller.js';
+import { submitApplication, getApplicationStatus } from './application.controller.js';
 import { requireTenantRole } from './middleware/require-tenant-role.js';
 import {
   acceptInviteBodySchema,
@@ -21,6 +22,7 @@ import {
   tenantInviteParamsSchema,
   tenantMemberParamsSchema,
   updateTenantBodySchema,
+  submitApplicationBodySchema,
 } from '@khan-familia/validation';
 import {
   createTenant,
@@ -48,6 +50,17 @@ tenancyRouter.post(
   validateBody(createTenantBodySchema),
   createTenant,
 );
+
+/** Vendor Application Endpoints */
+tenancyRouter.post(
+  '/applications',
+  requireAuth,
+  attachUser,
+  validateBody(submitApplicationBodySchema),
+  submitApplication,
+);
+
+tenancyRouter.get('/applications/my-status', requireAuth, attachUser, getApplicationStatus);
 
 /** List tenants the current user belongs to. */
 tenancyRouter.get('/', requireAuth, attachUser, listTenantsForUser);

@@ -1,9 +1,10 @@
-import { PropertyApprovalStatus } from '@khan-familia/database';
+import { PropertyApprovalStatus, TenantApplicationStatus } from '@khan-familia/database';
 import { prisma } from '../../infrastructure/database/client.js';
 import { AppError } from '../../shared/errors/AppError.js';
 import { enqueueInventoryHorizonJob } from '../../infrastructure/queue/producer.js';
 import type { RejectPropertyBody } from '@khan-familia/validation';
 import { propertySelect, type PropertyDto } from '../catalog/property.service.js';
+import { decrypt } from '../../shared/utils/crypto.js';
 
 export const listPendingProperties = async (): Promise<PropertyDto[]> => {
   return prisma.property.findMany({
@@ -77,5 +78,63 @@ export const rejectProperty = async (
       approvedById: null,
     },
     select: propertySelect,
+  });
+};
+
+export const listPendingApplications = async () => {
+  const applications = await prisma.tenantApplication.findMany({
+    where: { status: TenantApplicationStatus.PENDING },
+    orderBy: { createdAt: 'asc' },
+    include: {
+      user: {
+        select: { email: true, username: true },
+      },
+    },
+  });
+
+  return applications.map((app) => ({
+    ...app,
+    govIdNumber: decrypt(app.govIdNumber),
+    businessRegNumber: decrypt(app.businessRegNumber),
+  }));
+};
+
+export const approveApplication = async (applicationId: string, adminNotes?: string) => {
+  const application = await prisma.tenantApplication.findUnique({
+    where: { id: applicationId },
+  });
+
+  if (!application) throw AppError.notFound('Application not found');
+  if (application.status !== TenantApplicationStatus.PENDING) {
+    throw AppError.conflict('Application is not pending');
+  }
+
+  return prisma.tenantApplication.update({
+    where: { id: applicationId },
+    data: {
+      status: TenantApplicationStatus.APPROVED,
+      adminNotes: adminNotes ?? null,
+      reviewedAt: new Date(),
+    },
+  });
+};
+
+export const rejectApplication = async (applicationId: string, adminNotes?: string) => {
+  const application = await prisma.tenantApplication.findUnique({
+    where: { id: applicationId },
+  });
+
+  if (!application) throw AppError.notFound('Application not found');
+  if (application.status !== TenantApplicationStatus.PENDING) {
+    throw AppError.conflict('Application is not pending');
+  }
+
+  return prisma.tenantApplication.update({
+    where: { id: applicationId },
+    data: {
+      status: TenantApplicationStatus.REJECTED,
+      adminNotes: adminNotes ?? null,
+      reviewedAt: new Date(),
+    },
   });
 };

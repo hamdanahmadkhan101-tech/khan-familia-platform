@@ -4,7 +4,11 @@ import {
   approveProperty as approvePropertyService,
   listPendingProperties as listPendingPropertiesService,
   rejectProperty as rejectPropertyService,
+  listPendingApplications as listPendingApplicationsService,
+  approveApplication as approveApplicationService,
+  rejectApplication as rejectApplicationService,
 } from './admin.service.js';
+import type { ApplicationReviewBody } from '@khan-familia/validation';
 
 export const listPendingProperties = async (
   _req: Request,
@@ -44,6 +48,49 @@ export const rejectProperty = async (
     const { propertyId } = req.params as { propertyId: string };
     const property = await rejectPropertyService(propertyId, authReq.userId!, req.body);
     res.status(200).json(property);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const listPendingApplications = async (
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const applications = await listPendingApplicationsService();
+    res.status(200).json({ applications });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const approveApplication = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const { applicationId } = req.params as { applicationId: string };
+    const { adminNotes } = req.body as ApplicationReviewBody;
+    const application = await approveApplicationService(applicationId, adminNotes);
+    res.status(200).json(application);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const rejectApplication = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const { applicationId } = req.params as { applicationId: string };
+    const { adminNotes } = req.body as ApplicationReviewBody;
+    const application = await rejectApplicationService(applicationId, adminNotes);
+    res.status(200).json(application);
   } catch (err) {
     next(err);
   }

@@ -17,6 +17,7 @@ export {
   TenantRole,
   TenantStatus,
   TenantUserStatus,
+  TenantApplicationStatus,
   UserStatus,
   PaymentProvider,
 } from '@prisma/client';
