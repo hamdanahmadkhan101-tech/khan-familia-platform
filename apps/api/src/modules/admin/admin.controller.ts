@@ -72,9 +72,10 @@ export const approveApplication = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
+    const authReq = req as AuthenticatedRequest;
     const { applicationId } = req.params as { applicationId: string };
     const { adminNotes } = req.body as ApplicationReviewBody;
-    const application = await approveApplicationService(applicationId, adminNotes);
+    const application = await approveApplicationService(applicationId, authReq.userId!, adminNotes);
     res.status(200).json(application);
   } catch (err) {
     next(err);
@@ -87,9 +88,10 @@ export const rejectApplication = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
+    const authReq = req as AuthenticatedRequest;
     const { applicationId } = req.params as { applicationId: string };
     const { adminNotes } = req.body as ApplicationReviewBody;
-    const application = await rejectApplicationService(applicationId, adminNotes);
+    const application = await rejectApplicationService(applicationId, authReq.userId!, adminNotes);
     res.status(200).json(application);
   } catch (err) {
     next(err);

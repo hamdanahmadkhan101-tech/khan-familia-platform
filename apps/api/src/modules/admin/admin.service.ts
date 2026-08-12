@@ -1,10 +1,15 @@
-import { PropertyApprovalStatus, TenantApplicationStatus } from '@khan-familia/database';
+import {
+  PropertyApprovalStatus,
+  TenantApplicationStatus,
+  TenantRole,
+} from '@khan-familia/database';
 import { prisma } from '../../infrastructure/database/client.js';
 import { AppError } from '../../shared/errors/AppError.js';
 import { enqueueInventoryHorizonJob } from '../../infrastructure/queue/producer.js';
 import type { RejectPropertyBody } from '@khan-familia/validation';
 import { propertySelect, type PropertyDto } from '../catalog/property.service.js';
 import { decrypt } from '../../shared/utils/crypto.js';
+import { generateSlug } from '@khan-familia/utils';
 
 export const listPendingProperties = async (): Promise<PropertyDto[]> => {
   return prisma.property.findMany({
@@ -99,7 +104,11 @@ export const listPendingApplications = async () => {
   }));
 };
 
-export const approveApplication = async (applicationId: string, adminNotes?: string) => {
+export const approveApplication = async (
+  applicationId: string,
+  adminUserId: string,
+  adminNotes?: string,
+) => {
   const application = await prisma.tenantApplication.findUnique({
     where: { id: applicationId },
   });
@@ -109,17 +118,60 @@ export const approveApplication = async (applicationId: string, adminNotes?: str
     throw AppError.conflict('Application is not pending');
   }
 
-  return prisma.tenantApplication.update({
-    where: { id: applicationId },
-    data: {
-      status: TenantApplicationStatus.APPROVED,
-      adminNotes: adminNotes ?? null,
-      reviewedAt: new Date(),
-    },
+  // Four-Eyes Principle: Admin cannot approve their own application
+  if (application.userId === adminUserId) {
+    throw AppError.conflict('Conflict of Interest: You cannot approve your own application.');
+  }
+
+  const slug = generateSlug(application.businessName);
+
+  return prisma.$transaction(async (tx) => {
+    // 1. Update application status
+    const updatedApplication = await tx.tenantApplication.update({
+      where: { id: applicationId },
+      data: {
+        status: TenantApplicationStatus.APPROVED,
+        adminNotes: adminNotes ?? null,
+        reviewedAt: new Date(),
+      },
+    });
+
+    // 2. Provision Tenant
+    const tenant = await tx.tenant.create({
+      data: {
+        name: application.businessName,
+        slug: slug,
+        businessVertical: application.businessVertical,
+      },
+    });
+
+    // 3. Provision TenantUser (Owner)
+    await tx.tenantUser.create({
+      data: {
+        tenantId: tenant.id,
+        userId: application.userId,
+        role: TenantRole.OWNER,
+      },
+    });
+
+    // 4. Set as default tenant for the user if they don't have one
+    const user = await tx.user.findUnique({ where: { id: application.userId } });
+    if (user && !user.defaultTenantId) {
+      await tx.user.update({
+        where: { id: application.userId },
+        data: { defaultTenantId: tenant.id },
+      });
+    }
+
+    return updatedApplication;
   });
 };
 
-export const rejectApplication = async (applicationId: string, adminNotes?: string) => {
+export const rejectApplication = async (
+  applicationId: string,
+  adminUserId: string,
+  adminNotes?: string,
+) => {
   const application = await prisma.tenantApplication.findUnique({
     where: { id: applicationId },
   });

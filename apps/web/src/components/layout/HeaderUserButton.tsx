@@ -28,25 +28,25 @@ export function HeaderUserButton() {
       }}
     >
       <UserButton.MenuItems>
-        {isSuperAdmin ? (
+        {isSuperAdmin && (
           <UserButton.Link
             label="Admin Console"
             labelIcon={<Shield className="h-4 w-4" />}
             href="/admin"
           />
-        ) : isTenantOwner ? (
+        )}
+        {isTenantOwner && (
           <UserButton.Link
             label="Host Dashboard"
             labelIcon={<Store className="h-4 w-4" />}
             href="/host"
           />
-        ) : (
-          <UserButton.Link
-            label="Guest Dashboard"
-            labelIcon={<LayoutDashboard className="h-4 w-4" />}
-            href="/account"
-          />
         )}
+        <UserButton.Link
+          label="Guest Dashboard"
+          labelIcon={<LayoutDashboard className="h-4 w-4" />}
+          href="/account"
+        />
       </UserButton.MenuItems>
     </UserButton>
   );
