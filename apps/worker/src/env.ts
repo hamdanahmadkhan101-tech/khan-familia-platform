@@ -5,7 +5,7 @@ const envSchema = z.object({
   // Application
   APP_ENV: appEnvSchema.default('local'),
   LOG_LEVEL: logLevelSchema.default('info'),
-  NODE_ENV: z.enum(['development', 'staging', 'production']).default('development'),
+  NODE_ENV: z.enum(['development', 'test', 'staging', 'production']).default('development'),
 
   // Database
   DATABASE_URL: z.string().url(),
