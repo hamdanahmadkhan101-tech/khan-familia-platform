@@ -21,6 +21,8 @@ const nodeFiles = [
   'packages/validation/**/*.{ts,tsx}',
   'packages/constants/**/*.{ts,tsx}',
   'packages/sdk/**/*.{ts,tsx}',
+  'packages/database/**/*.{ts,tsx}',
+  'packages/utils/**/*.{ts,tsx}',
 ];
 
 export default [
@@ -50,7 +52,18 @@ export default [
       '@typescript-eslint': tsPlugin,
     },
     rules: {
-      ...tsPlugin.configs.recommended.rules,
+      ...tsPlugin.configs['recommended-type-checked'].rules,
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unnecessary-type-assertion': 'off',
+      '@typescript-eslint/require-await': 'off',
+      '@typescript-eslint/await-thenable': 'off',
+      '@typescript-eslint/restrict-template-expressions': 'off',
+      '@typescript-eslint/no-misused-promises': 'off',
+      '@typescript-eslint/no-floating-promises': 'off',
       'no-restricted-imports': [
         'error',
         {
@@ -60,7 +73,7 @@ export default [
               message: 'Do not import from apps. Use packages or app-local aliases.',
             },
             {
-              group: ['../apps/*', '../../apps/*', '../../../apps/*', '../../../../apps/*'],
+              group: ['../apps/*', '../../apps/*', '../../../apps/*', '../../../../apps/*', '../../../../../apps/*'],
               message: 'Do not import from other apps. Use packages or app-local aliases.',
             },
           ],

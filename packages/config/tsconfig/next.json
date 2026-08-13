@@ -1,8 +1,9 @@
 {
-  "extends": "../../../tsconfig.json",
+  "extends": "./base.json",
   "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
-    "jsx": "preserve",
-    "moduleResolution": "Bundler"
+    "jsx": "preserve"
   }
 }

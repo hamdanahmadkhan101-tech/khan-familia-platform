@@ -3,6 +3,17 @@ dist
 .next
 .turbo
 coverage
+.cache
 .git
 .env
 .env.*
+.env.local
+docs/
+.github/
+.husky/
+.editorconfig
+*.md
+scripts/
+.vscode/
+.cursor/
+docker/
