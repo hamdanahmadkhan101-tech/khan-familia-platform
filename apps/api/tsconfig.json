@@ -1,6 +1,7 @@
 {
   "extends": "../../packages/config/tsconfig/node.json",
   "compilerOptions": {
+    "baseUrl": "../..",
     "paths": {
       "@/*": ["apps/api/src/*"],
       "@khan-familia/*": ["packages/*/src/index.ts"]

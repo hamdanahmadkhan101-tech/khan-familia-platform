@@ -4,11 +4,17 @@ dist/
 .next/
 .turbo/
 coverage/
+.cache/
 *.log
 *.tsbuildinfo
 .env
 .env.*
 !.env.example
 !.env.*.example
+.env.local
 .DS_Store
+Thumbs.db
 .vscode/
+.idea/
+*.pem
+*.key

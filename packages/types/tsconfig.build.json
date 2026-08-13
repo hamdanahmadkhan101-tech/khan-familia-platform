@@ -9,6 +9,7 @@
     "sourceMap": true,
     "paths": {
       "@khan-familia/*": ["packages/*/dist/index.d.ts"]
-    }
+    },
+    "baseUrl": "../.."
   }
 }
