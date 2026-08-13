@@ -22,5 +22,6 @@
     "lint": "eslint src --max-warnings=0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests"
-  }
+  },
+  "version": "0.0.0"
 }

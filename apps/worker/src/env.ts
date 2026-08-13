@@ -35,6 +35,9 @@ const envSchema = z.object({
 
   // Stripe (for payment webhook processing if needed)
   STRIPE_SECRET_KEY: z.string().optional(),
+
+  // Encryption
+  ENCRYPTION_KEY: z.string().length(64, 'ENCRYPTION_KEY must be a 64-character hex string'),
 });
 
 export type Env = z.infer<typeof envSchema>;
