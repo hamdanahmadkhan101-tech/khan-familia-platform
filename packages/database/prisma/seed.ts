@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 /**
  * prisma/seed.ts — Khan Familia Travels Platform
  *

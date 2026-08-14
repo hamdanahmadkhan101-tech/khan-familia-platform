@@ -37,13 +37,18 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@prisma/client": "5.22.0"
+    "@prisma/adapter-pg": "^7.9.1",
+    "@prisma/client": "7.9.1",
+    "pg": "^8.23.0"
   },
   "devDependencies": {
     "@khan-familia/config": "workspace:*",
+    "@prisma/config": "^7.9.1",
     "@types/node": "22.19.19",
+    "@types/pg": "^8.21.0",
     "date-fns": "^3.6.0",
-    "prisma": "5.22.0",
+    "dotenv": "^16.4.5",
+    "prisma": "7.9.1",
     "tsx": "^4.0.0",
     "typescript": "5.9.3"
   },

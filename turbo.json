@@ -25,6 +25,11 @@
     "@khan-familia/config#build": {
       "dependsOn": [],
       "outputs": []
+    },
+    "@khan-familia/database#build": {
+      "dependsOn": ["^build"],
+      "inputs": ["src/**", "prisma/schema.prisma", "prisma.config.ts"],
+      "outputs": ["dist/**", "node_modules/.prisma/client/**", "node_modules/@prisma/client/**"]
     }
   }
 }
