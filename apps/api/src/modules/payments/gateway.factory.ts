@@ -14,7 +14,7 @@ export class PaymentGatewayFactory {
       case 'MANUAL':
         throw AppError.badRequest('Manual payments do not have a gateway integration.');
       default:
-        throw AppError.internal(`Gateway not implemented for provider: ${provider}`);
+        throw AppError.internal(`Gateway not implemented for provider: ${provider as string}`);
     }
   }
 }

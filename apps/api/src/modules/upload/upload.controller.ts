@@ -4,11 +4,7 @@ import { cloudinary } from '../../infrastructure/storage/cloudinary.js';
 import { generateSignatureQuerySchema } from '@khan-familia/validation';
 import { env } from '../../env.js';
 
-export const generateSignature = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> => {
+export const generateSignature = (req: Request, res: Response, next: NextFunction): void => {
   try {
     const parsed = generateSignatureQuerySchema.safeParse(req.body);
     if (!parsed.success) {
@@ -24,7 +20,7 @@ export const generateSignature = async (
 
     const signature = cloudinary.utils.api_sign_request(paramsToSign, env.CLOUDINARY_API_SECRET);
 
-    res.status(200).json({ signature, timestamp: paramsToSign['timestamp'] });
+    res.status(200).json({ signature, timestamp: Number(paramsToSign['timestamp']) });
   } catch (err) {
     next(err);
   }

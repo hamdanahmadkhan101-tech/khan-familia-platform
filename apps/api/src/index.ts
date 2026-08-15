@@ -1,6 +1,6 @@
 const { startObservability } = await import('./observability/register.js');
 
-await startObservability();
+startObservability();
 
 const { startServer } = await import('./server.js');
 

@@ -3,7 +3,8 @@ import crypto from 'node:crypto';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const stripeState = vi.hoisted(() => ({
-  event: undefined as unknown,
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
+  event: undefined as any,
   createdPaymentIntent: {
     id: 'pi_test_created',
     client_secret: 'pi_test_created_secret',
@@ -13,7 +14,7 @@ const stripeState = vi.hoisted(() => ({
 }));
 
 vi.mock('@clerk/express', () => ({
-  verifyToken: vi.fn(async (token: string) => ({ sub: token })),
+  verifyToken: vi.fn((token: string) => Promise.resolve({ sub: token })),
 }));
 
 import type Stripe from 'stripe';
@@ -24,7 +25,6 @@ import { truncateTestDatabase, testPrisma } from '../database.js';
 import { createBookableInventoryFixture } from '../helpers/fixtures.js';
 import { createTestAgent } from '../helpers/http.js';
 import { createPaymentIntent } from '../../modules/payments/payment.service.js';
-import type { WebhookEventPayload } from '../../modules/payments/gateway.interface.js';
 
 const runDbTests = process.env['RUN_DB_TESTS'] === 'true';
 const describeDb = runDbTests ? describe : describe.skip;
@@ -44,21 +44,23 @@ describeDb('payment integration flow', () => {
       payment_method: 'pm_card_visa',
     };
 
-    vi.spyOn(StripeGateway.prototype, 'createIntent').mockImplementation(async (req) => ({
-      gatewayIntentId: stripeState.createdPaymentIntent.id,
-      clientSecret: stripeState.createdPaymentIntent.client_secret,
-      metadata: req.metadata,
-      amount: req.amountMinor,
-      currency: req.currency,
-      expiresAt: new Date(Date.now() + 15 * 60 * 1000),
-    }));
-    vi.spyOn(StripeGateway.prototype, 'retrieveIntent').mockImplementation(
-      async () => stripeState.createdPaymentIntent as unknown as Stripe.PaymentIntent,
+    vi.spyOn(StripeGateway.prototype, 'createIntent').mockImplementation((req) =>
+      Promise.resolve({
+        gatewayIntentId: stripeState.createdPaymentIntent.id,
+        clientSecret: stripeState.createdPaymentIntent.client_secret,
+        metadata: req.metadata,
+        amount: req.amountMinor,
+        currency: req.currency,
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+      }),
+    );
+    vi.spyOn(StripeGateway.prototype, 'retrieveIntent').mockImplementation(() =>
+      Promise.resolve(stripeState.createdPaymentIntent as unknown as Stripe.PaymentIntent),
     );
     vi.spyOn(StripeGateway.prototype, 'confirmIntent').mockImplementation(async () => {});
     vi.spyOn(StripeGateway.prototype, 'cancelIntent').mockImplementation(async () => {});
     vi.spyOn(StripeGateway.prototype, 'parseWebhookEvent').mockImplementation(() => {
-      const e = stripeState.event as unknown as Stripe.Event;
+      const e = stripeState.event as Stripe.Event;
       const obj = e.data.object as unknown as Stripe.PaymentIntent;
       return {
         type: e.type,
@@ -67,7 +69,7 @@ describeDb('payment integration flow', () => {
         metadata: obj.metadata || {},
         status: e.type === 'payment_intent.succeeded' ? 'succeeded' : 'failed',
         rawEvent: e, // Add this so event.rawEvent is defined
-      } as WebhookEventPayload;
+      };
     });
   });
 
@@ -96,8 +98,9 @@ describeDb('payment integration flow', () => {
 
     if (response.status !== 201) console.log('HOLD ERROR', response.body);
     expect(response.status).toBe(201);
+    const body = response.body as { holdToken: string };
 
-    return { ...fixture, holdToken: response.body.holdToken as string };
+    return { ...fixture, holdToken: body.holdToken };
   };
 
   it('reuses an existing pending payment intent for the same hold', async () => {
@@ -141,8 +144,9 @@ describeDb('payment integration flow', () => {
     if (webhookResponse.status !== 200) {
       throw new Error(`Webhook failed: ${JSON.stringify(webhookResponse.body)}`);
     }
+    const body = webhookResponse.body as { received: boolean };
     expect(webhookResponse.status).toBe(200);
-    expect(webhookResponse.body).toEqual({ received: true });
+    expect(body).toEqual({ received: true });
 
     const booking = await testPrisma.accommodationBooking.findUnique({
       where: { idempotencyKey: holdToken },

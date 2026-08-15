@@ -5,10 +5,10 @@ import type { NotificationJobPayload } from '@khan-familia/types';
  * Handle notification job: send emails via Resend.
  * Template: booking confirmation, booking update, tour notification, etc.
  */
-export const handleNotificationJob = async (payload: NotificationJobPayload) => {
+export const handleNotificationJob = (payload: NotificationJobPayload): Promise<void> => {
   if (payload.type !== 'email') {
     logger.warn({ type: payload.type }, 'Unsupported notification type');
-    return;
+    return Promise.resolve();
   }
 
   logger.info(
@@ -24,8 +24,9 @@ export const handleNotificationJob = async (payload: NotificationJobPayload) => 
     // - Store email record for audit/retry
 
     logger.info({ userId: payload.userId }, 'Notification sent successfully');
+    return Promise.resolve();
   } catch (error) {
     logger.error({ userId: payload.userId, err: error }, 'Failed to send notification');
-    throw error;
+    return Promise.reject(error instanceof Error ? error : new Error(String(error)));
   }
 };

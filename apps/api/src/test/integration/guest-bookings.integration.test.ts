@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@clerk/express', () => ({
-  verifyToken: vi.fn(async (token: string) => ({ sub: token })),
+  verifyToken: vi.fn((token: string) => Promise.resolve({ sub: token })),
 }));
 
 import { truncateTestDatabase, testPrisma } from '../database.js';
@@ -106,13 +106,17 @@ describeDb('guest booking management', () => {
       .get('/bookings/me?scope=all')
       .set('Authorization', authHeaderFor(guest.clerkId));
 
+    const body = response.body as { bookings: unknown[] };
+
     expect(response.status).toBe(200);
-    expect(response.body.bookings).toEqual(
+    expect(body.bookings).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           id: booking.id,
           status: 'BOOKED',
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           property: expect.objectContaining({ name: expect.any(String) }),
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           BookingPriceSnapshot: expect.objectContaining({ totalMinor: 45_000 }),
         }),
       ]),
@@ -126,12 +130,15 @@ describeDb('guest booking management', () => {
       .get(`/bookings/${booking.id}`)
       .set('Authorization', authHeaderFor(guest.clerkId));
 
+    const body = response.body as { booking: unknown };
+
     expect(response.status).toBe(200);
-    expect(response.body.booking).toMatchObject({
+    expect(body.booking).toMatchObject({
       id: booking.id,
       status: 'BOOKED',
       paymentIntents: [
         expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           id: expect.stringContaining('pi_guest_booking_test'),
           status: 'PAID',
           records: [expect.objectContaining({ amountCaptured: 45_000 })],
@@ -184,8 +191,11 @@ describeDb('guest booking management', () => {
     if (response.status !== 200) {
       console.log('500 ERROR BODY:', response.body, response.error);
     }
+
+    const body = response.body as { booking: unknown };
+
     expect(response.status).toBe(200);
-    expect(response.body.booking).toMatchObject({
+    expect(body.booking).toMatchObject({
       id: booking.id,
       status: 'CANCELLED',
       cancellationReason: 'Travel plans changed',
@@ -227,8 +237,10 @@ describeDb('guest booking management', () => {
       .set('Authorization', authHeaderFor(guest.clerkId))
       .send({ reason: 'Too late' });
 
+    const body = response.body as { error: { message: string } };
+
     expect(response.status).toBe(409);
-    expect(response.body.error.message).toContain('CHECKED_IN');
+    expect(body.error.message).toContain('CHECKED_IN');
   });
 
   it('filters cancelled bookings for the guest', async () => {
@@ -267,8 +279,10 @@ describeDb('guest booking management', () => {
       .get('/bookings/me?scope=cancelled')
       .set('Authorization', authHeaderFor(guest.clerkId));
 
+    const body = response.body as { bookings: unknown[] };
+
     expect(response.status).toBe(200);
-    expect(response.body.bookings).toHaveLength(1);
-    expect(response.body.bookings[0]).toMatchObject({ id: booking.id, status: 'CANCELLED' });
+    expect(body.bookings).toHaveLength(1);
+    expect(body.bookings[0]).toMatchObject({ id: booking.id, status: 'CANCELLED' });
   });
 });

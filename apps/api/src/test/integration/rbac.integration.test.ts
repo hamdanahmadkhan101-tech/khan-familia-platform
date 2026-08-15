@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@clerk/express', () => ({
-  verifyToken: vi.fn(async (token: string) => ({ sub: token })),
+  verifyToken: vi.fn((token: string) => Promise.resolve({ sub: token })),
 }));
 
 import { authHeaderFor } from '../helpers/auth.js';
@@ -56,9 +56,11 @@ describeDb('Section 6.4 RBAC Scenarios (401, 403, Cross-Tenant)', () => {
         .set('X-Tenant-ID', tenant.id)
         .send({ url: 'http://test.com/img.jpg', publicId: 'img1' });
 
+      const body = response.body as { error: { message: string } };
+
       // Verify it returns 403 Forbidden
       expect(response.status).toBe(403);
-      expect(response.body.error).toHaveProperty('message', 'Access denied to this tenant');
+      expect(body.error).toHaveProperty('message', 'Access denied to this tenant');
     });
   });
 
@@ -80,9 +82,11 @@ describeDb('Section 6.4 RBAC Scenarios (401, 403, Cross-Tenant)', () => {
         .set('X-Tenant-ID', tenantB.id) // Passing Tenant B's ID
         .send({ url: 'http://test.com/img.jpg', publicId: 'img1' });
 
+      const body2 = response2.body as { error: { message: string } };
+
       // Attempt should be strictly rejected with 403 Forbidden
       expect(response2.status).toBe(403);
-      expect(response2.body.error).toHaveProperty('message', 'Access denied to this tenant');
+      expect(body2.error).toHaveProperty('message', 'Access denied to this tenant');
     });
   });
 });

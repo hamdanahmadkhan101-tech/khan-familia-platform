@@ -127,7 +127,7 @@ export function RoomTypeCard({ propertyId, room }: RoomTypeCardProps) {
           </div>
 
           <Button
-            onClick={handleReserve}
+            onClick={() => void handleReserve()}
             disabled={!canBook || isLoading}
             className="group w-full sm:w-auto"
             title={canBook ? 'Reserve this room' : 'Please select travel dates first'}

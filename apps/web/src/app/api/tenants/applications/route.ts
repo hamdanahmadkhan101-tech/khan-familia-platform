@@ -12,8 +12,8 @@ const getApiClient = async () => {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
     const apiClient = await getApiClient();
+    const body = (await req.json()) as Parameters<typeof apiClient.submitApplication>[0];
 
     const response = await apiClient.submitApplication(body);
 

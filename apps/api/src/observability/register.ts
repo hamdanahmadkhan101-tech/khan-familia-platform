@@ -41,7 +41,7 @@ const registerShutdownHooks = () => {
   });
 };
 
-export const startObservability = async () => {
+export const startObservability = () => {
   if (!env.OTEL_ENABLED) {
     return;
   }
@@ -74,6 +74,6 @@ export const startObservability = async () => {
     instrumentations: [getNodeAutoInstrumentations()],
   });
 
-  await sdk.start();
+  sdk.start();
   registerShutdownHooks();
 };

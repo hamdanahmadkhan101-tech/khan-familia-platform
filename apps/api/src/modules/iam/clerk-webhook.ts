@@ -29,9 +29,12 @@ export const clerkWebhookHandler = async (req: Request, res: Response): Promise<
     return;
   }
 
-  const payload = req.body;
-  const body = Buffer.isBuffer(payload) ? payload.toString('utf8') : String(payload ?? '');
-
+  const payload = req.body as unknown;
+  const body = Buffer.isBuffer(payload)
+    ? payload.toString('utf8')
+    : typeof payload === 'string'
+      ? payload
+      : JSON.stringify(payload ?? {});
   let evt: ClerkWebhookEvent;
 
   try {

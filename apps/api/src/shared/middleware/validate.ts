@@ -9,7 +9,7 @@ import { AppError } from '../errors/AppError.js';
 export const validateBody = <T extends z.ZodTypeAny>(schema: T) => {
   return async (req: Request, _res: Response, next: NextFunction) => {
     try {
-      const parsedBody = await schema.parseAsync(req.body);
+      const parsedBody = (await schema.parseAsync(req.body)) as unknown;
       Object.defineProperty(req, 'body', {
         value: parsedBody,
         configurable: true,
@@ -41,7 +41,7 @@ export const validateBody = <T extends z.ZodTypeAny>(schema: T) => {
 export const validateQuery = <T extends z.ZodTypeAny>(schema: T) => {
   return async (req: Request, _res: Response, next: NextFunction) => {
     try {
-      const parsedQuery = await schema.parseAsync(req.query);
+      const parsedQuery = (await schema.parseAsync(req.query)) as unknown;
       Object.defineProperty(req, 'query', {
         value: parsedQuery,
         configurable: true,
@@ -73,7 +73,7 @@ export const validateQuery = <T extends z.ZodTypeAny>(schema: T) => {
 export const validateParams = <T extends z.ZodTypeAny>(schema: T) => {
   return async (req: Request, _res: Response, next: NextFunction) => {
     try {
-      const parsedParams = await schema.parseAsync(req.params);
+      const parsedParams = (await schema.parseAsync(req.params)) as unknown;
       Object.defineProperty(req, 'params', {
         value: parsedParams,
         configurable: true,

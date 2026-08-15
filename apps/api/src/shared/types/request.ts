@@ -23,7 +23,7 @@ export interface TenantRequest extends AuthenticatedRequest {
 }
 
 export const isAuthenticatedRequest = (req: Request): req is AuthenticatedRequest => {
-  return 'auth' in req && req.auth != null && 'sub' in (req.auth as object);
+  return 'auth' in req && req.auth != null && typeof req.auth === 'object' && 'sub' in req.auth;
 };
 
 export const isTenantRequest = (req: Request): req is TenantRequest => {

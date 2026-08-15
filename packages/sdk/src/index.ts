@@ -161,7 +161,7 @@ export const createApiClient = ({
 
     async getHealth(options?: Parameters<FetchLike>[1]) {
       const response = await apiFetch('/health', options);
-      const payload = await response.json();
+      const payload: unknown = await response.json();
       return payload as HealthStatus;
     },
 
@@ -192,7 +192,8 @@ export const createApiClient = ({
         method: 'POST',
         body: JSON.stringify({ url, publicId }),
       });
-      return response.json();
+      const payload: unknown = await response.json();
+      return payload;
     },
 
     async getUploadSignature(
@@ -285,7 +286,8 @@ export const createApiClient = ({
         },
         body: JSON.stringify(body),
       });
-      return response.json();
+      const payload: unknown = await response.json();
+      return payload;
     },
 
     async getMyApplicationStatus(options) {
@@ -308,7 +310,8 @@ export const createApiClient = ({
         },
         body: JSON.stringify(body || {}),
       });
-      return response.json();
+      const payload: unknown = await response.json();
+      return payload;
     },
 
     async rejectApplication(applicationId, body, options) {
@@ -321,7 +324,8 @@ export const createApiClient = ({
         },
         body: JSON.stringify(body || {}),
       });
-      return response.json();
+      const payload: unknown = await response.json();
+      return payload;
     },
   };
 };

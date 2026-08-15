@@ -96,7 +96,13 @@ function CheckoutForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        void handleSubmit(e);
+      }}
+      className="space-y-6"
+    >
       <PaymentElement className="min-h-[250px]" />
 
       <Button

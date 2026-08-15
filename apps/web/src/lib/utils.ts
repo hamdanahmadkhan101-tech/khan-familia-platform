@@ -33,7 +33,7 @@ export function humanizeEnum(value: string | null | undefined): string {
     CASTLE: 'Castle',
   };
 
-  if (overrides[value]) return overrides[value]!;
+  if (overrides[value]) return overrides[value];
 
   // Fallback: replace underscores with spaces and title-case each word
   return value
