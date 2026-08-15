@@ -20,7 +20,7 @@ export type SuccessResponse<T> = {
  */
 export const sendError = (res: Response, error: AppError | Error): Response => {
   if (error instanceof Error && 'statusCode' in error && 'code' in error) {
-    const appError = error as AppError;
+    const appError = error;
     return res.status(appError.statusCode).json(appError.toJSON());
   }
 

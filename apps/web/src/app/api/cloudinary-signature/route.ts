@@ -8,7 +8,7 @@ export async function POST(request: Request) {
     const token = await getToken();
 
     // next-cloudinary sends { paramsToSign } in the request body
-    const body = await request.json();
+    const body = (await request.json()) as { paramsToSign?: Record<string, unknown> };
     const paramsToSign = body.paramsToSign || body;
 
     const data = await api.getUploadSignature(paramsToSign, {

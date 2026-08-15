@@ -21,7 +21,7 @@ export const registerProcessor = <T>(queueName: string, processor: JobProcessor<
 /**
  * Start consuming jobs from all registered queues.
  */
-export const startWorker = async (): Promise<BullWorker[]> => {
+export const startWorker = (): BullWorker[] => {
   const workers: BullWorker[] = [];
   const connectionOptions = getBullMqConnectionOptions();
 

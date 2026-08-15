@@ -351,7 +351,8 @@ export const acquireHold = async (
         endDate,
         quantity,
         expiresAt,
-        ...(guestDetails ? { guestDetails: guestDetails as unknown as object } : {}),
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
+        ...(guestDetails ? { guestDetails: guestDetails as any } : {}),
         ...(specialNeeds ? { specialNeeds } : {}),
         ...(idempotencyKey ? { idempotencyKey } : {}),
       },

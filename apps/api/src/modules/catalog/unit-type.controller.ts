@@ -17,7 +17,11 @@ export const createUnitType = async (
   try {
     const tenantReq = req as TenantRequest;
     const { propertyId } = req.params as { propertyId: string };
-    const unitType = await createUnitTypeService(tenantReq.tenantId, propertyId, req.body);
+    const unitType = await createUnitTypeService(
+      tenantReq.tenantId,
+      propertyId,
+      req.body as Parameters<typeof createUnitTypeService>[2],
+    );
     res.status(201).json(unitType);
   } catch (err) {
     next(err);
@@ -72,7 +76,7 @@ export const updateUnitType = async (
       tenantReq.tenantId,
       propertyId,
       unitTypeId,
-      req.body,
+      req.body as Parameters<typeof updateUnitTypeService>[3],
     );
     res.status(200).json(unitType);
   } catch (err) {

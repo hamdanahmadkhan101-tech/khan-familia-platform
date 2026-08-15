@@ -402,7 +402,7 @@ export function CheckoutWizard({ holdToken }: CheckoutWizardProps) {
                   <ChevronLeft className="mr-2 h-5 w-5" /> Back
                 </Button>
                 <Button
-                  onClick={handleStep2Next}
+                  onClick={() => void handleStep2Next()}
                   className="rounded-2xl px-8 py-6 text-base font-semibold hover:scale-105 transition-all shadow-lg hover:shadow-primary/20"
                 >
                   Special Requests <ChevronRight className="ml-2 h-5 w-5" />
@@ -463,7 +463,7 @@ export function CheckoutWizard({ holdToken }: CheckoutWizardProps) {
                 </Button>
                 <Button
                   disabled={isLoading}
-                  onClick={proceedToPayment}
+                  onClick={() => void proceedToPayment()}
                   className="rounded-2xl px-8 py-6 text-base font-semibold hover:scale-105 transition-all shadow-lg hover:shadow-primary/20"
                 >
                   {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}

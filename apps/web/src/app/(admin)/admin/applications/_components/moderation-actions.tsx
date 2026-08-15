@@ -82,7 +82,7 @@ export function ModerationActions({
         >
           Reject
         </Button>
-        <Button className="w-full" onClick={handleApprove} disabled={isLoading}>
+        <Button className="w-full" onClick={() => void handleApprove()} disabled={isLoading}>
           Approve Application
         </Button>
       </div>
@@ -108,7 +108,7 @@ export function ModerationActions({
             </Button>
             <Button
               variant="destructive"
-              onClick={handleReject}
+              onClick={() => void handleReject()}
               disabled={isLoading || !notes.trim()}
             >
               {isLoading ? 'Rejecting...' : 'Confirm Rejection'}

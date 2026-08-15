@@ -34,7 +34,7 @@ export const startWorker = async () => {
 
   // Start BullMQ workers (one per registered queue)
   logger.info('Starting BullMQ queue consumers');
-  const queueWorkers = await startQueueWorker();
+  const queueWorkers = startQueueWorker();
   logger.info({ queuesCount: queueWorkers.length }, 'BullMQ queue consumers started successfully');
 
   // Schedule hold-cleanup as a BullMQ repeatable job (distributed, Redis-backed)
@@ -67,6 +67,10 @@ export const startWorker = async () => {
     process.exit(0);
   };
 
-  process.on('SIGTERM', shutdown);
-  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', () => {
+    void shutdown();
+  });
+  process.on('SIGINT', () => {
+    void shutdown();
+  });
 };

@@ -158,9 +158,9 @@ export function OnboardingWizard() {
             onSubmit={(e) => {
               e.preventDefault();
               if (currentStep === STEPS.length - 1) {
-                handleSubmit(onSubmit)(e);
+                void handleSubmit(onSubmit)(e);
               } else {
-                next();
+                void next();
               }
             }}
             className="space-y-8"
@@ -198,7 +198,7 @@ export function OnboardingWizard() {
                   {isSubmitting ? 'Submitting...' : 'Submit Application'}
                 </Button>
               ) : (
-                <Button type="button" onClick={next}>
+                <Button type="button" onClick={() => void next()}>
                   Next <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
               )}

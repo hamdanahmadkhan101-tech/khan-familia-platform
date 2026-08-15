@@ -11,7 +11,7 @@ interface PropertyImageManagerProps {
 }
 
 export function PropertyImageManager({ propertyId }: PropertyImageManagerProps) {
-  const handleSuccess = async (result: unknown) => {
+  const handleSuccess = (result: unknown) => {
     if (
       result &&
       typeof result === 'object' &&
@@ -20,12 +20,14 @@ export function PropertyImageManager({ propertyId }: PropertyImageManagerProps) 
       'info' in result
     ) {
       const info = result.info as CloudinaryUploadWidgetInfo;
-      try {
-        await addPropertyImage(propertyId, info.secure_url, info.public_id);
-        toast.success('Image uploaded and linked successfully!');
-      } catch {
-        toast.error('Image uploaded to Cloudinary, but failed to link to property.');
-      }
+      void (async () => {
+        try {
+          await addPropertyImage(propertyId, info.secure_url, info.public_id);
+          toast.success('Image uploaded and linked successfully!');
+        } catch {
+          toast.error('Image uploaded to Cloudinary, but failed to link to property.');
+        }
+      })();
     }
   };
 

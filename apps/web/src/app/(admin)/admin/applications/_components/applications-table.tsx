@@ -65,7 +65,7 @@ export function ApplicationsTable({ data }: ApplicationsTableProps) {
       accessorKey: 'status',
       header: 'Status',
       cell: ({ row }) => {
-        const status = row.getValue('status') as string;
+        const status = String(row.getValue('status'));
         return (
           <Badge
             variant={

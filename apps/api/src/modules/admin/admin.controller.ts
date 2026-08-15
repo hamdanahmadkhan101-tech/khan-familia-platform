@@ -46,7 +46,8 @@ export const rejectProperty = async (
   try {
     const authReq = req as AuthenticatedRequest;
     const { propertyId } = req.params as { propertyId: string };
-    const property = await rejectPropertyService(propertyId, authReq.userId!, req.body);
+    const reqBody = req.body as { reason: string };
+    const property = await rejectPropertyService(propertyId, authReq.userId!, reqBody);
     res.status(200).json(property);
   } catch (err) {
     next(err);

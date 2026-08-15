@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@clerk/express', () => ({
-  verifyToken: vi.fn(async (token: string) => ({ sub: token })),
+  verifyToken: vi.fn((token: string) => Promise.resolve({ sub: token })),
 }));
 
 import { authHeaderFor } from '../helpers/auth.js';
@@ -109,7 +109,9 @@ describeDb('inventory and hold integration flow', () => {
       throw new Error(`First hold failed: ${JSON.stringify(firstHold.body)}`);
     }
     expect(firstHold.status).toBe(201);
-    expect(firstHold.body.holdToken).toEqual(expect.any(String));
+
+    const body1 = firstHold.body as { holdToken: string };
+    expect(body1.holdToken).toEqual(expect.any(String));
 
     const duplicateHold = await agent
       .post('/bookings/holds')
@@ -118,7 +120,8 @@ describeDb('inventory and hold integration flow', () => {
       .send(holdPayload);
 
     expect(duplicateHold.status).toBe(201);
-    expect(duplicateHold.body.holdToken).toBe(firstHold.body.holdToken);
+    const body2 = duplicateHold.body as { holdToken: string };
+    expect(body2.holdToken).toBe(body1.holdToken);
 
     const holds = await testPrisma.propertyHold.findMany({ where: { unitTypeId: unitType.id } });
     expect(holds).toHaveLength(1);
@@ -136,7 +139,7 @@ describeDb('inventory and hold integration flow', () => {
     );
 
     const releaseResponse = await agent
-      .delete(`/bookings/holds/${firstHold.body.holdToken}`)
+      .delete(`/bookings/holds/${body1.holdToken}`)
       .set('Authorization', authHeaderFor(guest.clerkId));
 
     expect(releaseResponse.status).toBe(200);
@@ -183,9 +186,11 @@ describeDb('inventory and hold integration flow', () => {
         ],
       });
 
+    const body = response.body as { error: { message: string; details: unknown } };
+
     expect(response.status).toBe(400);
-    expect(response.body.error.message).toContain('Validation failed');
-    expect(response.body.error.details).toMatchObject({
+    expect(body.error.message).toContain('Validation failed');
+    expect(body.error.details).toMatchObject({
       startDate: 'startDate must be today or a future date',
     });
   });
@@ -217,11 +222,13 @@ describeDb('inventory and hold integration flow', () => {
         ],
       });
 
-    if (response.status !== 400 || response.body.error.message === 'Validation failed') {
-      console.log('Validation Error Details:', response.body.error.details);
+    const body = response.body as { error: { message: string; details: unknown } };
+
+    if (response.status !== 400 || body.error.message === 'Validation failed') {
+      console.log('Validation Error Details:', body.error.details);
     }
     expect(response.status).toBe(400);
-    expect(response.body.error.message).toContain('exceeds unit capacity');
+    expect(body.error.message).toContain('exceeds unit capacity');
   });
 
   it('prevents tenant staff from booking their own property as a guest', async () => {
@@ -248,7 +255,9 @@ describeDb('inventory and hold integration flow', () => {
         ],
       });
 
+    const body = response.body as { error: { message: string } };
+
     expect(response.status).toBe(403);
-    expect(response.body.error.message).toContain('Staff cannot book their own properties');
+    expect(body.error.message).toContain('Staff cannot book their own properties');
   });
 });

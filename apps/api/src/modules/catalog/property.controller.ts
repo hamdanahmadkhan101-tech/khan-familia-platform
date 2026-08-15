@@ -20,7 +20,10 @@ export const createProperty = async (
 ): Promise<void> => {
   try {
     const tenantReq = req as TenantRequest;
-    const property = await createPropertyService(tenantReq.tenantId, req.body);
+    const property = await createPropertyService(
+      tenantReq.tenantId,
+      req.body as Parameters<typeof createPropertyService>[1],
+    );
     res.status(201).json(property);
   } catch (err) {
     next(err);
@@ -66,7 +69,11 @@ export const updateProperty = async (
   try {
     const tenantReq = req as TenantRequest;
     const { propertyId } = req.params as { propertyId: string };
-    const property = await updatePropertyService(tenantReq.tenantId, propertyId, req.body);
+    const property = await updatePropertyService(
+      tenantReq.tenantId,
+      propertyId,
+      req.body as Parameters<typeof updatePropertyService>[2],
+    );
     res.status(200).json(property);
   } catch (err) {
     next(err);

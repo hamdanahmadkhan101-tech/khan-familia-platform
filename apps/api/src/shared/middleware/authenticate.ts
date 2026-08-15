@@ -3,7 +3,7 @@ import { verifyToken } from '@clerk/express';
 
 import { env } from '../../env.js';
 import { AppError } from '../errors/AppError.js';
-import type { AuthenticatedRequest, AuthPayload } from '../types/request.js';
+import type { AuthenticatedRequest } from '../types/request.js';
 
 /**
  * Middleware to verify Clerk JWT and attach auth payload to request.
@@ -25,10 +25,10 @@ export const authenticateOptional = async (
       secretKey: env.CLERK_SECRET_KEY,
     });
 
-    (req as AuthenticatedRequest).auth = {
+    req.auth = {
       ...payload,
-      sub: payload.sub as string,
-    } as AuthPayload;
+      sub: payload.sub,
+    };
 
     next();
   } catch {
@@ -56,10 +56,10 @@ export const authenticateRequired = async (
       secretKey: env.CLERK_SECRET_KEY,
     });
 
-    (req as AuthenticatedRequest).auth = {
+    req.auth = {
       ...payload,
-      sub: payload.sub as string,
-    } as AuthPayload;
+      sub: payload.sub,
+    };
 
     next();
   } catch (error) {

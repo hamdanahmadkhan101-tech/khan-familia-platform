@@ -57,12 +57,12 @@ export function BookingSidebar({ minPrice }: BookingSidebarProps) {
                 onSelect={(date) => {
                   if (date) {
                     const newCheckIn = formatIsoDate(date, 'yyyy-MM-dd');
-                    setCheckIn(newCheckIn);
+                    void setCheckIn(newCheckIn);
                     if (checkOut && newCheckIn >= checkOut) {
-                      setCheckOut(formatIsoDate(addDays(date, 1), 'yyyy-MM-dd'));
+                      void setCheckOut(formatIsoDate(addDays(date, 1), 'yyyy-MM-dd'));
                     }
                   } else {
-                    setCheckIn(null);
+                    void setCheckIn(null);
                   }
                 }}
                 disabled={(date) => date < new Date(today)}
@@ -95,9 +95,9 @@ export function BookingSidebar({ minPrice }: BookingSidebarProps) {
                 selected={checkOut ? new Date(checkOut) : undefined}
                 onSelect={(date) => {
                   if (date) {
-                    setCheckOut(formatIsoDate(date, 'yyyy-MM-dd'));
+                    void setCheckOut(formatIsoDate(date, 'yyyy-MM-dd'));
                   } else {
-                    setCheckOut(null);
+                    void setCheckOut(null);
                   }
                 }}
                 disabled={(date) => (checkIn ? date <= new Date(checkIn) : date <= new Date())}

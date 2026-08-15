@@ -70,13 +70,15 @@ export const createPaymentIntent = async (
     await prisma.propertyHold.update({
       where: { id: hold.id },
       data: {
-        ...(guestDetails ? { guestDetails: guestDetails as unknown as object } : {}),
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
+        ...(guestDetails ? { guestDetails: guestDetails as any } : {}),
         ...(specialNeeds ? { specialNeeds } : {}),
       },
     });
 
     // Mutate the local hold object so processPaymentIntentConfirmation sees them correctly
-    if (guestDetails) hold.guestDetails = guestDetails as unknown as object;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
+    if (guestDetails) hold.guestDetails = guestDetails as any;
     if (specialNeeds) hold.specialNeeds = specialNeeds;
   }
 
@@ -141,11 +143,13 @@ export const createPaymentIntent = async (
   const gateway = PaymentGatewayFactory.getGateway(provider);
 
   if (reusableIntent) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const gatewayIntent = (await gateway.retrieveIntent(reusableIntent.id)) as any;
+    const gatewayIntent = (await gateway.retrieveIntent(reusableIntent.id)) as {
+      client_secret?: string;
+      clientSecret?: string;
+    };
 
     return {
-      clientSecret: gatewayIntent.client_secret || gatewayIntent.clientSecret,
+      clientSecret: gatewayIntent.client_secret || gatewayIntent.clientSecret || '',
       paymentIntentId: reusableIntent.id,
       amount: reusableIntent.amount,
       currency: reusableIntent.currency,
@@ -343,19 +347,17 @@ const createBookingGuests = async (
   const encryptionKey = env.ENCRYPTION_KEY;
 
   await tx.bookingGuest.createMany({
-    data: await Promise.all(
-      (guestDetails as Record<string, unknown>[]).map(async (guest) => {
-        const g = guest as Record<string, string | number | boolean>;
-        return {
-          bookingId,
-          isPrimary: Boolean(g['isPrimary']),
-          name: String(g['name']),
-          age: Number(g['age']),
-          idType: String(g['idType']),
-          idNumber: g['idNumber'] ? await encrypt(String(g['idNumber']), encryptionKey) : null,
-        };
-      }),
-    ),
+    data: (guestDetails as Record<string, unknown>[]).map((guest) => {
+      const g = guest as Record<string, string | number | boolean>;
+      return {
+        bookingId,
+        isPrimary: Boolean(g['isPrimary']),
+        name: String(g['name']),
+        age: Number(g['age']),
+        idType: String(g['idType']),
+        idNumber: g['idNumber'] ? encrypt(String(g['idNumber']), encryptionKey) : null,
+      };
+    }),
   });
 };
 
@@ -448,7 +450,14 @@ export const processPaymentIntentConfirmation = async (stripeIntent: Stripe.Paym
   let breakdownObj: { base: number; taxes: number; fees: number; discount: number } | undefined;
   try {
     const breakdownStr = stripeIntent.metadata['breakdown'];
-    breakdownObj = breakdownStr ? JSON.parse(breakdownStr) : undefined;
+    breakdownObj = breakdownStr
+      ? (JSON.parse(breakdownStr) as {
+          base: number;
+          taxes: number;
+          fees: number;
+          discount: number;
+        })
+      : undefined;
   } catch {
     // Ignore parse error
   }

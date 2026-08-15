@@ -102,7 +102,7 @@ export class StripeGateway implements PaymentGateway {
         type: event.type,
         intentId: intent.id,
         amountCaptured: intent.amount_received || intent.amount_capturable,
-        metadata: intent.metadata as Record<string, string>,
+        metadata: intent.metadata,
         status,
         rawEvent: event,
       };
