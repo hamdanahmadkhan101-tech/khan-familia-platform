@@ -672,6 +672,7 @@ model AccommodationBooking {
   BookingPriceSnapshot              BookingPriceSnapshot?
   AccommodationBookingStatusHistory AccommodationBookingStatusHistory[]
 
+  @@unique([tenantId, channel, externalBookingRef])
   @@index([userId, status])
   @@index([propertyId])
   @@index([propertyId, checkIn])
@@ -679,7 +680,6 @@ model AccommodationBooking {
   @@index([createdAt])
   @@index([tenantId])
   @@index([promoCodeId])
-  @@index([externalBookingRef])
   @@index([channel])
 }
 
@@ -692,6 +692,8 @@ model BookingGuest {
   age       Int?
   idType    String?
   idNumber  String?
+
+  @@index([bookingId])
 }
 
 model BookingSpecialRequest {
@@ -699,6 +701,8 @@ model BookingSpecialRequest {
   bookingId String
   booking   AccommodationBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   text      String
+
+  @@index([bookingId])
 }
 
 // One row per booking per booked night.
@@ -709,7 +713,7 @@ model Reservation {
   bookingId       String
   booking         AccommodationBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   unitInventoryId String
-  unitInventory   UnitInventory        @relation(fields: [unitInventoryId], references: [id])
+  unitInventory   UnitInventory        @relation(fields: [unitInventoryId], references: [id], onDelete: Restrict)
   date            DateTime // UTC midnight for each booked night
 
   @@unique([bookingId, date])
@@ -883,6 +887,8 @@ model CancellationPolicyRule {
   policy            CancellationPolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
   daysBeforeCheckIn Int
   refundPercentage  Int // Int not Float — financial value
+
+  @@index([policyId])
 }
 
 // =============================================================================
@@ -947,7 +953,7 @@ model SearchHistory {
 model TenantApplication {
   id               String                  @id @default(cuid())
   userId           String
-  user             User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user             User                    @relation(fields: [userId], references: [id], onDelete: Restrict)
   status           TenantApplicationStatus @default(PENDING)
   // approvedTenantId: bare String? without @relation to avoid circular Tenant→TenantApplication→Tenant ref.
   // When approved, set this to the created Tenant.id in the service layer. Referential integrity is enforced at application level.
@@ -1051,7 +1057,7 @@ model PropertyInquiry {
 model SupportTicket {
   id                     String              @id @default(cuid())
   userId                 String
-  user                   User                @relation("SupportTicketSubmitter", fields: [userId], references: [id], onDelete: Cascade)
+  user                   User                @relation("SupportTicketSubmitter", fields: [userId], references: [id], onDelete: Restrict)
   tenantId               String?
   tenant                 Tenant?             @relation(fields: [tenantId], references: [id])
   subject                String
@@ -1329,6 +1335,8 @@ model PaymentRecord {
   status          PaymentStatus @default(PAID) // Can be PAID or FAILED (retry)
   metadata        Json?
   createdAt       DateTime      @default(now())
+
+  @@index([paymentIntentId])
 }
 
 model Refund {
@@ -1339,6 +1347,8 @@ model Refund {
   reason          String?
   status          PaymentStatus @default(REFUNDED)
   createdAt       DateTime      @default(now())
+
+  @@index([paymentIntentId])
 }
 
 model BookingPriceSnapshot {
