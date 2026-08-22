@@ -44,7 +44,11 @@ export const multiplyMoney = (minorUnits: number, factor: DecimalInput): number 
  * Returns the rounded integer value in minor units.
  */
 export const applyDiscount = (minorUnits: number, discountPercent: DecimalInput): number => {
-  const discount = new Decimal(discountPercent).div(100);
-  const factor = new Decimal(1).minus(discount);
+  let discount = new Decimal(discountPercent);
+  if (discount.lessThan(0)) discount = new Decimal(0);
+  if (discount.greaterThan(100)) discount = new Decimal(100);
+
+  const discountFactor = discount.div(100);
+  const factor = new Decimal(1).minus(discountFactor);
   return new Decimal(minorUnits).times(factor).toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toNumber();
 };

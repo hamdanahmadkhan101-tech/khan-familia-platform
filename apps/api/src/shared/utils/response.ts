@@ -1,5 +1,6 @@
 import type { Response } from 'express';
 
+import { isAppError } from '../errors/AppError.js';
 import type { AppError } from '../errors/AppError.js';
 
 export type ErrorResponse = {
@@ -19,9 +20,8 @@ export type SuccessResponse<T> = {
  * Send a structured error response.
  */
 export const sendError = (res: Response, error: AppError | Error): Response => {
-  if (error instanceof Error && 'statusCode' in error && 'code' in error) {
-    const appError = error;
-    return res.status(appError.statusCode).json(appError.toJSON());
+  if (isAppError(error)) {
+    return res.status(error.statusCode).json(error.toJSON());
   }
 
   return res.status(500).json({
