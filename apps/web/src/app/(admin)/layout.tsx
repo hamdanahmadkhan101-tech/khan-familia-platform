@@ -1,11 +1,11 @@
-import { type ReactNode } from 'react';
+import { type ReactNode, Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getServerApiClient } from '@/lib/api.server';
 import { LayoutDashboard, FileText, Users, Building, Settings, LogOut } from 'lucide-react';
 import { SignOutButton } from '@clerk/nextjs';
 
-export default async function AdminLayout({ children }: { children: ReactNode }) {
+async function AdminGuard({ children }: { children: ReactNode }) {
   const apiClient = await getServerApiClient();
   let role = 'USER';
 
@@ -21,6 +21,10 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     redirect('/');
   }
 
+  return <>{children}</>;
+}
+
+export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-screen w-full bg-muted/40">
       {/* Sidebar */}
@@ -94,7 +98,17 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           <h2 className="text-lg font-bold">KF Admin</h2>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-6 md:p-10">{children}</div>
+        <div className="flex-1 overflow-y-auto p-6 md:p-10">
+          <Suspense
+            fallback={
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                Loading admin data...
+              </div>
+            }
+          >
+            <AdminGuard>{children}</AdminGuard>
+          </Suspense>
+        </div>
       </main>
     </div>
   );

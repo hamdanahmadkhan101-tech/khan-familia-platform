@@ -32,7 +32,13 @@ export default async function PropertiesPage() {
             <Card key={property.id} className="overflow-hidden flex flex-col">
               <div className="aspect-video relative bg-muted w-full overflow-hidden">
                 {primaryImage ? (
-                  <Image src={primaryImage} alt={property.name} fill className="object-cover" />
+                  <Image
+                    src={primaryImage}
+                    alt={property.name}
+                    fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    className="object-cover"
+                  />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-secondary/50">
                     <Building2 className="w-12 h-12 text-muted-foreground opacity-50" />
