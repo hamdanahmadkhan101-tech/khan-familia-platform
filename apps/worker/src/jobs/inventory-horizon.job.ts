@@ -135,29 +135,59 @@ export const handleInventoryHorizonCronJob = async (): Promise<void> => {
   logger.info('Starting inventory horizon extension cron job');
 
   try {
-    const properties = await prisma.property.findMany({
-      where: {
-        approvalStatus: 'APPROVED',
-        isDeleted: false,
-      },
-      select: {
-        id: true,
-        name: true,
-      },
-    });
+    let cursor: string | undefined = undefined;
+    let hasMore = true;
 
-    logger.info({ propertiesCount: properties.length }, 'Found approved properties to process');
+    while (hasMore) {
+      const query: import('@khan-familia/database').Prisma.PropertyFindManyArgs = {
+        where: {
+          approvalStatus: 'APPROVED',
+          isDeleted: false,
+        },
+        select: {
+          id: true,
+          name: true,
+        },
+        take: 100,
+        orderBy: { id: 'asc' },
+      };
 
-    for (const property of properties) {
-      try {
-        await prisma.$transaction(async (tx) => {
-          await generateInventoryHorizonForProperty(property.id, tx);
-        });
-      } catch (error) {
-        logger.error(
-          { propertyId: property.id, propertyName: property.name, err: error },
-          'Failed to generate inventory horizon for property',
-        );
+      if (cursor) {
+        query.skip = 1;
+        query.cursor = { id: cursor };
+      }
+
+      const properties = (await prisma.property.findMany(query)) as Array<{
+        id: string;
+        name: string;
+      }>;
+
+      if (properties.length === 0) {
+        hasMore = false;
+        break;
+      }
+
+      logger.info(
+        { propertiesCount: properties.length },
+        'Processing batch of approved properties',
+      );
+
+      for (const property of properties) {
+        try {
+          await prisma.$transaction(async (tx) => {
+            await generateInventoryHorizonForProperty(property.id, tx);
+          });
+        } catch (error) {
+          logger.error(
+            { propertyId: property.id, propertyName: property.name, err: error },
+            'Failed to generate inventory horizon for property',
+          );
+        }
+      }
+
+      cursor = properties[properties.length - 1]?.id;
+      if (properties.length < 100) {
+        hasMore = false;
       }
     }
 
