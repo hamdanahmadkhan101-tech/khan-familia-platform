@@ -7,7 +7,12 @@ import prettier from 'eslint-config-prettier';
 
 const tsFiles = ['**/*.ts', '**/*.tsx'];
 const tsProject = {
-  project: ['./tsconfig.json', './apps/*/tsconfig.json', './packages/*/tsconfig.json', './apps/api/tsconfig.eslint.json'],
+  project: [
+    './tsconfig.json',
+    './apps/*/tsconfig.json',
+    './packages/*/tsconfig.json',
+    './apps/api/tsconfig.eslint.json',
+  ],
   tsconfigRootDir: import.meta.dirname,
 };
 
@@ -73,7 +78,13 @@ export default [
               message: 'Do not import from apps. Use packages or app-local aliases.',
             },
             {
-              group: ['../apps/*', '../../apps/*', '../../../apps/*', '../../../../apps/*', '../../../../../apps/*'],
+              group: [
+                '../apps/*',
+                '../../apps/*',
+                '../../../apps/*',
+                '../../../../apps/*',
+                '../../../../../apps/*',
+              ],
               message: 'Do not import from other apps. Use packages or app-local aliases.',
             },
           ],

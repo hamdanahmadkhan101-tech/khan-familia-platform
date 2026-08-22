@@ -66,14 +66,17 @@ export const withLock = async <T>(
     throw new Error(`Failed to acquire lock: ${key}`);
   }
 
+  let timerId: ReturnType<typeof setTimeout> | undefined;
+
   try {
     return await Promise.race([
       callback(),
-      new Promise<never>((_resolve, reject) =>
-        setTimeout(() => reject(new Error(`Lock operation timeout: ${key}`)), timeoutMs),
-      ),
+      new Promise<never>((_resolve, reject) => {
+        timerId = setTimeout(() => reject(new Error(`Lock operation timeout: ${key}`)), timeoutMs);
+      }),
     ]);
   } finally {
+    if (timerId) clearTimeout(timerId);
     await releaseLock(key, token);
   }
 };

@@ -5,7 +5,7 @@ const nextConfig = {
     '@khan-familia/sdk',
     '@khan-familia/ui',
     '@khan-familia/validation',
-    '@khan-familia/types'
+    '@khan-familia/types',
   ],
   images: {
     remotePatterns: [
@@ -20,7 +20,7 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: 'images.pexels.com',
-      }
+      },
     ],
   },
   webpack: (config) => {

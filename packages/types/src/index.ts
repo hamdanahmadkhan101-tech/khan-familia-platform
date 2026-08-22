@@ -142,13 +142,7 @@ export type CreateGuestHoldBody = {
 // ---------------------------------------------------------------------------
 
 export type BookingStatus =
-  | 'PENDING'
-  | 'BOOKED'
-  | 'CONFIRMED'
-  | 'CHECKED_IN'
-  | 'CHECKED_OUT'
-  | 'CANCELLED'
-  | 'NO_SHOW';
+  'PENDING' | 'BOOKED' | 'CONFIRMED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'CANCELLED' | 'NO_SHOW';
 
 export type BookingPriceSnapshot = {
   id: string;
