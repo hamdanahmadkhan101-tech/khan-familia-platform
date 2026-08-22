@@ -54,10 +54,10 @@ export const createHoldBodySchema = z
   })
   .refine(
     (data) => {
-      const start = new Date(data.startDate);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      return start >= today;
+      const start = new Date(data.startDate).getTime();
+      const now = Date.now();
+      // Allow a 24-hour grace period for timezone differences
+      return start >= now - 24 * 60 * 60 * 1000;
     },
     {
       message: 'startDate must be today or a future date',

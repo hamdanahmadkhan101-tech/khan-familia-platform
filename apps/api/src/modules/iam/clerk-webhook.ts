@@ -30,11 +30,12 @@ export const clerkWebhookHandler = async (req: Request, res: Response): Promise<
   }
 
   const payload = req.body as unknown;
-  const body = Buffer.isBuffer(payload)
-    ? payload.toString('utf8')
-    : typeof payload === 'string'
-      ? payload
-      : JSON.stringify(payload ?? {});
+  if (!Buffer.isBuffer(payload) && typeof payload !== 'string') {
+    logger.error('Webhook body is not a Buffer or string. Ensure express.raw() is used.');
+    res.status(400).json({ error: 'Invalid payload format' });
+    return;
+  }
+  const body = Buffer.isBuffer(payload) ? payload.toString('utf8') : payload;
   let evt: ClerkWebhookEvent;
 
   try {
