@@ -41,7 +41,13 @@ export function Header() {
       <div className="flex items-center gap-6">
         <Link href="/" className="flex items-center gap-2">
           <div className="relative w-12 h-12 rounded-full overflow-hidden mix-blend-multiply">
-            <Image src="/logo.jpeg" alt="Khan Familia Travels Logo" fill className="object-cover" />
+            <Image
+              src="/logo.jpeg"
+              alt="Khan Familia Travels Logo"
+              fill
+              sizes="48px"
+              className="object-cover"
+            />
           </div>
           <span className="text-headline-sm font-headline-sm font-bold text-primary hidden sm:block">
             Khan Familia Travels
