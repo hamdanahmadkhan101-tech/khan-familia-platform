@@ -9,6 +9,7 @@ export interface NotificationJobPayload {
   userId: string;
   template: string;
   data: Record<string, unknown>;
+  idempotencyKey?: string;
 }
 
 export interface InventoryHorizonJobPayload {

@@ -10,38 +10,58 @@ export const handleHoldCleanupCronJob = async (): Promise<void> => {
   logger.info('Starting fallback hold cleanup cron job');
 
   try {
-    const expiredHolds = await prisma.propertyHold.findMany({
-      where: {
-        expiresAt: {
-          lt: new Date(),
+    let lastId: string | undefined = undefined;
+    let hasMore = true;
+
+    while (hasMore) {
+      const query: import('@khan-familia/database').Prisma.PropertyHoldFindManyArgs = {
+        where: {
+          expiresAt: { lt: new Date() },
         },
-      },
-      select: {
-        id: true,
-        holdToken: true,
-        expiresAt: true,
-      },
-    });
+        select: {
+          id: true,
+          holdToken: true,
+          expiresAt: true,
+        },
+        take: 100,
+        orderBy: { id: 'asc' },
+      };
 
-    if (expiredHolds.length === 0) {
-      logger.info('No orphaned expired holds found');
-      return;
-    }
+      if (lastId) {
+        query.where!.id = { gt: lastId };
+      }
 
-    logger.info({ expiredCount: expiredHolds.length }, 'Found orphaned expired holds to clean up');
+      const holds = (await prisma.propertyHold.findMany(query)) as Array<{
+        id: string;
+        holdToken: string;
+        expiresAt: Date;
+      }>;
 
-    for (const hold of expiredHolds) {
-      try {
-        await handleHoldExpiryJob({
-          holdId: hold.id,
-          holdToken: hold.holdToken,
-          holdExpiresAt: hold.expiresAt.toISOString(),
-        });
-      } catch (error) {
-        logger.error(
-          { holdId: hold.id, err: error },
-          'Failed to clean up expired hold during cron sweep',
-        );
+      if (holds.length === 0) {
+        hasMore = false;
+        break;
+      }
+
+      logger.info({ batchSize: holds.length }, 'Processing batch of orphaned expired holds');
+
+      for (const hold of holds) {
+        try {
+          await handleHoldExpiryJob({
+            holdId: hold.id,
+            holdToken: hold.holdToken,
+            holdExpiresAt: hold.expiresAt.toISOString(),
+          });
+        } catch (error) {
+          logger.error(
+            { holdId: hold.id, err: error },
+            'Failed to clean up expired hold during cron sweep',
+          );
+        }
+      }
+
+      lastId = holds[holds.length - 1]?.id;
+      if (holds.length < 100) {
+        hasMore = false;
       }
     }
 
