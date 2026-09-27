@@ -267,4 +267,43 @@ describeDb('payment integration flow', () => {
     });
     expect(paymentIntent.status).toBe('CANCELLED');
   });
+
+  it('refunds orphaned payments (hold expired) and retries on refund failure', async () => {
+    const { guest, holdToken } = await createPaidHold();
+    await createPaymentIntent(holdToken, guest.id);
+
+    // Simulate worker deleting the expired hold
+    await testPrisma.propertyHold.delete({ where: { holdToken } });
+
+    const refundSpy = vi
+      .spyOn(StripeGateway.prototype, 'refundIntent')
+      .mockImplementation(async () => {});
+
+    stripeState.event = {
+      id: `evt_test_${crypto.randomUUID()}`,
+      type: 'payment_intent.succeeded',
+      data: { object: { id: stripeState.createdPaymentIntent.id, metadata: { holdToken } } },
+    };
+    (stripeState.createdPaymentIntent as { status?: string }).status = 'succeeded';
+
+    // 1. Success path: successfully issues refund
+    const response = await createTestAgent()
+      .post('/payments/webhooks/stripe')
+      .set('stripe-signature', 'test-signature')
+      .send(Buffer.from('{}'));
+
+    expect(response.status).toBe(200);
+    expect(refundSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ intentId: stripeState.createdPaymentIntent.id }),
+    );
+
+    // 2. Retry path: refund fails, webhook returns 500 so Stripe automatically retries
+    refundSpy.mockRejectedValueOnce(new Error('Stripe API Network Error'));
+    const retryResponse = await createTestAgent()
+      .post('/payments/webhooks/stripe')
+      .set('stripe-signature', 'test-signature')
+      .send(Buffer.from('{}'));
+
+    expect(retryResponse.status).toBe(500);
+  });
 });

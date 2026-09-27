@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useApiClient } from './useApiClient';
 
 const STORAGE_KEY = 'khan_familia_active_hold';
 
@@ -53,11 +54,23 @@ export function useHoldSession() {
     window.dispatchEvent(new Event('holdSessionUpdated'));
   }, []);
 
+  const apiClient = useApiClient();
+
   const clearHold = useCallback(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored) as HoldSession;
+        // Fire and forget to release inventory on the backend using the authenticated client
+        apiClient.releaseGuestHold(parsed.holdToken).catch(console.error);
+      }
+    } catch (err) {
+      console.error('Failed to release hold on backend', err);
+    }
     localStorage.removeItem(STORAGE_KEY);
     setActiveHold(null);
     window.dispatchEvent(new Event('holdSessionUpdated'));
-  }, []);
+  }, [apiClient]);
 
   // Sync across tabs/components
   useEffect(() => {

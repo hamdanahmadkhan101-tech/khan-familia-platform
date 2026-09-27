@@ -24,6 +24,7 @@ export const convertHoldToBookingInventory = async (
       date: { gte: params.startDate, lt: params.endDate },
     },
     select: { id: true },
+    orderBy: { date: 'asc' },
   });
 
   if (inventoryRows.length === 0) {
@@ -32,21 +33,25 @@ export const convertHoldToBookingInventory = async (
     );
   }
 
-  const converted = await tx.unitInventory.updateMany({
-    where: {
-      id: { in: inventoryRows.map((row) => row.id) },
-      heldCount: { gte: params.quantity },
-    },
-    data: {
-      heldCount: { decrement: params.quantity },
-      bookedCount: { increment: params.quantity },
-      version: { increment: 1 },
-    },
-  });
+  let convertedCount = 0;
+  for (const row of inventoryRows) {
+    const updated = await tx.unitInventory.updateMany({
+      where: {
+        id: row.id,
+        heldCount: { gte: params.quantity },
+      },
+      data: {
+        heldCount: { decrement: params.quantity },
+        bookedCount: { increment: params.quantity },
+        version: { increment: 1 },
+      },
+    });
+    convertedCount += updated.count;
+  }
 
-  if (converted.count !== inventoryRows.length) {
+  if (convertedCount !== inventoryRows.length) {
     throw new Error(
-      `Could not convert all inventory rows (converted=${converted.count}, expected=${inventoryRows.length})`,
+      `Could not convert all inventory rows (converted=${convertedCount}, expected=${inventoryRows.length})`,
     );
   }
 };

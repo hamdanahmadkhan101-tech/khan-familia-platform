@@ -39,6 +39,7 @@ export const releaseHoldInventory = async (
       date: { gte: params.startDate, lt: params.endDate },
     },
     select: { id: true },
+    orderBy: { date: 'asc' },
   });
 
   if (inventoryRows.length === 0) {
@@ -48,22 +49,27 @@ export const releaseHoldInventory = async (
     );
   }
 
-  const released = await tx.unitInventory.updateMany({
-    where: {
-      id: { in: inventoryRows.map((row) => row.id) },
-      heldCount: { gte: params.quantity },
-    },
-    data: {
-      heldCount: { decrement: params.quantity },
-      availableCount: { increment: params.quantity },
-      version: { increment: 1 },
-    },
-  });
+  let releasedCount = 0;
+  // Update sequentially to enforce deterministic locking order (avoid deadlocks)
+  for (const row of inventoryRows) {
+    const updated = await tx.unitInventory.updateMany({
+      where: {
+        id: row.id,
+        heldCount: { gte: params.quantity },
+      },
+      data: {
+        heldCount: { decrement: params.quantity },
+        availableCount: { increment: params.quantity },
+        version: { increment: 1 },
+      },
+    });
+    releasedCount += updated.count;
+  }
 
-  if (released.count !== inventoryRows.length) {
+  if (releasedCount !== inventoryRows.length) {
     throw new Error(
       `Could not release all inventory rows for hold on property=${params.propertyId} ` +
-        `(released=${released.count}, expected=${inventoryRows.length})`,
+        `(released=${releasedCount}, expected=${inventoryRows.length})`,
     );
   }
 };

@@ -61,6 +61,10 @@ export type ApiClient = {
     holdToken: string,
     options?: Parameters<FetchLike>[1],
   ) => Promise<PropertyHoldResponse>;
+  releaseGuestHold: (
+    holdToken: string,
+    options?: Parameters<FetchLike>[1],
+  ) => Promise<{ message: string }>;
   /** Requires authentication. Lists the authenticated guest's bookings. */
   listGuestBookings: (query?: {
     scope?: 'upcoming' | 'past' | 'cancelled' | 'all';
@@ -264,6 +268,14 @@ export const createApiClient = ({
     async getHoldStatus(holdToken: string, options?: Parameters<FetchLike>[1]) {
       const response = await authFetch(`/bookings/holds/${holdToken}`, options);
       return response.json() as Promise<PropertyHoldResponse>;
+    },
+
+    async releaseGuestHold(holdToken: string, options?: Parameters<FetchLike>[1]) {
+      const response = await authFetch(`/bookings/holds/${holdToken}`, {
+        ...options,
+        method: 'DELETE',
+      });
+      return response.json() as Promise<{ message: string }>;
     },
 
     async listGuestBookings(query = {}) {

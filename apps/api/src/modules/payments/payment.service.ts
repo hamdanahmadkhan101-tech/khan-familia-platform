@@ -439,6 +439,26 @@ export const processPaymentIntentConfirmation = async (stripeIntent: Stripe.Paym
   });
 
   if (!hold) {
+    // The hold expired and was cleaned up by the worker, but the user paid.
+    // We must refund or cancel the intent to prevent silent charges.
+    try {
+      if (stripeIntent.status === 'succeeded') {
+        await refundPaymentIntent(
+          stripeIntent.id,
+          undefined,
+          'Hold expired before payment completed',
+        );
+      } else if (stripeIntent.status === 'requires_capture') {
+        await cancelPaymentIntent(stripeIntent.id);
+      }
+    } catch (err) {
+      console.error('Failed to refund/cancel orphaned payment intent:', err);
+      // Throw error so Stripe automatically retries the webhook with exponential backoff
+      throw AppError.internal(
+        'Failed to remediate orphaned payment, throwing to trigger Stripe webhook retry',
+      );
+    }
+    // Only return null if the refund/cancel succeeded, confirming we safely handled the orphan
     return null;
   }
 
@@ -465,6 +485,10 @@ export const processPaymentIntentConfirmation = async (stripeIntent: Stripe.Paym
   return prisma.$transaction(async (tx) => {
     const booking = await createBookingRecord(tx, hold, userId, nights, bookingStatus, holdToken);
 
+    // Standardize lock order: PropertyHold must be locked/deleted BEFORE UnitInventory
+    // to prevent cross-table deadlocks with the hold-expiry worker.
+    await finaliseHoldAndIntent(tx, hold.id, stripeIntent.id, booking.id, paymentStatus);
+
     await convertHoldToBookingInventory(tx, {
       propertyId: hold.propertyId,
       unitTypeId: hold.unitTypeId,
@@ -479,7 +503,6 @@ export const processPaymentIntentConfirmation = async (stripeIntent: Stripe.Paym
     await createPaymentRecord(tx, stripeIntent, paymentStatus, hold.tenant.currency);
     await createBookingGuests(tx, booking.id, hold.guestDetails);
     await createSpecialRequests(tx, booking.id, hold.specialNeeds);
-    await finaliseHoldAndIntent(tx, hold.id, stripeIntent.id, booking.id, paymentStatus);
 
     return booking;
   });

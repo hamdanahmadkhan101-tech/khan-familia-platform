@@ -206,6 +206,7 @@ const releaseBookedInventory = async (
       date: { gte: booking.checkIn, lt: booking.checkOut },
     },
     select: { id: true },
+    orderBy: { date: 'asc' },
   });
 
   const expectedNights = differenceInDays(booking.checkOut, booking.checkIn);
@@ -219,19 +220,23 @@ const releaseBookedInventory = async (
     where: { bookingId: booking.id },
   });
 
-  const released = await tx.unitInventory.updateMany({
-    where: {
-      id: { in: inventoryRows.map((row) => row.id) },
-      bookedCount: { gte: booking.unitQuantity },
-    },
-    data: {
-      bookedCount: { decrement: booking.unitQuantity },
-      availableCount: { increment: booking.unitQuantity },
-      version: { increment: 1 },
-    },
-  });
+  let releasedCount = 0;
+  for (const row of inventoryRows) {
+    const updated = await tx.unitInventory.updateMany({
+      where: {
+        id: row.id,
+        bookedCount: { gte: booking.unitQuantity },
+      },
+      data: {
+        bookedCount: { decrement: booking.unitQuantity },
+        availableCount: { increment: booking.unitQuantity },
+        version: { increment: 1 },
+      },
+    });
+    releasedCount += updated.count;
+  }
 
-  if (released.count !== inventoryRows.length) {
+  if (releasedCount !== inventoryRows.length) {
     throw AppError.conflict('Could not release every inventory row for this booking');
   }
 };
@@ -266,7 +271,7 @@ export const cancelGuestBooking = async (
       await releaseBookedInventory(tx, booking);
 
       const resultCount = await tx.accommodationBooking.updateMany({
-        where: { id: booking.id, status: booking.status },
+        where: { id: booking.id, status: booking.status, tenantId: booking.tenantId },
         data: {
           status: 'CANCELLED',
           cancellationReason: input.reason,
@@ -513,7 +518,7 @@ export const checkInBooking = async (tenantId: string, bookingId: string, userId
   // Phase 2: Update
   const updated = await prisma.$transaction(async (tx) => {
     const resultCount = await tx.accommodationBooking.updateMany({
-      where: { id: booking.id, status: booking.status },
+      where: { id: booking.id, status: booking.status, tenantId: booking.tenantId },
       data: { status: 'CHECKED_IN', checkedInAt: new Date(), checkedInById: userId },
     });
     if (resultCount.count === 0) throw AppError.conflict('Booking was modified concurrently');
