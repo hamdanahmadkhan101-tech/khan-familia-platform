@@ -6,7 +6,10 @@ import {
   confirmPaymentIntentController,
   createPaymentIntentController,
 } from './payment.controller.js';
-import { createPaymentIntentBodySchema } from '@khan-familia/validation';
+import {
+  createPaymentIntentBodySchema,
+  confirmPaymentIntentBodySchema,
+} from '@khan-familia/validation';
 
 export const paymentsRouter = Router();
 
@@ -30,4 +33,10 @@ paymentsRouter.post(
  * POST /payments/confirm
  * Authenticated guest manually triggers payment verification & booking creation upon Stripe redirect.
  */
-paymentsRouter.post('/confirm', requireAuth, attachUser, confirmPaymentIntentController);
+paymentsRouter.post(
+  '/confirm',
+  requireAuth,
+  attachUser,
+  validateBody(confirmPaymentIntentBodySchema),
+  confirmPaymentIntentController,
+);

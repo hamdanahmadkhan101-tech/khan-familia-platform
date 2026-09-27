@@ -403,6 +403,11 @@ export const releaseHold = async (holdToken: string, userId?: string) => {
       throw AppError.forbidden('You do not have permission to release this hold');
     }
 
+    // Standardize lock order: PropertyHold must be locked/deleted BEFORE UnitInventory
+    await tx.propertyHold.delete({
+      where: { id: hold.id },
+    });
+
     await releaseHoldInventory(tx, {
       tenantId: hold.tenantId,
       propertyId: hold.propertyId,
@@ -410,10 +415,6 @@ export const releaseHold = async (holdToken: string, userId?: string) => {
       startDate: hold.startDate,
       endDate: hold.endDate,
       quantity: hold.quantity,
-    });
-
-    await tx.propertyHold.delete({
-      where: { id: hold.id },
     });
   });
 };
