@@ -17,25 +17,18 @@
  */
 
 import {
-  PrismaClient,
-  PlatformRole,
-  TenantRole,
   PropertyType,
   PropertyCategory,
-  BusinessVertical,
   PropertyApprovalStatus,
   FeatureType,
 } from '@prisma/client';
 import { addDays, startOfDay } from 'date-fns';
 
-const db = new PrismaClient();
+import { prisma as db } from '../src/client.js';
 
 // ---------------------------------------------------------------------------
 // CLERK USER IDs — real IDs from your Clerk dashboard
 // ---------------------------------------------------------------------------
-const CLERK_SUPER_ADMIN_ID = 'user_3Fg4M1L11hlkHHGM8c90aZVymLc';
-const CLERK_TENANT_ID = 'user_3Fg4WN77NrSKLsbtXgvIGZ1Ztok';
-const CLERK_GUEST_ID = 'user_3Fg4ROb1ik9MczRc8dZPDFrUIye';
 
 // ---------------------------------------------------------------------------
 // HELPERS
@@ -80,92 +73,21 @@ async function main() {
   // -------------------------------------------------------------------------
   // 1. USERS
   // -------------------------------------------------------------------------
-  console.log('👤  Seeding users...');
+  console.log('👤  Fetching users and tenant...');
 
-  const superAdmin = await db.user.upsert({
-    where: { clerkId: CLERK_SUPER_ADMIN_ID },
-    update: {},
-    create: {
-      clerkId: CLERK_SUPER_ADMIN_ID,
-      username: 'superadmin',
-      email: 'admin@khanfamiliatravels.tech',
-      role: PlatformRole.SUPER_ADMIN,
-      avatarUrl: null,
-    },
+  const superAdmin = await db.user.findFirst({
+    where: { role: 'SUPER_ADMIN' },
   });
+  if (!superAdmin) throw new Error('No SUPER_ADMIN found in DB');
 
-  const tenantUser = await db.user.upsert({
-    where: { clerkId: CLERK_TENANT_ID },
-    update: {},
-    create: {
-      clerkId: CLERK_TENANT_ID,
-      username: 'kft_host',
-      email: 'host@khanfamiliatravels.tech',
-      role: PlatformRole.USER,
-      avatarUrl: null,
-    },
+  const tenant = await db.tenant.findUnique({
+    where: { id: 'cmuk5cjnc0003dwllkgiz83ii' },
   });
+  if (!tenant) throw new Error('Tenant cmuk5cjnc0003dwllkgiz83ii not found');
 
-  const guestUser = await db.user.upsert({
-    where: { clerkId: CLERK_GUEST_ID },
-    update: {},
-    create: {
-      clerkId: CLERK_GUEST_ID,
-      username: 'guest_traveler',
-      email: 'guest@khanfamiliatravels.tech',
-      role: PlatformRole.USER,
-      avatarUrl: null,
-    },
-  });
-
-  console.log(`   ✓ Super Admin: ${superAdmin.email}`);
-  console.log(`   ✓ Tenant/Host: ${tenantUser.email}`);
-  console.log(`   ✓ Guest:       ${guestUser.email}\n`);
-
-  // -------------------------------------------------------------------------
-  // 2. TENANT
-  // -------------------------------------------------------------------------
-  console.log('🏢  Seeding tenant...');
-
-  const tenant = await db.tenant.upsert({
-    where: { id: 'seed-tenant-kft-hospitality' },
-    update: {},
-    create: {
-      id: 'seed-tenant-kft-hospitality',
-      name: 'KFT Hospitality',
-      slug: 'kft-hospitality',
-      businessVertical: BusinessVertical.ACCOMMODATIONS_STAYS,
-      propertyLimit: 10,
-      staffLimit: 10,
-    },
-  });
-
-  console.log(`   ✓ Tenant: ${tenant.name} (${tenant.slug})\n`);
-
-  // -------------------------------------------------------------------------
-  // 3. TENANT MEMBERSHIP  (tenant user is the OWNER)
-  // -------------------------------------------------------------------------
-  console.log('🔑  Seeding tenant membership...');
-
-  await db.tenantUser.upsert({
-    where: {
-      tenantId_userId: { tenantId: tenant.id, userId: tenantUser.id },
-    },
-    update: {},
-    create: {
-      tenantId: tenant.id,
-      userId: tenantUser.id,
-      role: TenantRole.OWNER,
-    },
-  });
-
-  // Also set the tenant's defaultTenant on the tenantUser
-  await db.user.update({
-    where: { id: tenantUser.id },
-    data: { defaultTenantId: tenant.id },
-  });
-
-  console.log(`   ✓ ${tenantUser.email} → OWNER of ${tenant.name}\n`);
+  console.log(`   ✓ Super Admin: ${superAdmin.username}`);
+  console.log(`   ✓ Tenant:      ${tenant.name}
+`);
 
   // -------------------------------------------------------------------------
   // 4. COMMON AMENITIES
@@ -265,19 +187,19 @@ async function main() {
       images: {
         create: [
           {
-            url: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80',
+            url: 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
             publicId: 'Hotel1',
             isPrimary: true,
             order: 0,
           },
           {
-            url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80',
+            url: 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
             publicId: 'Hotel2',
             isPrimary: false,
             order: 1,
           },
           {
-            url: 'https://images.unsplash.com/photo-1542314831-c6a4d27ce6a2?auto=format&fit=crop&w=800&q=80',
+            url: 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
             publicId: 'Hotel3',
             isPrimary: false,
             order: 2,
@@ -332,12 +254,12 @@ async function main() {
         'Spacious room with floor-to-ceiling windows offering stunning mountain panoramas. King bed, premium bedding, and a private balcony.',
       images: [
         {
-          url: 'https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=800&q=80',
+          url: 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
           publicId: 'room1',
           isPrimary: true,
         },
         {
-          url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80',
+          url: 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
           publicId: 'room2',
           isPrimary: false,
         },
@@ -359,12 +281,12 @@ async function main() {
         'Comfortable and well-appointed room with all essential amenities. Queen bed and garden view.',
       images: [
         {
-          url: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=800&q=80',
+          url: 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
           publicId: 'room3',
           isPrimary: true,
         },
         {
-          url: 'https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=800&q=80',
+          url: 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
           publicId: 'room4',
           isPrimary: false,
         },
@@ -410,19 +332,19 @@ async function main() {
       images: {
         create: [
           {
-            url: 'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?auto=format&fit=crop&w=800&q=80',
+            url: 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
             publicId: 'Hotel4',
             isPrimary: true,
             order: 0,
           },
           {
-            url: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80',
+            url: 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
             publicId: 'Hotel5',
             isPrimary: false,
             order: 1,
           },
           {
-            url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80',
+            url: 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
             publicId: 'Hotel6',
             isPrimary: false,
             order: 2,
@@ -478,12 +400,12 @@ async function main() {
         'Our flagship suite with a private hot tub, fireplace, and 270-degree panoramic mountain views. Perfect for couples and honeymooners.',
       images: [
         {
-          url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80',
+          url: 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
           publicId: 'room5',
           isPrimary: true,
         },
         {
-          url: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=800&q=80',
+          url: 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
           publicId: 'room6',
           isPrimary: false,
         },
@@ -505,12 +427,12 @@ async function main() {
         'Cozy timber-panelled room with mountain and forest views. Twin or king bed configuration available.',
       images: [
         {
-          url: 'https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=800&q=80',
+          url: 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
           publicId: 'room7',
           isPrimary: true,
         },
         {
-          url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80',
+          url: 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
           publicId: 'room8',
           isPrimary: false,
         },
@@ -556,19 +478,19 @@ async function main() {
       images: {
         create: [
           {
-            url: 'https://images.unsplash.com/photo-1542314831-c6a4d27ce6a2?auto=format&fit=crop&w=800&q=80',
+            url: 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
             publicId: 'Hotel7',
             isPrimary: true,
             order: 0,
           },
           {
-            url: 'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?auto=format&fit=crop&w=800&q=80',
+            url: 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
             publicId: 'Hotel8',
             isPrimary: false,
             order: 1,
           },
           {
-            url: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80',
+            url: 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
             publicId: 'Hotel9',
             isPrimary: false,
             order: 2,
@@ -620,12 +542,12 @@ async function main() {
         "Private wooden cabin on the river's edge. Sit on your deck and watch the crystal-clear Swat River flow by.",
       images: [
         {
-          url: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=800&q=80',
+          url: 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
           publicId: 'room9',
           isPrimary: true,
         },
         {
-          url: 'https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=800&q=80',
+          url: 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
           publicId: 'room10',
           isPrimary: false,
         },
@@ -647,7 +569,7 @@ async function main() {
         'Simple, clean room with all essentials. Great value for backpackers and solo travellers.',
       images: [
         {
-          url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80',
+          url: 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
           publicId: 'room1',
           isPrimary: true,
         },
@@ -693,19 +615,19 @@ async function main() {
       images: {
         create: [
           {
-            url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80',
+            url: 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
             publicId: 'Hotel10',
             isPrimary: true,
             order: 0,
           },
           {
-            url: 'https://images.unsplash.com/photo-1542314831-c6a4d27ce6a2?auto=format&fit=crop&w=800&q=80',
+            url: 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
             publicId: 'Hotel11',
             isPrimary: false,
             order: 1,
           },
           {
-            url: 'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?auto=format&fit=crop&w=800&q=80',
+            url: 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
             publicId: 'Hotel1b',
             isPrimary: false,
             order: 2,
@@ -760,12 +682,12 @@ async function main() {
         'A grand suite with hand-painted wooden ceilings, traditional Swati furniture, and a private courtyard garden. The jewel of the haveli.',
       images: [
         {
-          url: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=800&q=80',
+          url: 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
           publicId: 'room2b',
           isPrimary: true,
         },
         {
-          url: 'https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=800&q=80',
+          url: 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
           publicId: 'room3b',
           isPrimary: false,
         },
@@ -787,12 +709,12 @@ async function main() {
         'A cozy room overlooking the walnut and apple orchards. Traditional Pashtun wooden furniture with modern en-suite bathroom.',
       images: [
         {
-          url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80',
+          url: 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
           publicId: 'room4b',
           isPrimary: true,
         },
         {
-          url: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=800&q=80',
+          url: 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
           publicId: 'room5b',
           isPrimary: false,
         },

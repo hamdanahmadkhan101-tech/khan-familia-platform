@@ -21,7 +21,7 @@ export function TrendingDestinations() {
         {/* Destination 1 */}
         <div className="lg:col-span-2 lg:row-span-2 relative rounded-2xl overflow-hidden group cursor-pointer shadow-sm border border-border min-h-[300px] lg:min-h-0">
           <Image
-            src="https://images.unsplash.com/photo-1542314831-c6a4d27f6f2c?auto=format&fit=crop&w=1200&q=80"
+            src="https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800"
             alt="Swat Valley"
             fill
             className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
@@ -36,7 +36,7 @@ export function TrendingDestinations() {
         {/* Destination 2 */}
         <div className="lg:col-span-2 relative rounded-2xl overflow-hidden group cursor-pointer shadow-sm border border-border min-h-[300px] lg:min-h-0">
           <Image
-            src="https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1200&q=80"
+            src="https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800"
             alt="Kalam Forest"
             fill
             className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
@@ -51,7 +51,7 @@ export function TrendingDestinations() {
         {/* Destination 3 */}
         <div className="relative rounded-2xl overflow-hidden group cursor-pointer shadow-sm border border-border min-h-[300px] lg:min-h-0">
           <Image
-            src="https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=800&q=80"
+            src="https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800"
             alt="Malam Jabba"
             fill
             className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
@@ -66,7 +66,7 @@ export function TrendingDestinations() {
         {/* Destination 4 */}
         <div className="relative rounded-2xl overflow-hidden group cursor-pointer shadow-sm border border-border min-h-[300px] lg:min-h-0">
           <Image
-            src="https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80"
+            src="https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800"
             alt="Hunza Valley"
             fill
             className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
