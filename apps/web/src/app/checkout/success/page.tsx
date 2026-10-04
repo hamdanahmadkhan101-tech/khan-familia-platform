@@ -14,7 +14,7 @@ function CheckoutSuccessContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const client = useApi();
-  const { clearHold } = useHoldSession();
+  const { clearLocalHold } = useHoldSession();
 
   const paymentIntentId = searchParams.get('payment_intent');
   const redirectStatus = searchParams.get('redirect_status');
@@ -30,7 +30,7 @@ function CheckoutSuccessContent() {
       if (!paymentIntentId) throw new Error('No payment intent found in URL.');
 
       const { booking: confirmedBooking } = await client.confirmPaymentIntent(paymentIntentId);
-      clearHold();
+      clearLocalHold();
       toast.success('Payment successful! Your booking is confirmed 🎉');
       return confirmedBooking;
     },

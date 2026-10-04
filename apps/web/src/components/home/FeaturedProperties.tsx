@@ -5,9 +5,9 @@ import type { PublicPropertySummary } from '@khan-familia/types';
 
 // High-quality Unsplash fallbacks for premium hospitality feel
 const FALLBACK_IMAGES = [
-  'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1542314831-c6a4d27f6f2c?auto=format&fit=crop&w=800&q=80',
+  'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
+  'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
+  'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
 ];
 
 interface FeaturedPropertiesProps {

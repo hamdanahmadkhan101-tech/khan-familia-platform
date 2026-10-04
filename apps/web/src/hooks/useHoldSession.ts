@@ -56,6 +56,12 @@ export function useHoldSession() {
 
   const apiClient = useApiClient();
 
+  const clearLocalHold = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEY);
+    setActiveHold(null);
+    window.dispatchEvent(new Event('holdSessionUpdated'));
+  }, []);
+
   const clearHold = useCallback(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -105,5 +111,6 @@ export function useHoldSession() {
     activeHold,
     saveHold,
     clearHold,
+    clearLocalHold,
   };
 }

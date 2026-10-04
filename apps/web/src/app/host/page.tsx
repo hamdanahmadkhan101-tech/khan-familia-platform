@@ -10,7 +10,7 @@ export default function HostMarketingPage() {
       <section className="relative px-6 lg:px-8 py-24 sm:py-32 overflow-hidden bg-slate-900 text-white">
         <div className="absolute inset-0 z-0">
           <Image
-            src="https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=2070&auto=format&fit=crop"
+            src="https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800"
             alt="Beautiful resort"
             fill
             className="object-cover opacity-30 mix-blend-overlay"
@@ -153,7 +153,7 @@ export default function HostMarketingPage() {
 
             <div className="relative rounded-2xl overflow-hidden shadow-2xl h-[600px]">
               <Image
-                src="https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?q=80&w=2070&auto=format&fit=crop"
+                src="https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800"
                 alt="Modern apartment interior"
                 fill
                 className="object-cover"

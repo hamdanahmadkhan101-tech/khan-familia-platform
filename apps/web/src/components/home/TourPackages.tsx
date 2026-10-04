@@ -9,7 +9,7 @@ const DUMMY_TOURS = [
     duration: '5 Days / 4 Nights',
     price: 'PKR 85,000',
     image:
-      'https://images.unsplash.com/photo-1542314831-c6a4d27f6f2c?auto=format&fit=crop&w=800&q=80',
+      'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
   },
   {
     id: 2,
@@ -18,7 +18,7 @@ const DUMMY_TOURS = [
     duration: '7 Days / 6 Nights',
     price: 'PKR 110,000',
     image:
-      'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80',
+      'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
   },
   {
     id: 3,
@@ -27,7 +27,7 @@ const DUMMY_TOURS = [
     duration: '4 Days / 3 Nights',
     price: 'PKR 65,000',
     image:
-      'https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=800&q=80',
+      'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
   },
   {
     id: 4,
@@ -36,7 +36,7 @@ const DUMMY_TOURS = [
     duration: '6 Days / 5 Nights',
     price: 'PKR 78,000',
     image:
-      'https://images.unsplash.com/photo-1542314831-c6a4d27f6f2c?auto=format&fit=crop&w=800&q=80',
+      'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
   },
 ];
 
