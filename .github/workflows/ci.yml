@@ -9,13 +9,36 @@ jobs:
     name: Build & Test
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: khan_familia_test
+          POSTGRES_USER: khan_familia_test
+          POSTGRES_PASSWORD: khan_familia_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U khan_familia_test -d khan_familia_test"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+
     # Mock environment variables required for Next.js build
     env:
       NEXT_PUBLIC_APP_NAME: 'Khan Familia Platform'
       NEXT_PUBLIC_API_BASE_URL: 'http://localhost:3001'
-      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: 'pk_test_mock'
+      # Valid Clerk key format for clerk.example.com; no real provider account.
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: 'pk_test_Y2xlcmsuZXhhbXBsZS5jb20k'
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_test_mock'
       NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: 'mock_cloud'
+      TEST_DATABASE_URL: 'postgresql://khan_familia_test:khan_familia_test@127.0.0.1:5432/khan_familia_test'
+      TEST_REDIS_PORT: '6379'
 
     steps:
       - name: Checkout repository
@@ -50,8 +73,20 @@ jobs:
       - name: Lint
         run: pnpm run lint
 
+      - name: Lint test infrastructure
+        run: pnpm run lint:test-infra
+
+      - name: Check formatting
+        run: pnpm run format:check
+
       - name: Typecheck
         run: pnpm run typecheck
 
-      - name: Test
+      - name: Unit and smoke tests
         run: pnpm run test
+
+      - name: Migrate isolated test database
+        run: pnpm run test:db:migrate
+
+      - name: Database integration and payment flow tests
+        run: pnpm run test:integration

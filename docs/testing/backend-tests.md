@@ -1,93 +1,113 @@
 # Backend Test Workspace
 
-This document explains the local setup for API integration tests. The test suite should never run against the normal development or production database.
+API tests use disposable local infrastructure and fake external-provider credentials. They do not
+load `.env`, `.env.test`, or `.env.test.local`. Existing local secret files are not part of this workflow.
 
-## Local Secret File
+## Run the suites
 
-Create this file locally when you are ready to run backend tests:
-
-```bash
-cp apps/api/.env.test.example apps/api/.env.test.local
-```
-
-Then edit `apps/api/.env.test.local` and set `DATABASE_URL` to a dedicated test database.
-
-Do not commit `apps/api/.env.test.local`. It is ignored by git.
-
-## Test Database Recommendation
-
-Use one of these, in order of preference:
-
-1. Local Postgres in Docker for fast repeatable test runs.
-2. A dedicated Neon branch in the same project, named with `test` in the branch or database name.
-3. A separate Neon project for tests.
-
-The test database URL must clearly look like a test database, or you must explicitly confirm that it is isolated. The helper in `apps/api/src/test/database.ts` refuses destructive cleanup unless `APP_ENV=test` and `DATABASE_URL` contains one of these hints:
-
-- `test`
-- `testing`
-- `ci`
-
-This is intentional. Test cleanup truncates tables. Some Neon branch URLs do not visibly include the branch name; for those, set `TEST_DATABASE_CONFIRM=true` in `apps/api/.env.test.local` only after confirming the URL points at your dedicated test branch.
-
-## Stripe, Clerk, Cloudinary, And Resend Values
-
-Automated tests should mock external providers by default. Use placeholder or test-mode values in `apps/api/.env.test.local` unless a specific test intentionally calls a provider sandbox.
-
-Safe defaults:
-
-```env
-CLERK_SECRET_KEY=sk_test_placeholder
-CLERK_PUBLISHABLE_KEY=pk_test_placeholder
-CLERK_WEBHOOK_SECRET=whsec_test_placeholder
-STRIPE_SECRET_KEY=sk_test_placeholder
-STRIPE_WEBHOOK_SECRET=whsec_test_placeholder
-CLOUDINARY_CLOUD_NAME=test-cloud
-CLOUDINARY_API_KEY=test-key
-CLOUDINARY_API_SECRET=test-secret
-RESEND_API_KEY=re_test_placeholder
-```
-
-Do not use production keys in tests. If you use real Stripe credentials for a manual sandbox test, use Stripe test-mode keys only.
-
-## Commands
-
-Run the default API test suite. This runs smoke/unit tests and skips DB-backed integration/flow tests unless explicitly enabled:
+Use the Node version in `.nvmrc` and install workspace dependencies first. From the repository root:
 
 ```bash
-pnpm --filter @khan-familia/api test
+pnpm test
+pnpm test:services:up
+pnpm test:db:migrate
+pnpm test:integration
+pnpm test:services:down
 ```
 
-Run DB-backed integration and payment flow tests after `apps/api/.env.test.local` points at a dedicated test database:
+- `pnpm test`: default unit/smoke checks; no integration database is required.
+- `pnpm test:services:up`: start disposable PostgreSQL and Redis using Docker Compose.
+- `pnpm test:db:migrate`: validate the isolated target, then apply committed Prisma migrations.
+- `pnpm test:integration`: explicitly select the API integration and flow suites against PostgreSQL.
+- `pnpm test:services:down`: remove the test containers and their temporary data.
 
-```bash
-TEST_DATABASE_CONFIRM=true RUN_DB_TESTS=true pnpm --filter @khan-familia/api test
+The integration command fails if `RUN_DB_TESTS=false` is explicitly set. It does not silently report
+success after skipping the requested database suite. Clear that opt-out before deliberately running
+integration tests. A missing database or failed migration is a failure to resolve, not a reason to use
+the normal development database.
+
+## Database boundary
+
+The runner in `scripts/test-api.mjs` supplies placeholder credentials and an isolated environment to
+the test process. Its default test connection is:
+
+```text
+postgresql://khan_familia_test:khan_familia_test@127.0.0.1:55432/khan_familia_test
 ```
 
-Run in watch mode:
+`TEST_DATABASE_URL` is the explicit way to select another **local, isolated** test instance, such as
+the CI service container. The guard accepts only:
 
-```bash
-pnpm --filter @khan-familia/api test:watch
-```
+- PostgreSQL URL protocols (`postgres:` or `postgresql:`).
+- A loopback hostname.
+- The exact database name and username `khan_familia_test`.
+- No URL query parameters.
 
-Run coverage:
+The runner replaces an inherited application `DATABASE_URL` with the selected test target. The
+effective `DATABASE_URL` must satisfy the same boundary. Before integration or migration work, the
+runner also checks `current_database()` and `current_user` against the reserved identity. A URL that happens to contain `test` or
+`ci` in its password is not sufficient. `TEST_DATABASE_CONFIRM` is no longer an override; do not use
+it. Remote Neon branches and other remote database hosts are intentionally unsupported by this
+harness.
 
-```bash
-pnpm --filter @khan-familia/api test:coverage
-```
+Unit/smoke execution uses a loopback connection on port 1 so an accidental database call fails
+instead of using the integration instance.
 
-## Test Suite Layout
+Integration cleanup truncates application tables in the accepted database. These naming and host
+checks reduce accidental targeting; they cannot determine the value of data stored behind a local
+port or tunnel. Reserve the accepted database and username exclusively for disposable tests. Never
+point a local tunnel or proxy at valuable data for these commands.
 
-- `apps/api/src/test/smoke`: app wiring checks that do not need the database.
-- `apps/api/src/test/unit`: small focused unit tests that do not need the database.
-- `apps/api/src/test/integration`: API + database tests for module behavior. Requires `RUN_DB_TESTS=true`.
-- `apps/api/src/test/flows`: backend end-to-end style business flow tests, still using mocks for external providers. Requires `RUN_DB_TESTS=true`.
-- `apps/api/src/test/helpers`: shared test auth, HTTP, and fixture helpers.
+## What is exercised
 
-## Files Added For The Test Harness
+| Suite                 | Persistence                                    | External boundaries                                                                                |
+| --------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| API unit/smoke        | No real database required                      | Test doubles/placeholders                                                                          |
+| API integration/flows | Real isolated PostgreSQL, committed migrations | Clerk verification, payment providers, Redis/BullMQ use test doubles where configured by the suite |
+| Web/worker/packages   | No test files currently                        | Their successful test commands do not establish scenario coverage                                  |
 
-- `apps/api/vitest.config.ts`: API Vitest configuration.
-- `apps/api/src/test/setup-env.ts`: loads `.env.test.local`, then `.env.test`, then safe placeholders.
-- `apps/api/src/test/database.ts`: Prisma test client plus safety-guarded cleanup helpers.
-- `apps/api/src/test/http.ts`: Supertest helper around `createApp()`.
-- `apps/api/.env.test.example`: committed example env file for local test setup.
+Redis is available in the disposable stack for later integration coverage. Its presence does not
+mean the current API suite exercises a live queue. Fake provider credentials are not permission to
+call a provider sandbox; automated suites must mock external providers.
+
+The integration tests can check HTTP/controller/service/database behavior while mocking queues and
+payments. They do not establish real Stripe settlement/refunds, Clerk authentication, Cloudinary
+permissions, email delivery, queue retries, or worker execution across process boundaries.
+
+## Suite layout and CI
+
+- `apps/api/src/test/unit`: focused logic and safety-guard tests.
+- `apps/api/src/test/smoke`: app wiring checks.
+- `apps/api/src/test/integration`: API/database scenarios.
+- `apps/api/src/test/flows`: multi-step business scenarios with external-provider doubles.
+- `apps/api/src/test/helpers`: authentication, HTTP, and fixture helpers.
+- `apps/api/src/test/database.ts`: guarded database access and cleanup.
+
+CI uses isolated PostgreSQL/Redis service containers, validates the target, applies migrations, and
+runs the selected suites with placeholders rather than production secrets. Read the CI job results
+for evidence of execution; a local unit pass is not evidence that integration tests passed.
+
+Phase 1 establishes safer, repeatable test execution. It does not supply comprehensive scenario
+coverage or establish booking/payment production readiness. Add regression coverage with each
+subsequent repair, including the actual dependency boundary that repair affects.
+
+## Phase 1 verification — 6 October 2026
+
+Local verification on `chore/isolated-test-infrastructure`:
+
+- PostgreSQL and Redis containers became healthy; Redis returned `PONG`.
+- All nine committed migrations applied to a fresh database. The connected database and role were
+  both verified as `khan_familia_test`.
+- API unit/smoke: 34 tests passed across three files, including 26 guard/environment regressions.
+- API integration/flows: 21 tests passed across four files; none skipped. The orphan-payment case
+  exercised failed remediation, successful retry, and duplicate delivery with a mocked gateway.
+- The root default test command passed. Other workspaces currently report no test files; that is
+  not web, worker, or shared-package scenario coverage.
+- Explicit opt-out and remote-target CLI checks both failed before database access, as intended.
+- Workspace build, lint, typecheck, dependency consistency, test-infrastructure lint, and formatting
+  passed. Unchanged workspace tasks reused existing Turbo artifacts; the changed API tasks ran.
+- An additional uncached web build passed using the CI public values and dummy provider credentials.
+  The invalid existing Clerk build placeholder was replaced with a valid-format dummy key.
+
+These are local results. GitHub Actions must still execute the updated workflow after the user
+pushes the branch. Providers and queues remain mocked in the API suites.

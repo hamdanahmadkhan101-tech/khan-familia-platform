@@ -9,10 +9,7 @@ import { truncateTestDatabase } from '../database.js';
 import { createTestAgent } from '../helpers/http.js';
 import { createTestUser, createTestTenant, createTestProperty } from '../helpers/fixtures.js';
 
-const runDbTests = process.env['RUN_DB_TESTS'] === 'true';
-const describeDb = runDbTests ? describe : describe.skip;
-
-describeDb('Section 6.4 RBAC Scenarios (401, 403, Cross-Tenant)', () => {
+describe('Section 6.4 RBAC Scenarios (401, 403, Cross-Tenant)', () => {
   let agent: ReturnType<typeof createTestAgent>;
 
   beforeAll(async () => {
