@@ -1,6 +1,6 @@
 # Khan Familia Platform — Development Context
 
-Updated: 2026-10-06.
+Updated: 2026-10-24.
 
 ## Implemented foundations
 
@@ -22,7 +22,7 @@ comprehensive coverage were unsupported and are superseded by this assessment.
 The project has useful foundations, but it is not established as ready for production booking/payment
 traffic. A passing unit suite, typecheck, or build does not establish that readiness.
 
-## Current work: Phase 1
+## Completed foundation: Phase 1
 
 Establish isolated test execution before repairing business behavior:
 
@@ -35,6 +35,17 @@ Establish isolated test execution before repairing business behavior:
 See [Backend Test Workspace](docs/testing/backend-tests.md) and the
 [isolated-test ADR](docs/decisions/adr-20261006-isolated-test-infrastructure.md). Actual command results
 must be recorded by the implementing change; this context file is not a claim that all checks passed.
+
+## Current work: Phase 2
+
+Controlled direct uploads, purpose-specific photo/document permissions, verified asset references,
+private document download authorization, SDK JSON/auth repair, and bounded Cloudinary image rendering.
+See [upload setup and acceptance](docs/testing/uploads.md) and the
+[upload decision](docs/decisions/adr-20261024-controlled-upload-assets.md).
+
+Cloudinary presets and live delivery need operator validation. The user confirms seeded data only
+and no existing documents. No document cleanup is currently required. Shared upload policies live
+in constants, and provider operations are isolated behind the API storage interface. No platform employee roles are introduced.
 
 ## Next work
 

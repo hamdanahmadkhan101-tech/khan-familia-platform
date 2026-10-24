@@ -1,3 +1,4 @@
+import { imageReferenceKey, storedImageReferenceKey } from './image-references.js';
 import type { Prisma } from '@khan-familia/database';
 
 import { prisma } from '../../infrastructure/database/client.js';
@@ -31,12 +32,32 @@ const assertPropertyInTenant = async (tenantId: string, propertyId: string) => {
   }
 };
 
+// Room photos must come from the property's authorized photo library.
+const assertImageReferences = async (
+  propertyId: string,
+  images: NonNullable<CreateUnitTypeBody['images']>,
+  existing: unknown = [],
+) => {
+  if (images.length === 0) return;
+  const propertyImages = await prisma.propertyImage.findMany({
+    where: { propertyId },
+    select: { url: true, publicId: true },
+  });
+  const oldImages: unknown[] = Array.isArray(existing) ? existing : [];
+  const allowed = new Set([...propertyImages, ...oldImages].map(storedImageReferenceKey));
+  for (const image of images) {
+    if (!allowed.has(imageReferenceKey(image)))
+      throw AppError.badRequest('Select verified photos from this property');
+  }
+};
+
 export const createUnitType = async (
   tenantId: string,
   propertyId: string,
   body: CreateUnitTypeBody,
 ): Promise<UnitTypeDto> => {
   await assertPropertyInTenant(tenantId, propertyId);
+  if (body.images) await assertImageReferences(propertyId, body.images);
 
   const existing = await prisma.unitType.findFirst({
     where: { propertyId, name: body.name },
@@ -106,6 +127,7 @@ export const updateUnitType = async (
   body: UpdateUnitTypeBody,
 ): Promise<UnitTypeDto> => {
   const existing = await getUnitType(tenantId, propertyId, unitTypeId);
+  if (body.images) await assertImageReferences(propertyId, body.images, existing.images);
 
   if (body.unitCount !== undefined && body.unitCount < existing.unitCount) {
     const conflicts = await prisma.$queryRawUnsafe<{ cnt: bigint }[]>(

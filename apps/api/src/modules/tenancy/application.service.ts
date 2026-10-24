@@ -1,3 +1,4 @@
+import { documentReferences } from '../upload/document-references.js';
 import { type PrismaClient, TenantApplicationStatus } from '@khan-familia/database';
 import { prisma } from '../../infrastructure/database/client.js';
 import type { SubmitApplicationBody } from '@khan-familia/validation';
@@ -51,7 +52,26 @@ export const submitApplication = async (
       },
     });
 
-    return application;
+    const documents = input.documents ?? [];
+    if (new Set(documents.map((doc) => doc.uploadId)).size !== documents.length) {
+      throw AppError.badRequest('Duplicate document references');
+    }
+    for (const document of documents) {
+      const claimed = await tx.uploadAsset.updateMany({
+        where: {
+          id: document.uploadId,
+          ownerId: userId,
+          purpose: 'APPLICATION_DOCUMENT',
+          visibility: 'PRIVATE',
+          completedAt: { not: null },
+          applicationId: null,
+        },
+        data: { applicationId: application.id },
+      });
+      if (claimed.count !== 1)
+        throw AppError.badRequest('Document is unavailable or not owned by you');
+    }
+    return { ...application, documents: documentReferences(application.documents) };
   });
 };
 
@@ -65,8 +85,11 @@ export const getApplicationStatus = async (userId: string, db: PrismaClient = pr
       createdAt: true,
       businessName: true,
       approvedTenantId: true,
+      documents: true,
     },
   });
 
-  return application;
+  return application
+    ? { ...application, documents: documentReferences(application.documents) }
+    : null;
 };

@@ -1,3 +1,4 @@
+import { documentReferences } from '../upload/document-references.js';
 import {
   PropertyApprovalStatus,
   TenantApplicationStatus,
@@ -99,6 +100,7 @@ export const listPendingApplications = async () => {
 
   return applications.map((app) => ({
     ...app,
+    documents: documentReferences(app.documents),
     govIdNumber: decrypt(app.govIdNumber),
     businessRegNumber: decrypt(app.businessRegNumber),
   }));
@@ -163,7 +165,7 @@ export const approveApplication = async (
       });
     }
 
-    return updatedApplication;
+    return { ...updatedApplication, documents: documentReferences(updatedApplication.documents) };
   });
 };
 
@@ -181,7 +183,7 @@ export const rejectApplication = async (
     throw AppError.conflict('Application is not pending');
   }
 
-  return prisma.tenantApplication.update({
+  const updatedApplication = await prisma.tenantApplication.update({
     where: { id: applicationId },
     data: {
       status: TenantApplicationStatus.REJECTED,
@@ -189,4 +191,5 @@ export const rejectApplication = async (
       reviewedAt: new Date(),
     },
   });
+  return { ...updatedApplication, documents: documentReferences(updatedApplication.documents) };
 };

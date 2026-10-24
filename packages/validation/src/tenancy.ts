@@ -1,3 +1,4 @@
+import { applicationDocumentSchema } from './upload.js';
 import { z } from 'zod';
 
 export const businessVerticalEnum = z.enum([
@@ -66,16 +67,7 @@ export const submitApplicationBodySchema = z.object({
   businessWebsite: z.string().trim().url().max(255).optional().or(z.literal('')),
   altEmail: z.string().trim().email().max(255).optional().or(z.literal('')),
   experience: z.string().trim().min(2).max(500),
-  documents: z
-    .array(
-      z.object({
-        url: z.string().url(),
-        type: z.string(),
-        publicId: z.string().optional(),
-      }),
-    )
-    .max(10)
-    .optional(),
+  documents: z.array(applicationDocumentSchema).max(10).optional(),
 });
 
 export const applicationReviewBodySchema = z.object({

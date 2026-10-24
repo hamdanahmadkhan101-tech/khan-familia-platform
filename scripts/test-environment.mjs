@@ -53,6 +53,8 @@ export const createApiTestEnvironment = (inherited, suite) => {
     CLOUDINARY_CLOUD_NAME: 'test-cloud',
     CLOUDINARY_API_KEY: 'test-key',
     CLOUDINARY_API_SECRET: 'test-secret',
+    CLOUDINARY_PHOTO_UPLOAD_PRESET: 'khan_familia_property_photos',
+    CLOUDINARY_DOCUMENT_UPLOAD_PRESET: 'khan_familia_application_documents',
     RESEND_API_KEY: 're_test_placeholder',
     ENCRYPTION_KEY: '0'.repeat(64),
   };

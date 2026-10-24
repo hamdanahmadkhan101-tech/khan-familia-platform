@@ -109,8 +109,13 @@ export const addPropertyImage = async (
       throw AppError.badRequest('Invalid image data');
     }
 
-    const { url, publicId } = parsed.data;
-    const image = await addPropertyImageService(tenantReq.tenantId, propertyId, url, publicId);
+    const { uploadId } = parsed.data;
+    const image = await addPropertyImageService(
+      tenantReq.tenantId,
+      propertyId,
+      uploadId,
+      tenantReq.userId,
+    );
 
     res.status(201).json(image);
   } catch (err) {

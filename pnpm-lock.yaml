@@ -161,6 +161,9 @@ importers:
         specifier: ^3.24.1
         version: 3.25.76
     devDependencies:
+      '@khan-familia/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
       '@types/compression':
         specifier: ^1.8.1
         version: 1.8.1

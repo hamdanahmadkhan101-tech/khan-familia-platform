@@ -14,8 +14,8 @@ import {
   SelectValue,
   Button,
 } from '@khan-familia/ui';
-import { Plus, Trash2, UploadCloud, X } from 'lucide-react';
-import { CldUploadWidget, type CloudinaryUploadWidgetInfo } from 'next-cloudinary';
+import { Plus, Trash2, X } from 'lucide-react';
+import { DirectUploadInput } from '../../../../../../components/uploads/DirectUploadInput';
 
 export function StepVerification() {
   const { control } = useFormContext<SubmitApplicationBody>();
@@ -113,16 +113,14 @@ export function StepVerification() {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => append({ url: '', type: 'OTHER' })}
+            onClick={() => append({ uploadId: '', type: 'OTHER' })}
           >
-            <Plus className="h-4 w-4 mr-2" /> Add Document Link
+            <Plus className="h-4 w-4 mr-2" /> Add Document
           </Button>
         </div>
 
         {fields.length === 0 && (
-          <p className="text-sm text-slate-500 italic">
-            No documents added. You must upload at least one valid identity or business document.
-          </p>
+          <p className="text-sm text-slate-500 italic">No supporting documents added.</p>
         )}
 
         <div className="space-y-4">
@@ -130,62 +128,38 @@ export function StepVerification() {
             <div key={field.id} className="flex items-start gap-4">
               <FormField
                 control={control}
-                name={`documents.${index}.url`}
+                name={`documents.${index}.uploadId`}
                 render={({ field }) => (
                   <FormItem className="flex-1">
-                    <FormControl>
+                    <div>
                       {field.value ? (
                         <div className="flex items-center gap-2">
-                          <Input
-                            value={field.value}
-                            readOnly
-                            className="bg-slate-50 text-slate-500"
-                          />
+                          <a
+                            href={`/api/uploads/${field.value}/document`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm underline"
+                          >
+                            View uploaded document
+                          </a>
                           <Button
                             type="button"
                             variant="outline"
                             size="icon"
+                            aria-label="Remove uploaded document"
                             onClick={() => field.onChange('')}
                           >
                             <X className="h-4 w-4" />
                           </Button>
                         </div>
                       ) : (
-                        <CldUploadWidget
-                          signatureEndpoint="/api/cloudinary-signature"
-                          uploadPreset="ml_default"
-                          options={{
-                            clientAllowedFormats: ['png', 'jpg', 'jpeg', 'pdf'],
-                            maxFileSize: 5000000, // 5MB limit
-                            resourceType: 'auto',
-                          }}
-                          onSuccess={(result) => {
-                            if (
-                              result &&
-                              typeof result === 'object' &&
-                              'event' in result &&
-                              result.event === 'success' &&
-                              'info' in result
-                            ) {
-                              const info = result.info as CloudinaryUploadWidgetInfo;
-                              field.onChange(info.secure_url);
-                            }
-                          }}
-                        >
-                          {({ open }) => (
-                            <Button
-                              type="button"
-                              onClick={() => open()}
-                              variant="outline"
-                              className="w-full justify-start text-slate-500 font-normal"
-                            >
-                              <UploadCloud className="h-4 w-4 mr-2" />
-                              Upload Document (PDF/Image)
-                            </Button>
-                          )}
-                        </CldUploadWidget>
+                        <DirectUploadInput
+                          intent={{ purpose: 'APPLICATION_DOCUMENT' }}
+                          label={`Upload document ${index + 1}`}
+                          onCompleted={(uploadId) => field.onChange(uploadId)}
+                        />
                       )}
-                    </FormControl>
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -196,13 +170,23 @@ export function StepVerification() {
                 render={({ field }) => (
                   <FormItem className="w-1/3">
                     <FormControl>
-                      <Input placeholder="e.g. REGISTRATION" {...field} />
+                      <Input
+                        aria-label={`Document ${index + 1} type`}
+                        placeholder="e.g. REGISTRATION"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={`Remove document ${index + 1}`}
+                onClick={() => remove(index)}
+              >
                 <Trash2 className="h-4 w-4 text-red-500" />
               </Button>
             </div>
