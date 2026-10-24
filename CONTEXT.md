@@ -36,7 +36,7 @@ See [Backend Test Workspace](docs/testing/backend-tests.md) and the
 [isolated-test ADR](docs/decisions/adr-20261006-isolated-test-infrastructure.md). Actual command results
 must be recorded by the implementing change; this context file is not a claim that all checks passed.
 
-## Current work: Phase 2
+## Implemented: Phase 2
 
 Controlled direct uploads, purpose-specific photo/document permissions, verified asset references,
 private document download authorization, SDK JSON/auth repair, and bounded Cloudinary image rendering.
@@ -46,6 +46,16 @@ See [upload setup and acceptance](docs/testing/uploads.md) and the
 Cloudinary presets and live delivery need operator validation. The user confirms seeded data only
 and no existing documents. No document cleanup is currently required. Shared upload policies live
 in constants, and provider operations are isolated behind the API storage interface. No platform employee roles are introduced.
+
+## Current work: Phase 3
+
+Sensitive-data protection covers shared API/worker log policy, versioned encrypted temporary hold
+guest/special-needs payloads and minimized hold status responses. The user confirmed development has
+no hold/booking/payment records, so no legacy conversion tool is included. Existing expiry cleanup
+is reused. No schema migration or key rotation is introduced. Read the
+[rollout and test runbook](docs/testing/sensitive-data.md) for verification instructions, and
+the [decision](docs/decisions/adr-20261024-sensitive-data-protection.md) for boundaries. The assistant
+does not mutate Neon or Git state; live provider/browser acceptance remains an operator check.
 
 ## Next work
 

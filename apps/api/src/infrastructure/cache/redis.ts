@@ -3,6 +3,7 @@ import type { Redis as RedisType } from 'ioredis';
 import { Redis } from 'ioredis';
 
 import { env } from '../../env.js';
+import { logger } from '../../logger.js';
 import { shouldUseRedisTls } from './redis-tls.js';
 
 const globalForRedis = global as unknown as { redis: RedisType };
@@ -23,7 +24,7 @@ const redisConfig = {
 export const redis: RedisType = globalForRedis.redis || new Redis(redisConfig);
 
 redis.on('error', (err: Error) => {
-  console.error('Redis connection error:', err);
+  logger.error({ err }, 'Redis connection error');
 });
 
 if (process.env['NODE_ENV'] !== 'production') globalForRedis.redis = redis;

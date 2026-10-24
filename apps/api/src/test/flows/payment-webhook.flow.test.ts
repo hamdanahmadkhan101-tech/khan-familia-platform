@@ -72,6 +72,8 @@ import { truncateTestDatabase, testPrisma } from '../database.js';
 import { createBookableInventoryFixture } from '../helpers/fixtures.js';
 import { createTestAgent } from '../helpers/http.js';
 import { createPaymentIntent } from '../../modules/payments/payment.service.js';
+import { decrypt } from '@khan-familia/utils';
+import { env } from '../../env.js';
 
 describe('payment integration flow', () => {
   beforeAll(async () => {
@@ -136,6 +138,7 @@ describe('payment integration flow', () => {
         startDate: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
         endDate: format(addDays(new Date(), 32), 'yyyy-MM-dd'),
         quantity: 1,
+        specialNeeds: ['TEST_ACCESSIBILITY_REQUEST'],
         guestDetails: [
           {
             name: 'John Doe',
@@ -200,6 +203,18 @@ describe('payment integration flow', () => {
 
     await expect(testPrisma.propertyHold.findUnique({ where: { holdToken } })).resolves.toBeNull();
 
+    const guests = await testPrisma.bookingGuest.findMany({ where: { bookingId: booking!.id } });
+    expect(guests).toHaveLength(1);
+    expect(guests[0]).toMatchObject({ name: 'John Doe', age: 30, idType: 'CNIC', isPrimary: true });
+    expect(guests[0]!.idNumber).not.toBe('12345-1234567-1');
+    expect(decrypt(guests[0]!.idNumber!, env.ENCRYPTION_KEY)).toBe('12345-1234567-1');
+    const specialRequests = await testPrisma.bookingSpecialRequest.findMany({
+      where: { bookingId: booking!.id },
+    });
+    expect(specialRequests).toEqual(
+      expect.arrayContaining([expect.objectContaining({ text: 'TEST_ACCESSIBILITY_REQUEST' })]),
+    );
+
     const paymentIntent = await testPrisma.paymentIntent.findUniqueOrThrow({
       where: { id: stripeState.createdPaymentIntent.id },
     });
@@ -210,6 +225,37 @@ describe('payment integration flow', () => {
       where: { transactionId: stripeState.createdPaymentIntent.id },
     });
     expect(paymentRecord).toMatchObject({ status: 'PAID', amountCaptured: 45_000 });
+  });
+
+  it('rejects corrupted temporary data without creating a partial booking or releasing inventory', async () => {
+    const { guest, holdToken, property } = await createPaidHold();
+    await createPaymentIntent(holdToken, guest.id);
+    await testPrisma.propertyHold.update({
+      where: { holdToken },
+      data: { guestDetails: { version: 1, ciphertext: 'CORRUPT_PRIVATE_SENTINEL' } },
+    });
+    stripeState.event = createPaymentEvent('payment_intent.succeeded', holdToken, guest.id);
+    const response = await createTestAgent()
+      .post('/payments/webhooks/stripe')
+      .set('stripe-signature', 'test-signature')
+      .send(Buffer.from('{}'));
+    expect(response.status).toBe(409);
+    expect(JSON.stringify(response.body)).not.toContain('CORRUPT_PRIVATE_SENTINEL');
+    expect(
+      await testPrisma.accommodationBooking.findUnique({ where: { idempotencyKey: holdToken } }),
+    ).toBeNull();
+    expect(await testPrisma.propertyHold.findUnique({ where: { holdToken } })).not.toBeNull();
+    const inventory = await testPrisma.unitInventory.findMany({
+      where: { propertyId: property.id },
+      orderBy: { date: 'asc' },
+    });
+    expect(inventory.slice(0, 2).every((row) => row.heldCount === 1 && row.bookedCount === 0)).toBe(
+      true,
+    );
+    const intent = await testPrisma.paymentIntent.findUniqueOrThrow({
+      where: { id: stripeState.createdPaymentIntent.id },
+    });
+    expect(intent.status).toBe('PENDING');
   });
 
   it('does not create duplicate bookings when Stripe retries a success webhook', async () => {

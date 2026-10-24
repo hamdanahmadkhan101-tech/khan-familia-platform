@@ -22,3 +22,4 @@ export const QUEUE_NAMES = {
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
 
 export { UPLOAD_POLICIES } from './uploads.js';
+export { LOG_REDACTION_PATHS } from './logging.js';

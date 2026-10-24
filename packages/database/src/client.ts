@@ -20,13 +20,16 @@ if (globalForPrisma.prisma) {
     connectionTimeoutMillis: 5000,
   });
 
-  pool.on('error', (err) => console.error('pg Pool error:', err));
+  // Driver errors may include connection strings or query parameters.
+  pool.on('error', () => console.error('Database pool connection error'));
 
-  const adapter = new PrismaPg(pool);
+  const adapter = new PrismaPg(pool, { disposeExternalPool: true });
 
   prismaInstance = new PrismaClient({
     adapter,
-    log: process.env['NODE_ENV'] === 'development' ? ['query', 'error', 'warn'] : ['error'],
+    // Prisma's implicit console logger can print SQL parameters and invocation payloads.
+    // Applications report failures through their own safe structured error logger.
+    log: [],
   });
 }
 

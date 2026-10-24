@@ -9,7 +9,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
  * @param keyHex The encryption key as a 64-character hex string (32 bytes).
  */
 export const encrypt = (plaintext: string, keyHex: string): string => {
-  if (!keyHex || keyHex.length !== 64) {
+  if (!/^[a-f0-9]{64}$/i.test(keyHex)) {
     throw new Error('Encryption key must be a 32-byte hex string (64 characters)');
   }
 
@@ -33,7 +33,7 @@ export const encrypt = (plaintext: string, keyHex: string): string => {
  * @param keyHex The encryption key as a 64-character hex string (32 bytes).
  */
 export const decrypt = (encryptedPayload: string, keyHex: string): string => {
-  if (!keyHex || keyHex.length !== 64) {
+  if (!/^[a-f0-9]{64}$/i.test(keyHex)) {
     throw new Error('Encryption key must be a 32-byte hex string (64 characters)');
   }
 
