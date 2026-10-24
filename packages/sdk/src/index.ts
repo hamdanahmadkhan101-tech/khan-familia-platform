@@ -9,6 +9,7 @@ import type {
   HealthStatus,
   PaymentIntentResponse,
   PropertyHoldResponse,
+  PropertyHoldStatusResponse,
   PublicPropertyDetails,
   PaginatedProperties,
   UserProfile,
@@ -72,7 +73,7 @@ export type ApiClient = {
   getHoldStatus: (
     holdToken: string,
     options?: Parameters<FetchLike>[1],
-  ) => Promise<PropertyHoldResponse>;
+  ) => Promise<PropertyHoldStatusResponse>;
   releaseGuestHold: (
     holdToken: string,
     options?: Parameters<FetchLike>[1],
@@ -261,7 +262,7 @@ export const createApiClient = ({
 
     async getHoldStatus(holdToken: string, options?: Parameters<FetchLike>[1]) {
       const response = await authFetch(`/bookings/holds/${holdToken}`, options);
-      return response.json() as Promise<PropertyHoldResponse>;
+      return response.json() as Promise<PropertyHoldStatusResponse>;
     },
 
     async releaseGuestHold(holdToken: string, options?: Parameters<FetchLike>[1]) {

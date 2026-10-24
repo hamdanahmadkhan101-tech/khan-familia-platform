@@ -120,6 +120,8 @@ export type PropertyHoldResponse = {
   expiresAt: string;
 };
 
+export type PropertyHoldStatusResponse = { hold: PropertyHoldResponse };
+
 export type PaymentIntentResponse = {
   clientSecret: string;
   paymentIntentId: string;

@@ -8,6 +8,12 @@ import { calculateNights, multiplyMoney, toMinorUnits, encrypt } from '@khan-fam
 import { releaseHold } from '../inventory/inventory.service.js';
 import { bookingSelect } from '../booking/booking.selectors.js';
 import { PaymentGatewayFactory } from './gateway.factory.js';
+import {
+  protectHoldData,
+  readHoldGuestDetails,
+  readHoldSpecialNeeds,
+} from '../booking/hold-data.js';
+import { logger } from '../../logger.js';
 
 /**
  * Payment Service — Provider-agnostic layer.
@@ -65,21 +71,25 @@ export const createPaymentIntent = async (
     throw AppError.badRequest('This hold has expired. Please start a new checkout.');
   }
 
-  // Optional: Update the hold with guest details and special needs before creating the intent
+  const protectedGuests = guestDetails
+    ? protectHoldData('guestDetails', guestDetails, holdToken)
+    : hold.guestDetails;
+  const protectedNeeds = specialNeeds
+    ? protectHoldData('specialNeeds', specialNeeds, holdToken)
+    : hold.specialNeeds;
+  // Reject unreadable/legacy payloads before creating a provider payment intent.
+  readHoldGuestDetails(protectedGuests, holdToken);
+  readHoldSpecialNeeds(protectedNeeds, holdToken);
+
+  // Store only encrypted temporary payloads, including replacement checkout details.
   if (guestDetails || specialNeeds) {
     await prisma.propertyHold.update({
       where: { id: hold.id },
       data: {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
-        ...(guestDetails ? { guestDetails: guestDetails as any } : {}),
-        ...(specialNeeds ? { specialNeeds } : {}),
+        ...(guestDetails ? { guestDetails: protectedGuests! } : {}),
+        ...(specialNeeds ? { specialNeeds: protectedNeeds! } : {}),
       },
     });
-
-    // Mutate the local hold object so processPaymentIntentConfirmation sees them correctly
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
-    if (guestDetails) hold.guestDetails = guestDetails as any;
-    if (specialNeeds) hold.specialNeeds = specialNeeds;
   }
 
   // 2. Calculate price using centralized utilities
@@ -452,7 +462,7 @@ export const processPaymentIntentConfirmation = async (stripeIntent: Stripe.Paym
         await cancelPaymentIntent(stripeIntent.id);
       }
     } catch (err) {
-      console.error('Failed to refund/cancel orphaned payment intent:', err);
+      logger.error({ err }, 'Failed to refund/cancel orphaned payment intent');
       // Throw error so Stripe automatically retries the webhook with exponential backoff
       throw AppError.internal(
         'Failed to remediate orphaned payment, throwing to trigger Stripe webhook retry',
@@ -462,6 +472,11 @@ export const processPaymentIntentConfirmation = async (stripeIntent: Stripe.Paym
     return null;
   }
 
+  const checkoutHold = {
+    ...hold,
+    guestDetails: readHoldGuestDetails(hold.guestDetails, holdToken),
+    specialNeeds: readHoldSpecialNeeds(hold.specialNeeds, holdToken),
+  };
   const nights = Math.max(1, calculateNights(hold.startDate, hold.endDate));
   const { bookingStatus, paymentStatus } = deriveStatuses(stripeIntent.status);
 
@@ -483,7 +498,14 @@ export const processPaymentIntentConfirmation = async (stripeIntent: Stripe.Paym
   }
 
   return prisma.$transaction(async (tx) => {
-    const booking = await createBookingRecord(tx, hold, userId, nights, bookingStatus, holdToken);
+    const booking = await createBookingRecord(
+      tx,
+      checkoutHold,
+      userId,
+      nights,
+      bookingStatus,
+      holdToken,
+    );
 
     // Standardize lock order: PropertyHold must be locked/deleted BEFORE UnitInventory
     // to prevent cross-table deadlocks with the hold-expiry worker.
@@ -501,8 +523,8 @@ export const processPaymentIntentConfirmation = async (stripeIntent: Stripe.Paym
     await createReservations(tx, hold, booking.id);
     await createPriceSnapshot(tx, booking.id, chargedMinor, hold.tenant.currency, breakdownObj);
     await createPaymentRecord(tx, stripeIntent, paymentStatus, hold.tenant.currency);
-    await createBookingGuests(tx, booking.id, hold.guestDetails);
-    await createSpecialRequests(tx, booking.id, hold.specialNeeds);
+    await createBookingGuests(tx, booking.id, checkoutHold.guestDetails);
+    await createSpecialRequests(tx, booking.id, checkoutHold.specialNeeds);
 
     return booking;
   });

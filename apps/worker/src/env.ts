@@ -37,7 +37,9 @@ const envSchema = z.object({
   STRIPE_SECRET_KEY: z.string().optional(),
 
   // Encryption
-  ENCRYPTION_KEY: z.string().length(64, 'ENCRYPTION_KEY must be a 64-character hex string'),
+  ENCRYPTION_KEY: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/i, 'ENCRYPTION_KEY must be a 64-character hex string'),
 });
 
 export type Env = z.infer<typeof envSchema>;

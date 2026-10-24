@@ -5,6 +5,7 @@ import { addMinutes, differenceInDays } from '@khan-familia/utils';
 import { AppError } from '../../shared/errors/AppError.js';
 import { prisma } from '../../infrastructure/database/client.js';
 import { enqueueHoldExpiryJob } from '../../infrastructure/queue/producer.js';
+import { protectHoldData } from '../booking/hold-data.js';
 
 const HOLD_TTL_MINUTES = 15;
 
@@ -351,9 +352,12 @@ export const acquireHold = async (
         endDate,
         quantity,
         expiresAt,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
-        ...(guestDetails ? { guestDetails: guestDetails as any } : {}),
-        ...(specialNeeds ? { specialNeeds } : {}),
+        ...(guestDetails
+          ? { guestDetails: protectHoldData('guestDetails', guestDetails, holdToken) }
+          : {}),
+        ...(specialNeeds
+          ? { specialNeeds: protectHoldData('specialNeeds', specialNeeds, holdToken) }
+          : {}),
         ...(idempotencyKey ? { idempotencyKey } : {}),
       },
     });
@@ -372,6 +376,7 @@ export const acquireHold = async (
 export const getHold = async (holdToken: string, userId: string) => {
   const hold = await prisma.propertyHold.findUnique({
     where: { holdToken },
+    select: { userId: true, holdToken: true, expiresAt: true },
   });
 
   if (!hold) {
@@ -386,7 +391,7 @@ export const getHold = async (holdToken: string, userId: string) => {
     throw AppError.conflict('Hold has expired');
   }
 
-  return hold;
+  return { holdToken: hold.holdToken, expiresAt: hold.expiresAt.toISOString() };
 };
 
 export const releaseHold = async (holdToken: string, userId?: string) => {

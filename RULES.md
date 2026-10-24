@@ -165,15 +165,15 @@ nvm use    # Uses .nvmrc → Node 22.22.3
 
 ### Required Variables (API)
 
-| Variable                                     | Purpose                              | Validated            |
-| -------------------------------------------- | ------------------------------------ | -------------------- |
-| `DATABASE_URL`                               | PostgreSQL connection string         | ✅ Zod               |
-| `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` | Redis/Upstash connection             | ✅ Zod               |
-| `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`  | Clerk authentication                 | ✅ Zod               |
-| `CLERK_WEBHOOK_SECRET`                       | Clerk webhook signature verification | ✅ Zod               |
-| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Stripe payments                      | ✅ Zod               |
-| `ENCRYPTION_KEY`                             | AES-256-GCM PII encryption           | ⚠️ Not Zod-validated |
-| `CORS_ORIGIN`                                | Allowed CORS origin                  | ✅ Zod               |
+| Variable                                     | Purpose                              | Validated                    |
+| -------------------------------------------- | ------------------------------------ | ---------------------------- |
+| `DATABASE_URL`                               | PostgreSQL connection string         | ✅ Zod                       |
+| `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` | Redis/Upstash connection             | ✅ Zod                       |
+| `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`  | Clerk authentication                 | ✅ Zod                       |
+| `CLERK_WEBHOOK_SECRET`                       | Clerk webhook signature verification | ✅ Zod                       |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Stripe payments                      | ✅ Zod                       |
+| `ENCRYPTION_KEY`                             | AES-256-GCM PII encryption           | ✅ 64 hexadecimal characters |
+| `CORS_ORIGIN`                                | Allowed CORS origin                  | ✅ Zod                       |
 
 ---
 
@@ -223,6 +223,8 @@ nvm use    # Uses .nvmrc → Node 22.22.3
 - **Authentication:** Clerk JWTs verified via `@clerk/express` middleware
 - **Webhook verification:** Svix signatures for Clerk, Stripe signature for payments
 - **PII encryption:** Guest ID numbers encrypted with AES-256-GCM before storage
+- **Temporary checkout data:** Hold guest/special-needs payloads use versioned encryption; see `docs/testing/sensitive-data.md` for verification and setup.
+- **Logging:** Use shared safe serializers/redaction. Do not put secrets or untrusted payloads in free-form messages; raw Prisma query/error console logging is disabled.
 - **Input validation:** Zod schemas enforced at middleware layer for all endpoints
 - **Rate limiting:** Global rate limiter on all non-webhook, non-health endpoints
 - **Security headers:** Helmet enabled (CSP disabled for API-only service)
