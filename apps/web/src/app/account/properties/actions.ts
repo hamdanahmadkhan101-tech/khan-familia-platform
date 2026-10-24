@@ -1,6 +1,7 @@
 'use server';
 
 import { auth } from '@clerk/nextjs/server';
+import { revalidatePath } from 'next/cache';
 import { api } from '../../../lib/api';
 
 async function getAuthOptions() {
@@ -13,9 +14,11 @@ async function getAuthOptions() {
   };
 }
 
-export async function addPropertyImage(propertyId: string, url: string, publicId: string) {
+export async function addPropertyImage(propertyId: string, uploadId: string) {
   const options = await getAuthOptions();
-  return api.addPropertyImage(propertyId, url, publicId, options);
+  const image = await api.addPropertyImage(propertyId, uploadId, options);
+  revalidatePath('/account/properties');
+  return image;
 }
 
 export async function getTenantProperties() {

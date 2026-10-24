@@ -27,7 +27,7 @@ export type ApplicationData = {
   businessRegNumber?: string;
   govIdType?: string;
   govIdNumber?: string;
-  documents?: { url: string; [key: string]: unknown }[];
+  documents?: { uploadId?: string; type?: string; unavailable?: boolean }[];
   // Other fields exist but are omitted here for brevity
   [key: string]: unknown;
 };

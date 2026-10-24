@@ -1,3 +1,4 @@
+const cloudName = process.env['NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME'];
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: [
@@ -9,6 +10,17 @@ const nextConfig = {
   ],
   images: {
     remotePatterns: [
+      ...(cloudName && /^[a-zA-Z0-9_-]+$/.test(cloudName)
+        ? [
+            {
+              protocol: 'https',
+              hostname: 'res.cloudinary.com',
+              port: '',
+              pathname: `/${cloudName}/image/upload/**`,
+              search: '',
+            },
+          ]
+        : []),
       {
         protocol: 'https',
         hostname: 'lh3.googleusercontent.com',

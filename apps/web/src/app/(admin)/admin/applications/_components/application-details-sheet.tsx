@@ -112,17 +112,21 @@ export function ApplicationDetailsSheet({
             </h3>
             <div className="space-y-2">
               {application.documents && Array.isArray(application.documents) ? (
-                application.documents.map(
-                  (doc: { url?: string; [key: string]: unknown }, index: number) => (
+                application.documents.map((doc, index) =>
+                  doc.uploadId ? (
                     <a
-                      key={index}
-                      href={doc.url}
+                      key={doc.uploadId}
+                      href={`/api/uploads/${doc.uploadId}/document`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="block p-3 rounded-lg border text-sm text-primary hover:bg-muted transition-colors"
                     >
-                      View Document {index + 1}
+                      View {doc.type || `Document ${index + 1}`}
                     </a>
+                  ) : (
+                    <p key={index} className="text-sm text-muted-foreground">
+                      Legacy document unavailable. Secure re-upload required.
+                    </p>
                   ),
                 )
               ) : (

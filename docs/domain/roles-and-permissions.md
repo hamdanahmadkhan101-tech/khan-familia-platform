@@ -82,3 +82,13 @@ This is enforced in middleware, not just by convention.
 - Tenant staff cannot create guest holds for their own tenant's properties (conflict of interest guard).
 - `SUPER_ADMIN` bypasses tenant membership checks for admin routes.
 - Ownership transfer between users requires `SUPER_ADMIN` approval and creates an audit log entry.
+
+## Upload permissions
+
+Property photo upload/verification/attachment requires active `OWNER`/`ADMIN` membership in the
+matching active tenant. `STAFF` and platform admin status alone do not grant this tenant permission.
+Application document upload is applicant-scoped and does not require tenant membership. Completed
+documents can be read by their owner; `SUPER_ADMIN` can read submitted documents for platform review.
+Draft documents are not exposed to reviewers. Tenant roles never grant access to other applicants'
+verification documents. See [upload setup](../testing/uploads.md) for the full contract and legacy
+asset handling. Platform employee roles remain planned, not newly implemented here.

@@ -80,6 +80,11 @@ const envSchema = z.object({
   CLOUDINARY_CLOUD_NAME: z.string(),
   CLOUDINARY_API_KEY: z.string(),
   CLOUDINARY_API_SECRET: z.string(),
+  CLOUDINARY_PHOTO_UPLOAD_PRESET: z.string().min(1).default('khan_familia_property_photos'),
+  CLOUDINARY_DOCUMENT_UPLOAD_PRESET: z
+    .string()
+    .min(1)
+    .default('khan_familia_application_documents'),
 
   // Reserved for future Svix-backed integrations (optional)
   SVIX_API_KEY: z.string().optional(),

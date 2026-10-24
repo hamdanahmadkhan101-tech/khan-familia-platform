@@ -210,3 +210,17 @@ export type GuestBookingListResponse = {
 export type GuestBookingDetailResponse = {
   booking: GuestBooking;
 };
+
+// Upload parameters are issued by the server, never selected by the browser.
+export type UploadIntent =
+  { purpose: 'PROPERTY_PHOTO'; propertyId: string } | { purpose: 'APPLICATION_DOCUMENT' };
+export type DirectUpload = {
+  uploadId: string;
+  uploadUrl: string;
+  fields: Record<string, string>;
+  maxBytes: number;
+  allowedFormats: string[];
+  expiresAt: string;
+};
+export type CompletedUpload = { uploadId: string };
+export type DocumentAccess = { url: string; expiresAt: string };

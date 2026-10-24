@@ -1,3 +1,5 @@
+import { imageReferenceKey } from './image-references.js';
+import { assertPropertyUploadAccess, publicPhotoUrl } from '../upload/upload.service.js';
 import type { Prisma } from '@khan-familia/database';
 import { PropertyApprovalStatus, AccommodationBookingStatus } from '@khan-familia/database';
 import { generateShortId, generateSlug } from '@khan-familia/utils';
@@ -111,6 +113,9 @@ export const createProperty = async (
   tenantId: string,
   body: CreatePropertyBody,
 ): Promise<PropertyDto> => {
+  if (body.images.length > 0) {
+    throw AppError.badRequest('Create the property first, then attach verified uploads');
+  }
   await assertTenantPropertyCapacity(tenantId);
 
   return prisma.$transaction(async (tx) => {
@@ -127,17 +132,6 @@ export const createProperty = async (
       requiresApproval: body.requiresApproval ?? false,
       approvalStatus: PropertyApprovalStatus.PENDING,
     };
-
-    if (body.images && body.images.length > 0) {
-      createData.images = {
-        create: body.images.map((img, idx) => ({
-          url: img.url,
-          publicId: img.publicId ?? '',
-          isPrimary: img.isPrimary ?? false,
-          order: idx,
-        })),
-      };
-    }
 
     if (body.address !== undefined) {
       createData.address = body.address;
@@ -249,6 +243,17 @@ export const updateProperty = async (
     throw AppError.notFound('Property not found');
   }
 
+  const currentImages = body.images?.length
+    ? await prisma.propertyImage.findMany({
+        where: { propertyId },
+        select: { url: true, publicId: true, uploadId: true },
+      })
+    : [];
+  const imageIndex = new Map(currentImages.map((stored) => [imageReferenceKey(stored), stored]));
+  for (const image of body.images ?? []) {
+    if (!imageIndex.has(imageReferenceKey(image)))
+      throw AppError.badRequest('Attach new images using a verified upload');
+  }
   const data: Prisma.PropertyUpdateInput = {
     ...(body.name !== undefined ? { name: body.name } : {}),
     ...(body.description !== undefined ? { description: body.description } : {}),
@@ -264,6 +269,7 @@ export const updateProperty = async (
             create: body.images.map((img, idx) => ({
               url: img.url,
               publicId: img.publicId ?? '',
+              uploadId: imageIndex.get(imageReferenceKey(img))?.uploadId ?? null,
               isPrimary: img.isPrimary ?? false,
               order: idx,
             })),
@@ -389,32 +395,38 @@ export const softDeleteProperty = async (tenantId: string, propertyId: string): 
 export const addPropertyImage = async (
   tenantId: string,
   propertyId: string,
-  url: string,
-  publicId: string,
+  uploadId: string,
+  userId: string,
 ) => {
-  // Verify property belongs to tenant
-  const property = await prisma.property.findFirst({
-    where: { id: propertyId, tenantId, isDeleted: false },
-    select: { id: true },
-  });
-
-  if (!property) {
-    throw AppError.notFound('Property not found');
-  }
-
-  // Count existing images to determine order and if it should be primary
-  const existingImagesCount = await prisma.propertyImage.count({
-    where: { propertyId },
-  });
-
-  return prisma.propertyImage.create({
-    data: {
-      propertyId,
-      url,
-      publicId,
-      isPrimary: existingImagesCount === 0,
-      order: existingImagesCount,
-    },
+  const authorizedTenant = await assertPropertyUploadAccess(userId, propertyId);
+  if (authorizedTenant !== tenantId) throw AppError.notFound('Property not found');
+  return prisma.$transaction(async (tx) => {
+    const asset = await tx.uploadAsset.findFirst({
+      where: {
+        id: uploadId,
+        tenantId,
+        propertyId,
+        ownerId: userId,
+        purpose: 'PROPERTY_PHOTO',
+        completedAt: { not: null },
+      },
+    });
+    if (!asset) throw AppError.badRequest('A verified upload for this property is required');
+    const existing = await tx.propertyImage.findUnique({ where: { uploadId } });
+    if (existing) return existing;
+    const count = await tx.propertyImage.count({ where: { propertyId } });
+    return tx.propertyImage.upsert({
+      where: { uploadId },
+      update: {},
+      create: {
+        propertyId,
+        uploadId,
+        publicId: asset.storageKey,
+        url: publicPhotoUrl(asset),
+        isPrimary: count === 0,
+        order: count,
+      },
+    });
   });
 };
 

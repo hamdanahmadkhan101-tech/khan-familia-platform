@@ -76,10 +76,11 @@ export const propertyIdParamsSchema = z.object({
   propertyId: z.string().cuid(),
 });
 
-export const addPropertyImageBodySchema = z.object({
-  url: z.string().url(),
-  publicId: z.string().min(1),
-});
+export const addPropertyImageBodySchema = z
+  .object({
+    uploadId: z.string().cuid(),
+  })
+  .strict();
 
 export const unitTypeParamsSchema = propertyIdParamsSchema.extend({
   unitTypeId: z.string().min(1),

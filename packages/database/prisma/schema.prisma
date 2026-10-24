@@ -296,6 +296,7 @@ model User {
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 
+  uploads                 UploadAsset[]
   approvedProperties      Property[]                          @relation("PropertyApprover")
   rejectedProperties      Property[]                          @relation("PropertyRejector")
   holds                   PropertyHold[]
@@ -332,6 +333,7 @@ model User {
 }
 
 model Tenant {
+  uploads              UploadAsset[]
   id                   String            @id @default(cuid())
   name                 String
   slug                 String
@@ -405,6 +407,7 @@ model TenantInvite {
 // =============================================================================
 
 model Property {
+  uploads                 UploadAsset[]
   id                      String                 @id @default(cuid())
   slug                    String
   name                    String
@@ -556,15 +559,17 @@ model TourFeature {
 }
 
 model PropertyImage {
-  id         String   @id @default(cuid())
+  uploadId   String?      @unique
+  upload     UploadAsset? @relation(fields: [uploadId], references: [id], onDelete: Restrict)
+  id         String       @id @default(cuid())
   propertyId String
-  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  property   Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   url        String
   publicId   String
-  isPrimary  Boolean  @default(false)
-  order      Int      @default(0)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  isPrimary  Boolean      @default(false)
+  order      Int          @default(0)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
 
   @@index([propertyId])
 }
@@ -951,6 +956,7 @@ model SearchHistory {
 // application layer before writing. Use AES-256 encryption in the service
 // layer or Postgres pgcrypto. Never store raw PII in plaintext.
 model TenantApplication {
+  uploads          UploadAsset[]
   id               String                  @id @default(cuid())
   userId           String
   user             User                    @relation(fields: [userId], references: [id], onDelete: Restrict)
@@ -1375,4 +1381,38 @@ model AccommodationBookingStatusHistory {
   createdAt   DateTime                    @default(now())
 
   @@index([bookingId])
+}
+
+// Server-issued direct uploads. Never persist a browser-supplied delivery URL.
+enum UploadPurpose {
+  PROPERTY_PHOTO
+  APPLICATION_DOCUMENT
+}
+
+model UploadAsset {
+  id            String             @id @default(cuid())
+  purpose       UploadPurpose
+  ownerId       String
+  owner         User               @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  tenantId      String?
+  tenant        Tenant?            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  propertyId    String?
+  property      Property?          @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  applicationId String?
+  application   TenantApplication? @relation(fields: [applicationId], references: [id], onDelete: Restrict)
+  provider      String             @default("cloudinary")
+  storageKey    String
+  visibility    String
+  format        String?
+  bytes         Int?
+  version       Int?
+  completedAt   DateTime?
+  expiresAt     DateTime
+  createdAt     DateTime           @default(now())
+  propertyImage PropertyImage?
+
+  @@unique([provider, storageKey])
+  @@index([ownerId, createdAt])
+  @@index([applicationId])
+  @@index([tenantId, propertyId])
 }

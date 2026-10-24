@@ -1,5 +1,9 @@
 import type {
   CreateGuestHoldBody,
+  UploadIntent,
+  DirectUpload,
+  CompletedUpload,
+  DocumentAccess,
   GuestBooking,
   GuestBookingListResponse,
   HealthStatus,
@@ -10,6 +14,13 @@ import type {
   UserProfile,
 } from '@khan-familia/types';
 import type { SubmitApplicationBody, ApplicationReviewBody } from '@khan-familia/validation';
+
+export class ApiError extends Error {
+  constructor(public readonly status: number) {
+    super(`Request failed with status ${status}`);
+    this.name = 'ApiError';
+  }
+}
 
 export type FetchLike = typeof fetch;
 
@@ -28,15 +39,16 @@ export type ApiClient = {
   /** Requires authentication. Adds an image to a property. */
   addPropertyImage: (
     propertyId: string,
-    url: string,
-    publicId: string,
+    uploadId: string,
     options?: Parameters<FetchLike>[1],
   ) => Promise<unknown>;
-  /** Requires authentication. Generates a secure upload signature. */
+  /** Server-controlled direct upload; arbitrary signing parameters are never accepted. */
   getUploadSignature: (
-    paramsToSign: Record<string, unknown>,
+    intent: UploadIntent,
     options?: Parameters<FetchLike>[1],
-  ) => Promise<{ signature: string; timestamp: number }>;
+  ) => Promise<DirectUpload>;
+  completeUpload: (uploadId: string) => Promise<CompletedUpload>;
+  getDocumentAccess: (uploadId: string) => Promise<DocumentAccess>;
   getPublicPropertyDetails: (
     slug: string,
     options?: Parameters<FetchLike>[1],
@@ -117,47 +129,22 @@ export const createApiClient = ({
 }: CreateApiClientOptions): ApiClient => {
   const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
 
-  /** Unauthenticated fetch — for public endpoints */
   const apiFetch = async (path: string, options?: Parameters<FetchLike>[1]) => {
-    const response = await fetcher(`${normalizedBaseUrl}${path}`, {
-      ...options,
-      headers: {
-        accept: 'application/json',
-        ...(options?.headers as Record<string, string>),
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Request failed with status ${response.status}`);
+    const headers = new Headers(options?.headers);
+    if (!headers.has('accept')) headers.set('accept', 'application/json');
+    if (typeof options?.body === 'string' && !headers.has('content-type')) {
+      headers.set('content-type', 'application/json');
     }
-
+    const response = await fetcher(`${normalizedBaseUrl}${path}`, { ...options, headers });
+    if (!response.ok) throw new ApiError(response.status);
     return response;
   };
 
-  /** Authenticated fetch — automatically attaches Bearer token */
   const authFetch = async (path: string, options?: Parameters<FetchLike>[1]) => {
+    const headers = new Headers(options?.headers);
     const token = getToken ? await getToken() : null;
-
-    const headers: Record<string, string> = {
-      accept: 'application/json',
-      ...(options?.headers as Record<string, string>),
-    };
-
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const response = await fetcher(`${normalizedBaseUrl}${path}`, {
-      ...options,
-      headers,
-    });
-
-    if (!response.ok) {
-      const errBody = await response.text().catch(() => '');
-      throw new Error(`Request failed with status ${response.status}: ${errBody}`);
-    }
-
-    return response;
+    if (token) headers.set('authorization', `Bearer ${token}`);
+    return apiFetch(path, { ...options, headers });
   };
 
   return {
@@ -181,36 +168,43 @@ export const createApiClient = ({
     },
 
     async getTenantProperties(options?: Parameters<FetchLike>[1]) {
-      const response = await apiFetch('/properties', options);
+      const response = await authFetch('/properties', options);
       return (await response.json()) as PaginatedProperties;
     },
 
     async addPropertyImage(
       propertyId: string,
-      url: string,
-      publicId: string,
+      uploadId: string,
       options?: Parameters<FetchLike>[1],
     ) {
-      const response = await apiFetch(`/properties/${propertyId}/images`, {
+      const response = await authFetch(`/properties/${propertyId}/images`, {
         ...options,
         method: 'POST',
-        body: JSON.stringify({ url, publicId }),
+        body: JSON.stringify({ uploadId }),
       });
       const payload: unknown = await response.json();
       return payload;
     },
 
-    async getUploadSignature(
-      paramsToSign: Record<string, unknown>,
-      options?: Parameters<FetchLike>[1],
-    ) {
-      const response = await apiFetch('/upload/signature', {
+    async getUploadSignature(intent: UploadIntent, options?: Parameters<FetchLike>[1]) {
+      const response = await authFetch('/upload/signature', {
         ...options,
         method: 'POST',
-        body: JSON.stringify(paramsToSign),
+        body: JSON.stringify(intent),
       });
-      if (!response.ok) throw new Error('Failed to fetch signature');
-      return response.json() as Promise<{ signature: string; timestamp: number }>;
+      return response.json() as Promise<DirectUpload>;
+    },
+    async completeUpload(uploadId: string) {
+      const response = await authFetch(`/upload/${encodeURIComponent(uploadId)}/complete`, {
+        method: 'POST',
+      });
+      return response.json() as Promise<CompletedUpload>;
+    },
+    async getDocumentAccess(uploadId: string) {
+      const response = await authFetch(`/upload/${encodeURIComponent(uploadId)}/access`, {
+        headers: { 'Cache-Control': 'no-store' },
+      });
+      return response.json() as Promise<DocumentAccess>;
     },
 
     async getPublicPropertyDetails(slug: string, options?: Parameters<FetchLike>[1]) {
