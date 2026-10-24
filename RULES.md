@@ -124,7 +124,11 @@ pnpm dev              # Run all apps in parallel
 pnpm build            # Build all apps and packages
 pnpm lint             # Lint all workspaces
 pnpm typecheck        # Type-check all workspaces
-pnpm test             # Run all tests
+pnpm test             # Run default unit/smoke tests
+pnpm test:services:up # Start disposable PostgreSQL/Redis
+pnpm test:db:migrate  # Apply migrations to the guarded test database
+pnpm test:integration # Run explicit API/database and payment flow suites
+pnpm test:services:down # Remove disposable test services and data
 pnpm format           # Format all files with Prettier
 pnpm format:check     # Check formatting without writing
 pnpm clean            # Remove all build artifacts + node_modules
@@ -189,7 +193,9 @@ nvm use    # Uses .nvmrc → Node 22.22.3
 - **Framework:** Vitest
 - **HTTP testing:** Supertest
 - **Mocking:** Vitest mocks for Redis, BullMQ
-- **DB:** Real test database (Neon) with truncation between tests
+- **DB:** Disposable loopback PostgreSQL with committed migrations and guarded truncation
+- **Environment:** Placeholder credentials; no local `.env*` files are loaded by API tests
+- **Workflow:** See [Backend Test Workspace](docs/testing/backend-tests.md) for commands and boundaries
 - **Naming:** `<name>.<type>.test.ts` (e.g., `booking-policy.unit.test.ts`)
 - **Setup:** Shared `setup-env.ts` for environment bootstrapping
 

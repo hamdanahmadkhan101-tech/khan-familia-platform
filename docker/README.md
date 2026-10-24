@@ -5,6 +5,7 @@ The repository keeps Docker concerns split by purpose so each phase stays small 
 Current layout:
 
 - `docker/compose.observability.yml`: local observability stack for the API
+- `docker/compose.test.yml`: disposable PostgreSQL/Redis for backend tests
 - `docker/observability/*`: collector, Prometheus, Tempo, and Grafana provisioning files
 
 Planned later layout:
@@ -43,3 +44,30 @@ This compose file is intentionally separate from future app-containerization wor
 keep observability running while later adding a second compose file for the apps themselves.
 In practice, we can combine them with multiple `-f` files or a future root `compose.yml` if we
 want everything started together.
+
+## Disposable backend tests
+
+`docker/compose.test.yml` is separate from the observability stack and application runtime. It uses
+PostgreSQL 17 Alpine and Redis 7 Alpine with temporary storage and no persistent data volumes:
+
+- PostgreSQL: `127.0.0.1:55432`, database/user/password `khan_familia_test`.
+- Redis: `127.0.0.1:56379`.
+
+From the repository root:
+
+```bash
+pnpm test:services:up
+pnpm test:db:migrate
+pnpm test:integration
+pnpm test:services:down
+```
+
+The data is disposable and is lost when containers are stopped/removed. Integration tests also
+truncate application tables between scenarios. Do not use these services for normal development data.
+If ports are already occupied, inspect the conflicting service rather than redirecting tests to the
+application database.
+
+The migration/test runner validates the target and supplies test placeholders without loading local
+secret files. The current API integration suites use real PostgreSQL but mock external queues and
+providers; starting Redis does not prove live worker delivery. See
+[Backend Test Workspace](../docs/testing/backend-tests.md) for target restrictions and coverage limits.

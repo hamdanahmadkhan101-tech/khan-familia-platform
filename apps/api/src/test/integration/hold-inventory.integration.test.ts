@@ -11,10 +11,7 @@ import { truncateTestDatabase, testPrisma } from '../database.js';
 import { createTestAgent } from '../helpers/http.js';
 import { createBookableInventoryFixture } from '../helpers/fixtures.js';
 
-const runDbTests = process.env['RUN_DB_TESTS'] === 'true';
-const describeDb = runDbTests ? describe : describe.skip;
-
-describeDb('inventory and hold integration flow', () => {
+describe('inventory and hold integration flow', () => {
   beforeAll(async () => {
     await truncateTestDatabase();
   });

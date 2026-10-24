@@ -1,36 +1,23 @@
 import { prisma } from '@khan-familia/database';
-
-const TEST_DATABASE_HINTS = ['test', 'testing', 'ci'];
-const TEST_DATABASE_CONFIRMATION_FLAG = 'TEST_DATABASE_CONFIRM';
+import { assertTestDatabaseEnvironment } from '../../../../scripts/test-database-safety.mjs';
 
 export const testPrisma = prisma;
 
-export const assertTestDatabaseUrl = () => {
-  if (process.env['APP_ENV'] !== 'test') {
-    throw new Error('Refusing to run database tests unless APP_ENV=test.');
-  }
-
-  const databaseUrl = process.env['DATABASE_URL'];
-
-  if (!databaseUrl) {
-    throw new Error('DATABASE_URL is required for database tests.');
-  }
-
-  const normalizedUrl = databaseUrl.toLowerCase();
-  const isClearlyTestDatabase = TEST_DATABASE_HINTS.some((hint) => normalizedUrl.includes(hint));
-  const isExplicitlyConfirmedTestDatabase = process.env[TEST_DATABASE_CONFIRMATION_FLAG] === 'true';
-
-  if (!isClearlyTestDatabase && !isExplicitlyConfirmedTestDatabase) {
-    throw new Error(
-      'Refusing to run database tests because DATABASE_URL does not look like a test database. Include "test", "testing", or "ci" in the database name, Neon branch, or host, or set TEST_DATABASE_CONFIRM=true for an isolated test database.',
-    );
-  }
-};
+export const assertTestDatabaseUrl = () => assertTestDatabaseEnvironment(process.env);
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const truncateTestDatabase = async () => {
   assertTestDatabaseUrl();
+
+  const identity = await testPrisma.$queryRaw<Array<{ database: string; role: string }>>`
+    SELECT current_database() AS database, current_user AS role
+  `;
+  if (identity[0]?.database !== 'khan_familia_test' || identity[0]?.role !== 'khan_familia_test') {
+    throw new Error(
+      'Refusing cleanup: connected database/role is not the disposable test identity.',
+    );
+  }
 
   const tables = await testPrisma.$queryRaw<Array<{ tablename: string }>>`
     SELECT tablename
@@ -43,7 +30,9 @@ export const truncateTestDatabase = async () => {
     return;
   }
 
-  const tableList = tables.map(({ tablename }) => `"public"."${tablename}"`).join(', ');
+  const tableList = tables
+    .map(({ tablename }) => `"public"."${tablename.replaceAll('"', '""')}"`)
+    .join(', ');
 
   // Retry up to 3 times on deadlock (PG code 40P01) or serialization failure (40001)
   let lastError: unknown;

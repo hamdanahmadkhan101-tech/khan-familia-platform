@@ -15,8 +15,11 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: false,
-    include: ['src/**/*.test.ts', 'src/**/*.spec.ts'],
-    passWithNoTests: true,
+    include:
+      process.env['API_TEST_SUITE'] === 'integration'
+        ? ['src/test/integration/**/*.test.ts', 'src/test/flows/**/*.test.ts']
+        : ['src/test/unit/**/*.test.ts', 'src/test/smoke/**/*.test.ts'],
+    passWithNoTests: false,
     fileParallelism: false,
     pool: 'forks',
     poolOptions: {

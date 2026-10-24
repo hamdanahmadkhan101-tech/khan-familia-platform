@@ -8,9 +8,11 @@
     "start": "node dist/index.js",
     "lint": "eslint src --max-warnings=0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --config vitest.config.ts",
-    "test:watch": "vitest --config vitest.config.ts",
-    "test:coverage": "vitest run --config vitest.config.ts --coverage"
+    "test": "node ../../scripts/test-api.mjs unit",
+    "test:watch": "node ../../scripts/test-api.mjs unit --watch",
+    "test:coverage": "node ../../scripts/test-api.mjs unit --coverage",
+    "test:unit": "node ../../scripts/test-api.mjs unit",
+    "test:integration": "node ../../scripts/test-api.mjs integration"
   },
   "dependencies": {
     "@clerk/express": "^2.1.17",

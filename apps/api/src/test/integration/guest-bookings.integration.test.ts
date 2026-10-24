@@ -20,9 +20,6 @@ import {
 import { createTestAgent } from '../helpers/http.js';
 import { StripeGateway } from '../../modules/payments/stripe.gateway.js';
 
-const runDbTests = process.env['RUN_DB_TESTS'] === 'true';
-const describeDb = runDbTests ? describe : describe.skip;
-
 const createConfirmedBookingFixture = async () => {
   const fixture = await createBookableInventoryFixture();
 
@@ -90,7 +87,7 @@ const createConfirmedBookingFixture = async () => {
   return { ...fixture, booking };
 };
 
-describeDb('guest booking management', () => {
+describe('guest booking management', () => {
   beforeAll(async () => {
     await truncateTestDatabase();
   });
